@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 import { RoleProvider } from './context/RoleContext'
 import { ToastProvider } from './components/ui/ToastSystem'
 import Layout from './components/Layout'
@@ -20,28 +21,30 @@ import EmployeeRank from './pages/EmployeeRank'
 
 export default function App() {
   return (
-    <RoleProvider>
-      <ToastProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/structures" element={<AdminStructures />} />
-            <Route path="/admin/employees" element={<AdminEmployees />} />
-            <Route path="/admin/shifts" element={<AdminShifts />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="/structure" element={<StructurePortal />} />
-            <Route path="/structure/matching" element={<StructureMatching />} />
-            <Route path="/structure/history" element={<StructureHistory />} />
-            <Route path="/employee" element={<EmployeeDashboard />} />
-            <Route path="/employee/calendar" element={<EmployeeCalendar />} />
-            <Route path="/employee/matching" element={<EmployeeMatching />} />
-            <Route path="/employee/checkin" element={<EmployeeCheckin />} />
-            <Route path="/employee/rank" element={<EmployeeRank />} />
-          </Routes>
-        </Layout>
-      </ToastProvider>
-    </RoleProvider>
+    <AuthProvider>
+      <RoleProvider>
+        <ToastProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/structures" element={<AdminStructures />} />
+              <Route path="/admin/employees" element={<AdminEmployees />} />
+              <Route path="/admin/shifts" element={<AdminShifts />} />
+              <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/structure" element={<StructurePortal />} />
+              <Route path="/structure/matching" element={<StructureMatching />} />
+              <Route path="/structure/history" element={<StructureHistory />} />
+              <Route path="/employee" element={<EmployeeDashboard />} />
+              <Route path="/employee/calendar" element={<EmployeeCalendar />} />
+              <Route path="/employee/matching" element={<EmployeeMatching />} />
+              <Route path="/employee/checkin" element={<EmployeeCheckin />} />
+              <Route path="/employee/rank" element={<EmployeeRank />} />
+            </Routes>
+          </Layout>
+        </ToastProvider>
+      </RoleProvider>
+    </AuthProvider>
   )
 }
