@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 65% 7%;
+    --foreground: 0 0% 100%;
+    --card: 210 55% 13%;
+    --card-foreground: 0 0% 100%;
+    --popover: 210 55% 13%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 200 89% 65%;
+    --primary-foreground: 210 65% 7%;
+    --secondary: 210 55% 13%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 40% 18%;
+    --muted-foreground: 210 20% 50%;
+    --accent: 210 55% 13%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 100% / 0.06;
+    --input: 0 0% 100% / 0.1;
+    --ring: 200 89% 65%;
+    --radius: 0.625rem;
+    --sidebar-background: 210 65% 7%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 200 89% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 55% 13%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 100% / 0.06;
+    --sidebar-ring: 200 89% 65%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#06101E] text-white font-dm antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    @apply border-[rgba(255,255,255,0.06)];
+  }
+}
+
+@layer utilities {
+  .gradient-sky {
+    background: linear-gradient(135deg, #5BB8F5 0%, #3AA3E8 50%, #1A56A0 100%);
+  }
+
+  .gradient-dark-card {
+    background: linear-gradient(180deg, #0D1E34 0%, #06101E 100%);
+  }
+
+  .gradient-success {
+    background: linear-gradient(135deg, #1EC99A 0%, #5BB8F5 100%);
+  }
+
+  .text-gradient-sky {
+    background: linear-gradient(135deg, #5BB8F5 0%, #3AA3E8 50%, #1A56A0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shimmer-bg {
+    background: linear-gradient(90deg, #0D1E34 0%, #142B4A 50%, #0D1E34 100%);
+    background-size: 200% 100%;
+  }
+}

@@ -1,0 +1,561 @@
+// @ts-nocheck
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { ChevronRight, Star, Award, TrendingUp, TrendingDown, BookOpen, Clock, CheckCircle, HelpCircle } from 'lucide-react';
+import Avatar from '@/components/Avatar';
+import GlassBottomNav from '@/components/employee/GlassBottomNav';
+import GlassTooltip from '@/components/ui/GlassTooltip';
+import PayCounter from '@/components/employee/PayCounter';
+import { cn } from '@/lib/utils';
+
+// ---- Types ----
+interface RankLevel {
+  name: string;
+  color: string;
+  glow: string;
+  minPoints: number;
+  benefits: string[];
+}
+
+interface PointsEntry {
+  id: string;
+  label: string;
+  points: number;
+  date: string;
+  type: 'earned' | 'spent' | 'bonus';
+}
+
+interface Course {
+  name: string;
+  progress: number;
+  totalHours: number;
+  status: 'completed' | 'in-progress' | 'not-started';
+  certificate?: string;
+}
+
+// ---- Data ----
+const rankLevels: RankLevel[] = [
+  { name: 'Rookie', color: '#94A3B8', glow: 'rgba(148,163,184,0.2)', minPoints: 0, benefits: ['Accesso base', 'Tariffa standard'] },
+  { name: 'Affidabile', color: '#5BB8F5', glow: 'rgba(91,184,245,0.3)', minPoints: 500, benefits: ['Pool turni', 'Accesso preferenze'] },
+  { name: 'Senior', color: '#3AA3E8', glow: 'rgba(58,163,232,0.3)', minPoints: 1200, benefits: ['Pool reperibili', '+€1/h bonus'] },
+  { name: 'Elite', color: '#1EC99A', glow: 'rgba(30,201,154,0.3)', minPoints: 2000, benefits: ['Turni premium', '+€2/h bonus'] },
+  { name: 'Ambassador', color: '#F5B800', glow: 'rgba(245,184,0,0.3)', minPoints: 3500, benefits: ['Tutti i benefit', '+€3/h bonus'] },
+];
+
+const pointsHistory: PointsEntry[] = [
+  { id: '1', label: 'Turno completato · RIST-BN-0012', points: 120, date: '13 Mag', type: 'earned' },
+  { id: '2', label: 'Recensione 5 stelle', points: 50, date: '12 Mag', type: 'bonus' },
+  { id: '3', label: 'Puntualità bonus', points: 25, date: '12 Mag', type: 'bonus' },
+  { id: '4', label: 'Corso HACCP completato', points: 200, date: '10 Mag', type: 'earned' },
+  { id: '5', label: 'Navetta confermata', points: -5, date: '10 Mag', type: 'spent' },
+  { id: '6', label: 'Turno completato · HOTEL-BN-0003', points: 120, date: '8 Mag', type: 'earned' },
+  { id: '7', label: 'Mancia condivisa', points: 15, date: '8 Mag', type: 'bonus' },
+  { id: '8', label: 'Turno completato · BAR-BN-0011', points: 100, date: '5 Mag', type: 'earned' },
+  { id: '9', label: 'Assenza non giustificata', points: -100, date: '3 Mag', type: 'spent' },
+  { id: '10', label: 'Turno completato · EVEN-BN-0020', points: 150, date: '1 Mag', type: 'earned' },
+];
+
+const courses: Course[] = [
+  { name: 'HACCP - Sicurezza alimentare', progress: 100, totalHours: 8, status: 'completed', certificate: 'HACCP-2025-0012' },
+  { name: 'Crisi e conflitti in sala', progress: 65, totalHours: 6, status: 'in-progress' },
+  { name: 'Sommelier base - Vini italiani', progress: 0, totalHours: 12, status: 'not-started' },
+  { name: 'Inglese per hospitality B2', progress: 30, totalHours: 20, status: 'in-progress' },
+  { name: 'Gestione delle emergenze', progress: 100, totalHours: 4, status: 'completed', certificate: 'EMRG-2025-0047' },
+];
+
+const payBreakdown = [
+  { zone: 'Centro', base: '€15,00/h', rankBonus: '+€1,00/h', total: '€16,00/h', premiumDays: 'Festivi +50%' },
+  { zone: 'Periferia', base: '€13,00/h', rankBonus: '+€1,00/h', total: '€14,00/h', premiumDays: 'Festivi +50%' },
+  { zone: 'Industriale', base: '€12,00/h', rankBonus: '+€1,00/h', total: '€13,00/h', premiumDays: 'Festivi +50%' },
+  { zone: 'Eventi', base: '€16,00/h', rankBonus: '+€1,00/h', total: '€17,00/h', premiumDays: 'Sempre +50%' },
+  { zone: 'Resort', base: '€14,00/h', rankBonus: '+€1,00/h', total: '€15,00/h', premiumDays: 'Festivi +100%' },
+];
+
+const currentPoints = 1240;
+const currentLevelIdx = 2; // Senior
+const nextLevelIdx = 3; // Elite
+const nextLevel = rankLevels[nextLevelIdx];
+const prevLevel = rankLevels[currentLevelIdx];
+const pointsToNext = nextLevel.minPoints - currentPoints;
+const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100;
+
+export default function EmployeeRank() {
+  const [showPayTable, setShowPayTable] = useState(true);
+
+  return (
+    <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+      {/* Glass Header */}
+      <header
+        className="sticky top-0 z-50 border-b border-[rgba(255,255,255,0.06)]"
+        style={{
+          background: 'rgba(6,16,30,0.9)',
+          backdropFilter: 'blur(20px)',
+        }}
+      >
+        <div className="max-w-[430px] mx-auto px-4 h-16 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-white">Rank & Paga</h1>
+          <GlassTooltip
+            content={
+              <div className="text-sm">
+                <p className="font-semibold mb-1">Sistema di ranking ATS</p>
+                <p className="text-[#94A3B8]">Completa turni, corsi e ottieni recensioni per salire di livello. Ogni livello sblocca bonus e accesso a turni premium.</p>
+              </div>
+            }
+            position="bottom"
+          >
+            <HelpCircle className="w-5 h-5 text-[#5E7A95] cursor-help" />
+          </GlassTooltip>
+        </div>
+      </header>
+
+      <div className="max-w-[430px] mx-auto">
+        {/* Rank Hero Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className={cn(
+            'mx-4 mt-4 rounded-[24px] p-6 border backdrop-blur-[20px]',
+            'bg-[rgba(13,30,52,0.72)] border-[rgba(58,163,232,0.2)]',
+            'shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]'
+          )}
+          style={{
+            boxShadow: `0 8px 32px rgba(0,0,0,0.3), 0 0 60px ${rankLevels[currentLevelIdx].glow}`,
+          }}
+        >
+          <div className="flex items-center gap-4 mb-5">
+            <motion.div
+              animate={{ boxShadow: [`0 0 0px ${rankLevels[currentLevelIdx].glow}`, `0 0 20px ${rankLevels[currentLevelIdx].glow}`, `0 0 0px ${rankLevels[currentLevelIdx].glow}`] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+              className="rounded-full"
+            >
+              <Avatar
+                src="/avatar-employee-2.jpg"
+                alt="Marco R."
+                size={64}
+                borderColor={rankLevels[currentLevelIdx].color}
+              />
+            </motion.div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded tracking-wider"
+                  style={{
+                    color: rankLevels[currentLevelIdx].color,
+                    backgroundColor: rankLevels[currentLevelIdx].color + '15',
+                    border: `1px solid ${rankLevels[currentLevelIdx].color}30`,
+                  }}
+                >
+                  {rankLevels[currentLevelIdx].name.toUpperCase()}
+                </span>
+                <div className="flex gap-0.5">
+                  {[1,2,3].map((i) => (
+                    <Star
+                      key={i}
+                      className="w-3 h-3"
+                      fill={i <= currentLevelIdx ? rankLevels[currentLevelIdx].color : 'transparent'}
+                      color={i <= currentLevelIdx ? rankLevels[currentLevelIdx].color : '#5E7A95'}
+                    />
+                  ))}
+                </div>
+              </div>
+              <h2 className="text-lg font-semibold text-white">Marco R.</h2>
+              <p className="text-xs text-[#94A3B8]">Cameriere · Senior dal 15 Gen 2025</p>
+            </div>
+          </div>
+
+          {/* Current points */}
+          <div className="text-center mb-5">
+            <div className="flex items-baseline justify-center gap-1">
+              <PayCounter
+                amount={currentPoints}
+                duration={1.2}
+                suffix=""
+                decimals={0}
+                className="text-[32px] font-bold text-white"
+              />
+              <span className="text-lg font-bold text-white">punti</span>
+            </div>
+            <p className="text-xs text-[#94A3B8]">Totale accumulato</p>
+          </div>
+
+          {/* Progress to next */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-[#94A3B8]">
+                {currentPoints.toLocaleString('it-IT')} / {nextLevel.minPoints.toLocaleString('it-IT')} punti
+              </span>
+              <span className="text-xs font-medium" style={{ color: nextLevel.color }}>
+                {Math.round(progressPercent)}%
+              </span>
+            </div>
+            <div className="h-2.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]">
+              <motion.div
+                className="h-full rounded-full"
+                style={{
+                  background: `linear-gradient(135deg, ${rankLevels[currentLevelIdx].color} 0%, ${nextLevel.color} 100%)`,
+                  boxShadow: `0 0 12px ${nextLevel.color}40`,
+                }}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 1, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[10px] text-[#5E7A95]">
+                {prevLevel.name} → {nextLevel.name}
+              </span>
+              <span className="text-[10px] text-[#5E7A95]">
+                ~{pointsToNext} punti rimanenti
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Points History */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.5 }}
+          className="px-4 mt-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-white">Storico punti</h3>
+            <span className="text-[11px] text-[#5E7A95]">Ultimi 30 giorni</span>
+          </div>
+          <div
+            className={cn(
+              'rounded-[20px] border backdrop-blur-[16px] overflow-hidden',
+              'bg-[rgba(13,30,52,0.7)] border-[rgba(91,184,245,0.12)]',
+              'shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
+            )}
+          >
+            {pointsHistory.map((entry, i) => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.04, duration: 0.35 }}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3',
+                  i !== pointsHistory.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]'
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+                    entry.type === 'earned' && 'bg-[rgba(30,201,154,0.1)]',
+                    entry.type === 'bonus' && 'bg-[rgba(245,184,0,0.1)]',
+                    entry.type === 'spent' && 'bg-[rgba(240,69,69,0.1)]'
+                  )}
+                >
+                  {entry.type === 'earned' && <TrendingUp className="w-4 h-4 text-[#1EC99A]" />}
+                  {entry.type === 'bonus' && <Star className="w-4 h-4 text-[#F5B800]" />}
+                  {entry.type === 'spent' && <TrendingDown className="w-4 h-4 text-[#F04545]" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{entry.label}</p>
+                  <p className="text-[11px] text-[#5E7A95]">{entry.date}</p>
+                </div>
+                <span
+                  className="text-sm font-semibold flex-shrink-0"
+                  style={{
+                    color: entry.points > 0 ? '#1EC99A' : '#F04545',
+                  }}
+                >
+                  {entry.points > 0 ? '+' : ''}{entry.points}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Rank Ladder */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="px-4 mt-6"
+        >
+          <h3 className="text-base font-semibold text-white mb-3">Scala dei livelli</h3>
+          <div className="relative">
+            {/* Connecting line */}
+            <div className="absolute left-7 top-8 bottom-8 w-[2px] bg-[rgba(255,255,255,0.06)]" />
+
+            <div className="space-y-3">
+              {rankLevels.map((level, i) => {
+                const isCurrent = i === currentLevelIdx;
+                const isPast = i < currentLevelIdx;
+                const isFuture = i > currentLevelIdx;
+
+                return (
+                  <motion.div
+                    key={level.name}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.35 + i * 0.08, duration: 0.4 }}
+                    className={cn(
+                      'relative flex items-start gap-3 p-3 rounded-xl border backdrop-blur-sm',
+                      'bg-[rgba(13,30,52,0.6)]',
+                      isCurrent && 'border-[rgba(58,163,232,0.3)] shadow-[0_0_20px_rgba(58,163,232,0.1)]',
+                      !isCurrent && 'border-[rgba(255,255,255,0.06)]'
+                    )}
+                    style={isCurrent ? { borderColor: level.color + '40' } : undefined}
+                  >
+                    {/* Icon */}
+                    <div
+                      className="relative z-10 w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2"
+                      style={{
+                        backgroundColor: isCurrent ? level.color + '15' : isPast ? level.color + '10' : 'rgba(255,255,255,0.03)',
+                        borderColor: isCurrent ? level.color : isPast ? level.color + '40' : 'rgba(255,255,255,0.08)',
+                        boxShadow: isCurrent ? `0 0 16px ${level.glow}` : undefined,
+                      }}
+                    >
+                      {i === 0 && <Star className="w-5 h-5" style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }} />}
+                      {i === 1 && <Award className="w-5 h-5" style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }} />}
+                      {i === 2 && <Star className="w-5 h-5 fill-current" style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }} />}
+                      {i === 3 && <TrendingUp className="w-5 h-5" style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }} />}
+                      {i === 4 && <Award className="w-5 h-5" style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }} />}
+                      {isCurrent && (
+                        <motion.div
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1EC99A] border-2 border-[#06101E]"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <CheckCircle className="w-3 h-3 text-[#06101E] absolute inset-0 m-auto" />
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                          className="text-sm font-semibold"
+                          style={{ color: isCurrent || isPast ? level.color : '#5E7A95' }}
+                        >
+                          {level.name}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(30,201,154,0.15)] text-[#1EC99A] border border-[rgba(30,201,154,0.25)] font-medium">
+                            ATTUALE
+                          </span>
+                        )}
+                        {isFuture && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.04)] text-[#5E7A95] border border-[rgba(255,255,255,0.06)]">
+                            {level.minPoints} pts
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#94A3B8] mb-1">
+                        {level.benefits.join(' · ')}
+                      </p>
+                      {isCurrent && (
+                        <div className="h-1 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${progressPercent}%`,
+                              background: level.color,
+                              boxShadow: `0 0 8px ${level.glow}`,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Pay Breakdown Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45, duration: 0.5 }}
+          className="px-4 mt-6"
+        >
+          <button
+            onClick={() => setShowPayTable(!showPayTable)}
+            className="flex items-center justify-between w-full mb-3"
+          >
+            <h3 className="text-base font-semibold text-white">Tabella paga per zona</h3>
+            <ChevronRight
+              className={cn(
+                'w-4 h-4 text-[#5E7A95] transition-transform duration-200',
+                showPayTable && 'rotate-90'
+              )}
+            />
+          </button>
+
+          <AnimatePresence>
+            {showPayTable && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <div
+                  className={cn(
+                    'rounded-[20px] border backdrop-blur-[16px] overflow-hidden',
+                    'bg-[rgba(13,30,52,0.7)] border-[rgba(91,184,245,0.12)]',
+                    'shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
+                  )}
+                >
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1.2fr] gap-2 px-4 py-3 bg-[rgba(13,30,52,0.9)] border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider">Zona</span>
+                    <span className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider text-right">Base</span>
+                    <span className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider text-right">Bonus</span>
+                    <span className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider text-right">Totale</span>
+                  </div>
+
+                  {/* Rows */}
+                  {payBreakdown.map((row, i) => (
+                    <motion.div
+                      key={row.zone}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 * i, duration: 0.3 }}
+                      className={cn(
+                        'grid grid-cols-[1fr_1fr_1fr_1.2fr] gap-2 px-4 py-3 items-center',
+                        i !== payBreakdown.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]',
+                        i % 2 === 1 && 'bg-[rgba(13,30,52,0.4)]'
+                      )}
+                    >
+                      <div>
+                        <span className="text-xs text-white font-medium">{row.zone}</span>
+                        <p className="text-[9px] text-[#F5B800]">{row.premiumDays}</p>
+                      </div>
+                      <span className="text-xs text-[#94A3B8] text-right font-mono">{row.base}</span>
+                      <span className="text-xs text-[#1EC99A] text-right font-mono">{row.rankBonus}</span>
+                      <span className="text-sm font-semibold text-[#5BB8F5] text-right font-mono">{row.total}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Hourly Rate Badge (Personal) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="px-4 mt-4"
+        >
+          <div
+            className={cn(
+              'rounded-xl p-4 border backdrop-blur-[16px] flex items-center justify-between',
+              'bg-[rgba(91,184,245,0.06)] border-[rgba(91,184,245,0.15)]',
+              'shadow-[0_0_20px_rgba(91,184,245,0.08)]'
+            )}
+          >
+            <div>
+              <p className="text-xs text-[#94A3B8] mb-0.5">La tua tariffa personale</p>
+              <div className="flex items-baseline gap-1">
+                <span
+                  className="text-2xl font-bold text-[#5BB8F5]"
+                  style={{ fontFamily: 'Playfair Display, Georgia, serif' }}
+                >
+                  €19,00/h
+                </span>
+                <span className="text-xs text-[#5E7A95]">(Centro + Senior)</span>
+              </div>
+            </div>
+            <GlassTooltip
+              content={
+                <div>
+                  <p className="font-semibold">Calcolo tariffa</p>
+                  <p className="text-[#94A3B8] mt-1">Base zona Centro: €18,00/h</p>
+                  <p className="text-[#94A3B8]">Bonus rank Senior: +€1,00/h</p>
+                  <p className="text-[#5BB8F5] font-semibold mt-1">Totale: €19,00/h</p>
+                </div>
+              }
+              position="left"
+            >
+              <HelpCircle className="w-5 h-5 text-[#5E7A95] cursor-help" />
+            </GlassTooltip>
+          </div>
+        </motion.div>
+
+        {/* Courses */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.5 }}
+          className="px-4 mt-6 mb-8"
+        >
+          <h3 className="text-base font-semibold text-white mb-3">Corsi e certificazioni</h3>
+          <div className="space-y-3">
+            {courses.map((course, i) => (
+              <motion.div
+                key={course.name}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + i * 0.06, duration: 0.35 }}
+                className={cn(
+                  'rounded-xl p-4 border backdrop-blur-sm',
+                  'bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)]',
+                  'hover:border-[rgba(91,184,245,0.2)] transition-colors'
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        'w-9 h-9 rounded-lg flex items-center justify-center',
+                        course.status === 'completed' && 'bg-[rgba(30,201,154,0.1)]',
+                        course.status === 'in-progress' && 'bg-[rgba(91,184,245,0.1)]',
+                        course.status === 'not-started' && 'bg-[rgba(255,255,255,0.04)]'
+                      )}
+                    >
+                      {course.status === 'completed' && <CheckCircle className="w-4 h-4 text-[#1EC99A]" />}
+                      {course.status === 'in-progress' && <BookOpen className="w-4 h-4 text-[#5BB8F5]" />}
+                      {course.status === 'not-started' && <Clock className="w-4 h-4 text-[#5E7A95]" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{course.name}</p>
+                      <p className="text-[11px] text-[#94A3B8]">
+                        {course.totalHours} ore · {course.certificate ? `Cert. ${course.certificate}` : 'In corso'}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className="text-xs font-semibold"
+                    style={{
+                      color: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
+                    }}
+                  >
+                    {course.progress}%
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="h-1.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{
+                      backgroundColor: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
+                      boxShadow: `0 0 8px ${course.status === 'completed' ? '#1EC99A30' : course.status === 'in-progress' ? '#5BB8F530' : 'transparent'}`,
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${course.progress}%` }}
+                    transition={{ duration: 0.8, delay: 0.7 + i * 0.1, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      <GlassBottomNav />
+    </div>
+  );
+}
