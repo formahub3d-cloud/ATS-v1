@@ -9,6 +9,7 @@ const adminNavItems = [
   { label: 'Strutture', path: '/admin/structures', icon: 'Building2' },
   { label: 'Dipendenti', path: '/admin/employees', icon: 'Users' },
   { label: 'Turni', path: '/admin/shifts', icon: 'Calendar' },
+  { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
 ]
 
@@ -16,6 +17,7 @@ const structureNavItems = [
   { label: 'Dashboard', path: '/structure', icon: 'LayoutDashboard' },
   { label: 'Matching', path: '/structure/matching', icon: 'Heart' },
   { label: 'Storico', path: '/structure/history', icon: 'History' },
+  { label: 'Chat', path: '/structure/chat', icon: 'MessageCircle' },
 ]
 
 const employeeNavItems = [
@@ -23,7 +25,7 @@ const employeeNavItems = [
   { label: 'Calendario', path: '/employee/calendar', icon: 'Calendar' },
   { label: 'Matching', path: '/employee/matching', icon: 'Heart' },
   { label: 'Check-in', path: '/employee/checkin', icon: 'ScanLine' },
-  { label: 'Rank', path: '/employee/rank', icon: 'Trophy' },
+  { label: 'Chat', path: '/employee/chat', icon: 'MessageCircle' },
 ]
 
 function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: string }) {

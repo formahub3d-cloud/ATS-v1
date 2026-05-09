@@ -1,13 +1,14 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, Calendar, Heart, ScanLine, Trophy } from 'lucide-react';
+import { Home, Heart, ScanLine, MessageCircle, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// 5 voci max per leggibilità mobile. Calendario è raggiungibile dalla Home.
 const tabs = [
   { label: 'Home', icon: Home, path: '/employee' },
-  { label: 'Calendario', icon: Calendar, path: '/employee/calendar' },
   { label: 'Matching', icon: Heart, path: '/employee/matching' },
   { label: 'Check-in', icon: ScanLine, path: '/employee/checkin' },
+  { label: 'Chat', icon: MessageCircle, path: '/employee/chat' },
   { label: 'Rank', icon: Trophy, path: '/employee/rank' },
 ];
 

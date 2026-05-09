@@ -36,6 +36,8 @@ export type ShiftStatus =
 
 export type ShiftLikeAction = 'like' | 'skip'
 
+export type ConversationKind = 'admin_structure' | 'admin_employee'
+
 export type EmployeeExperience = {
   id?: string
   ruolo?: string
@@ -175,6 +177,24 @@ type ShiftLikeInsert = {
   employee_id: string
   action: ShiftLikeAction
   created_at?: string
+}
+
+type ConversationInsert = {
+  id?: string
+  kind: ConversationKind
+  structure_id?: string | null
+  employee_id?: string | null
+  last_message_at?: string | null
+  created_at?: string
+}
+
+type MessageInsert = {
+  id?: string
+  conversation_id: string
+  sender_id: string
+  body: string
+  created_at?: string
+  read_at?: string | null
 }
 
 export type Database = {
@@ -426,6 +446,55 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          id: string
+          kind: ConversationKind
+          structure_id: string | null
+          employee_id: string | null
+          last_message_at: string | null
+          created_at: string
+        }
+        Insert: ConversationInsert
+        Update: Partial<ConversationInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'conversations_structure_id_fkey'
+            columns: ['structure_id']
+            isOneToOne: true
+            referencedRelation: 'structures'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversations_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: true
+            referencedRelation: 'employees'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          body: string
+          created_at: string
+          read_at: string | null
+        }
+        Insert: MessageInsert
+        Update: Partial<MessageInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'messages_conversation_id_fkey'
+            columns: ['conversation_id']
+            isOneToOne: false
+            referencedRelation: 'conversations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -445,6 +514,14 @@ export type Database = {
         Args: Record<string, never>
         Returns: UserRole
       }
+      ensure_my_conversation: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      mark_conversation_read: {
+        Args: { p_conversation_id: string }
+        Returns: number
+      }
     }
     Enums: {
       user_role: UserRole
@@ -453,6 +530,7 @@ export type Database = {
       document_type: DocumentType
       shift_status: ShiftStatus
       shift_like_action: ShiftLikeAction
+      conversation_kind: ConversationKind
     }
   }
 }

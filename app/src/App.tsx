@@ -18,6 +18,9 @@ import EmployeeCalendar from './pages/EmployeeCalendar'
 import EmployeeMatching from './pages/EmployeeMatching'
 import EmployeeCheckin from './pages/EmployeeCheckin'
 import EmployeeRank from './pages/EmployeeRank'
+import AdminChat from './pages/AdminChat'
+import StructureChat from './pages/StructureChat'
+import EmployeeChat from './pages/EmployeeChat'
 
 export default function App() {
   return (
@@ -33,13 +36,16 @@ export default function App() {
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/shifts" element={<AdminShifts />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/chat" element={<AdminChat />} />
               <Route path="/structure" element={<StructurePortal />} />
               <Route path="/structure/matching" element={<StructureMatching />} />
               <Route path="/structure/history" element={<StructureHistory />} />
+              <Route path="/structure/chat" element={<StructureChat />} />
               <Route path="/employee" element={<EmployeeDashboard />} />
               <Route path="/employee/calendar" element={<EmployeeCalendar />} />
               <Route path="/employee/matching" element={<EmployeeMatching />} />
               <Route path="/employee/checkin" element={<EmployeeCheckin />} />
+              <Route path="/employee/chat" element={<EmployeeChat />} />
               <Route path="/employee/rank" element={<EmployeeRank />} />
             </Routes>
           </Layout>
