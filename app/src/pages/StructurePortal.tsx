@@ -17,11 +17,40 @@ import CoverPhoto from '@/components/CoverPhoto'
 import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShiftCard'
 import MatchStatus, { type MatchState } from '@/components/structure/MatchStatus'
 import StatusScreen from '@/components/structure/StatusScreen'
+import NewShiftDialog from '@/components/structure/NewShiftDialog'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
 type StructureRow = Database['public']['Tables']['structures']['Row']
+type ShiftRow = Database['public']['Tables']['shifts']['Row']
+
+const MONTHS_IT = ['GEN', 'FEB', 'MAR', 'APR', 'MAG', 'GIU', 'LUG', 'AGO', 'SET', 'OTT', 'NOV', 'DIC']
+const SHIFT_STATUS_TO_CARD: Record<string, GlassShift['status']> = {
+  open: 'pending',
+  assigned: 'confirmed',
+  in_progress: 'confirmed',
+  completed: 'completed',
+  cancelled: 'noshow',  // GlassShiftCard non ha 'cancelled' tra gli status, uso 'noshow' come visivo simile (grigio)
+  no_show: 'noshow',
+}
+
+function shiftRowToCard(s: ShiftRow, structureCode: string, zone: string | null): GlassShift {
+  const d = new Date(s.shift_date)
+  return {
+    id: s.id,
+    date: s.shift_date,
+    dayNum: String(d.getDate()).padStart(2, '0'),
+    month: MONTHS_IT[d.getMonth()] ?? '—',
+    role: s.role,
+    timeStart: s.time_start.slice(0, 5),
+    timeEnd: s.time_end.slice(0, 5),
+    status: SHIFT_STATUS_TO_CARD[s.status] ?? 'pending',
+    structureCode,
+    zone: zone ?? '—',
+    note: s.notes ?? undefined,
+  }
+}
 
 /* ─────────────── helpers ─────────────── */
 
@@ -38,11 +67,9 @@ const avatarMap: Record<string, string> = {
 
 /* ─────────────── mock data ─────────────── */
 
-const shifts: GlassShift[] = [
-  { id: '1', date: '2026-05-13', dayNum: '13', month: 'MAG', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', employeeAvatar: avatarMap['ATS-D-0047'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro', note: 'Servizio sala principale, 80 coperti' },
-  { id: '2', date: '2026-05-14', dayNum: '14', month: 'MAG', role: 'Chef de Partie', timeStart: '10:00', timeEnd: '18:00', status: 'pending', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-  { id: '3', date: '2026-05-15', dayNum: '15', month: 'MAG', role: 'Barman', timeStart: '18:00', timeEnd: '02:00', employeeCode: 'ATS-D-0023', employeeAvatar: avatarMap['ATS-D-0023'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-]
+// Mock turni rimossi: ora si fetcha da `public.shifts` (vedi loadMyShifts dentro
+// il componente). Restano gli altri mock (matches, notifications, ratings) che
+// saranno wirati nelle prossime fette.
 
 const matches: MatchState[] = [
   { id: 'm1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', matchScore: 94, phase: 'mutual' },
@@ -89,6 +116,21 @@ export default function StructurePortal() {
   const [structure, setStructure] = useState<StructureRow | null>(null)
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [myShifts, setMyShifts] = useState<ShiftRow[]>([])
+  const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+
+  const loadMyShifts = useCallback(async (structureId: string) => {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('structure_id', structureId)
+      .gte('shift_date', today)
+      .order('shift_date', { ascending: true })
+      .order('time_start', { ascending: true })
+      .limit(5)
+    setMyShifts(data ?? [])
+  }, [])
 
   useEffect(() => {
     if (authStatus === 'loading') return
@@ -128,6 +170,19 @@ export default function StructurePortal() {
               .createSignedUrl(photos[0].storage_path, 60 * 60) // 1h
             if (signed?.signedUrl) setCoverUrl(signed.signedUrl)
           }
+
+          // 3) Fetch turni della struttura: i prossimi 5 in ordine cronologico.
+          const today = new Date().toISOString().slice(0, 10)
+          const { data: shiftsData } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('structure_id', row.id)
+            .gte('shift_date', today)
+            .order('shift_date', { ascending: true })
+            .order('time_start', { ascending: true })
+            .limit(5)
+          if (cancelled) return
+          setMyShifts(shiftsData ?? [])
         }
       } catch (err) {
         if (cancelled) return
@@ -359,31 +414,51 @@ export default function StructurePortal() {
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-playfair text-2xl font-bold text-white">Turni in programma</h2>
-            <button
-              onClick={() => navigate('/structure/history')}
-              className="flex items-center gap-1 text-sm text-[#5BB8F5] hover:text-[#3AA3E8] transition-colors"
-            >
-              Vedi tutti <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNewShiftDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Nuovo turno
+              </button>
+              <button
+                onClick={() => navigate('/structure/history')}
+                className="flex items-center gap-1 text-sm text-[#5BB8F5] hover:text-[#3AA3E8] transition-colors"
+              >
+                Vedi tutti <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {shifts.map((shift, i) => (
-              <GlassShiftCard
-                key={shift.id}
-                shift={shift}
-                index={i}
-                featured={i === 0}
-                onViewDetails={(s) => {
-                  if (s.status === 'pending') {
-                    navigate('/structure/matching')
-                  } else {
-                    addToast({ type: 'info', title: 'Dettaglio turno', message: `Turno ${s.role} del ${s.dayNum} ${s.month}` })
-                  }
-                }}
-              />
-            ))}
-          </div>
+          {myShifts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+              <Calendar className="w-10 h-10 mx-auto mb-3 text-text-muted opacity-50" />
+              <p className="text-sm text-text-muted mb-3">Nessun turno in programma.</p>
+              <button
+                onClick={() => setShowNewShiftDialog(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Pubblica il primo turno
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myShifts.map((shift, i) => {
+                const card = shiftRowToCard(shift, structure.id.slice(0, 8).toUpperCase(), structure.zona)
+                return (
+                  <GlassShiftCard
+                    key={shift.id}
+                    shift={card}
+                    index={i}
+                    featured={i === 0}
+                    onViewDetails={() => navigate('/structure/matching')}
+                  />
+                )
+              })}
+            </div>
+          )}
         </motion.section>
 
         {/* ── Two Column: Match Status + Quick Actions ── */}
@@ -837,6 +912,14 @@ export default function StructurePortal() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <NewShiftDialog
+        open={showNewShiftDialog}
+        structureId={structure.id}
+        suggestedRoles={structure.ruoli_cercati}
+        onClose={() => setShowNewShiftDialog(false)}
+        onCreated={() => void loadMyShifts(structure.id)}
+      />
     </div>
   )
 }

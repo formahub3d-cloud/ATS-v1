@@ -1,449 +1,400 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+// StructureMatching — pagina struttura per gestire candidature ai propri turni.
+// Mostra i turni open con i dipendenti che hanno fatto like; la struttura può
+// confermare uno → diventa 'assigned' con qr_token + employee_id.
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Search, Heart, RotateCcw, Star, Filter, X,
-  ChevronLeft, ChevronRight, Award, MapPin, SlidersHorizontal,
-  Sparkles, UserCheck
+  Heart, X, Calendar, Clock, MapPin, Briefcase, AlertCircle,
+  Sparkles, RefreshCw, CheckCircle, UserPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
-import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonCard } from '@/components/ui/skeleton'
-import Avatar from '@/components/Avatar'
-import GlassSwipeCard, { type GlassEmployeeProfile } from '@/components/structure/GlassSwipeCard'
-import MatchStatus, { type MatchState, type MatchPhase } from '@/components/structure/MatchStatus'
+import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
-import confetti from 'canvas-confetti'
+import StatusScreen from '@/components/structure/StatusScreen'
+import NewShiftDialog from '@/components/structure/NewShiftDialog'
+import Avatar from '@/components/Avatar'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
+import type { Database } from '@/lib/database.types'
 
-/* ─────────────── helpers ─────────────── */
+type ShiftRow = Database['public']['Tables']['shifts']['Row']
+type StructureRow = Database['public']['Tables']['structures']['Row']
+type ProfileRow = Database['public']['Tables']['profiles']['Row']
+type EmployeeRow = Database['public']['Tables']['employees']['Row']
 
-const avatarMap: Record<string, string> = {
-  'p1': '/avatar-employee-1.jpg',
-  'p2': '/avatar-employee-2.jpg',
-  'p3': '/avatar-employee-3.jpg',
-  'p4': '/avatar-employee-4.jpg',
-  'p5': '/avatar-employee-5.jpg',
-  'p6': '/avatar-employee-6.jpg',
-  'p7': '/avatar-employee-7.jpg',
-  'p8': '/avatar-employee-8.jpg',
+interface Candidate {
+  employee_id: string
+  full_name: string | null
+  avatar_url: string | null
+  preferred_zone: string | null
+  skills: string[]
+  min_hourly_rate: number | null
+  liked_at: string
 }
 
-/* ─────────────── mock data ─────────────── */
+interface ShiftCard extends ShiftRow {
+  candidates: Candidate[]
+}
 
-const allProfiles: GlassEmployeeProfile[] = [
-  { id: 'p1', code: 'ATS-D-0047', firstName: 'Giulia', role: 'Cameriere', matchScore: 94, tags: ['Veloce', 'Sorriso', 'Team-player', 'Flex'], distance: 3.2, rank: 'Senior', experience: '4', venues: ['Hotel', 'Ristorante'], rating: 4.7, payRate: 15.00, avatar: avatarMap['p1'] },
-  { id: 'p2', code: 'ATS-D-0012', firstName: 'Luca', role: 'Chef de Partie', matchScore: 88, tags: ['Creativo', 'Pulito', 'Organizzato', 'Leader'], distance: 5.1, rank: 'Elite', experience: '6', venues: ['Ristorante', 'Banqueting'], rating: 4.9, payRate: 18.50, avatar: avatarMap['p2'] },
-  { id: 'p3', code: 'ATS-D-0089', firstName: 'Sofia', role: 'Barman', matchScore: 91, tags: ['Cocktail', 'Veloce', 'Customer-care'], distance: 1.8, rank: 'Affidabile', experience: '3', venues: ['Bar', 'Lounge'], rating: 4.5, payRate: 16.00, avatar: avatarMap['p3'] },
-  { id: 'p4', code: 'ATS-D-0156', firstName: 'Marco', role: 'Cameriere', matchScore: 87, tags: ['Esperto', 'Puntuale', 'Gentile'], distance: 7.4, rank: 'Senior', experience: '5', venues: ['Ristorante', 'Hotel', 'Eventi'], rating: 4.6, payRate: 15.50, avatar: avatarMap['p4'] },
-  { id: 'p5', code: 'ATS-D-0023', firstName: 'Elena', role: 'Barista', matchScore: 82, tags: ['Caffe-specialty', 'Mattiniera', 'Precisa'], distance: 4.5, rank: 'Affidabile', experience: '3', venues: ['Caffe', 'Hotel'], rating: 4.4, payRate: 14.00, avatar: avatarMap['p5'] },
-  { id: 'p6', code: 'ATS-D-0078', firstName: 'Andrea', role: 'Receptionist', matchScore: 79, tags: ['Multilingue', 'Organizzato', 'Calmo'], distance: 2.3, rank: 'Rookie', experience: '1', venues: ['Hotel'], rating: 4.1, payRate: 13.50, avatar: avatarMap['p6'] },
-  { id: 'p7', code: 'ATS-D-0091', firstName: 'Chiara', role: 'Cameriere', matchScore: 96, tags: ['Esperta', 'Veloce', 'Team-leader', 'Adattabile'], distance: 3.8, rank: 'Elite', experience: '7', venues: ['Ristorante', 'Hotel', 'Banqueting'], rating: 4.9, payRate: 17.00, avatar: avatarMap['p7'] },
-  { id: 'p8', code: 'ATS-D-0034', firstName: 'Matteo', role: 'Barman', matchScore: 85, tags: ['Mixology', 'Creativo', 'Sociabile'], distance: 6.2, rank: 'Senior', experience: '4', venues: ['Lounge', 'Ristorante'], rating: 4.6, payRate: 16.50, avatar: avatarMap['p8'] },
-]
-
-const mutualMatches: MatchState[] = [
-  { id: 'mm1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', matchScore: 94, phase: 'mutual' },
-  { id: 'mm2', employeeCode: 'ATS-D-0012', employeeName: 'Luca', role: 'Chef de Partie', matchScore: 88, phase: 'assigned', shiftDate: '14/05' },
-  { id: 'mm3', employeeCode: 'ATS-D-0089', employeeName: 'Sofia', role: 'Barman', matchScore: 91, phase: 'mutual' },
-  { id: 'mm4', employeeCode: 'ATS-D-0156', employeeName: 'Marco', role: 'Cameriere', matchScore: 87, phase: 'assigned', shiftDate: '15/05' },
-]
-
-const likedEmployees: MatchState[] = [
-  { id: 'le1', employeeCode: 'ATS-D-0091', employeeName: 'Chiara', role: 'Cameriere', matchScore: 96, phase: 'liked' },
-  { id: 'le2', employeeCode: 'ATS-D-0034', employeeName: 'Matteo', role: 'Barman', matchScore: 85, phase: 'liked' },
-]
-
-const passedEmployees: MatchState[] = [
-  { id: 'pe1', employeeCode: 'ATS-D-0078', employeeName: 'Andrea', role: 'Receptionist', matchScore: 79, phase: 'completed' },
-]
-
-const roleFilters = ['Tutti', 'Cameriere', 'Chef de Partie', 'Barista', 'Barman', 'Receptionist']
-
-/* ─────────────── component ─────────────── */
+const MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
 export default function StructureMatching() {
   const navigate = useNavigate()
   const { addToast } = useToast()
-  const [profiles, setProfiles] = useState<GlassEmployeeProfile[]>(allProfiles)
-  const [activeRole, setActiveRole] = useState('Tutti')
-  const [activeTab, setActiveTab] = useState<'mutual' | 'liked' | 'passed'>('mutual')
-  const [matchCelebration, setMatchCelebration] = useState<GlassEmployeeProfile | null>(null)
+  const { user, status: authStatus } = useAuth()
+  const [structure, setStructure] = useState<StructureRow | null>(null)
+  const [shifts, setShifts] = useState<ShiftCard[]>([])
   const [loading, setLoading] = useState(true)
-  const [showFilters, setShowFilters] = useState(false)
-  const [rewindStack, setRewindStack] = useState<GlassEmployeeProfile[]>([])
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [pendingAssign, setPendingAssign] = useState<string | null>(null)
+  const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    setFetchError(null)
+    try {
+      // 1) Trova la struttura dell'utente.
+      const { data: structRow, error: stErr } = await supabase
+        .from('structures')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (stErr) throw stErr
+      setStructure(structRow)
+      if (!structRow) {
+        setShifts([])
+        return
+      }
+
+      // 2) Tutti i turni open della struttura.
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: myShifts, error: sErr } = await supabase
+        .from('shifts')
+        .select('*')
+        .eq('structure_id', structRow.id)
+        .in('status', ['open', 'assigned'])
+        .gte('shift_date', today)
+        .order('shift_date', { ascending: true })
+      if (sErr) throw sErr
+
+      const shiftIds = (myShifts ?? []).map((s) => s.id)
+      if (shiftIds.length === 0) {
+        setShifts([])
+        return
+      }
+
+      // 3) Per ogni turno, like ricevuti.
+      const { data: likes, error: lErr } = await supabase
+        .from('shift_likes')
+        .select('shift_id, employee_id, created_at')
+        .in('shift_id', shiftIds)
+        .eq('action', 'like')
+      if (lErr) throw lErr
+
+      const likedEmpIds = Array.from(new Set((likes ?? []).map((l) => l.employee_id)))
+
+      // 4) Profili + employee row per i candidati.
+      const [{ data: profs, error: pErr }, { data: emps, error: eErr }] = await Promise.all([
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Pick<ProfileRow, 'id' | 'full_name' | 'avatar_url'>[], error: null })
+          : supabase.from('profiles').select('id, full_name, avatar_url').in('id', likedEmpIds),
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Pick<EmployeeRow, 'id' | 'preferred_zone' | 'skills' | 'min_hourly_rate'>[], error: null })
+          : supabase.from('employees').select('id, preferred_zone, skills, min_hourly_rate').in('id', likedEmpIds),
+      ])
+      if (pErr) throw pErr
+      if (eErr) throw eErr
+
+      const profById = new Map((profs ?? []).map((p) => [p.id, p]))
+      const empById = new Map((emps ?? []).map((e) => [e.id, e]))
+
+      // 5) Compongo le shift card con i candidati.
+      const cards: ShiftCard[] = (myShifts ?? []).map((s) => ({
+        ...s,
+        candidates: (likes ?? [])
+          .filter((l) => l.shift_id === s.id)
+          .map((l) => {
+            const p = profById.get(l.employee_id)
+            const e = empById.get(l.employee_id)
+            return {
+              employee_id: l.employee_id,
+              full_name: p?.full_name ?? null,
+              avatar_url: p?.avatar_url ?? null,
+              preferred_zone: e?.preferred_zone ?? null,
+              skills: ((e?.skills as string[] | undefined) ?? []),
+              min_hourly_rate: e?.min_hourly_rate ?? null,
+              liked_at: l.created_at,
+            }
+          }),
+      }))
+
+      setShifts(cards)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore caricamento'
+      console.error('[StructureMatching] fetch error', err)
+      setFetchError(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(t)
-  }, [])
-
-  /* filtering */
-  const filteredProfiles = useMemo(() => {
-    if (activeRole === 'Tutti') return profiles
-    return profiles.filter((p) => p.role === activeRole)
-  }, [profiles, activeRole])
-
-  const currentProfile = filteredProfiles[0] || null
-  const nextProfile = filteredProfiles[1] || null
-  const thirdProfile = filteredProfiles[2] || null
-
-  /* actions */
-  const handleLike = useCallback((emp: GlassEmployeeProfile) => {
-    setRewindStack(prev => [emp, ...prev])
-    if (emp.matchScore > 90) {
-      setMatchCelebration(emp)
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#5BB8F5', '#3AA3E8', '#1EC99A', '#F5B800'],
-      })
-      addToast({ type: 'success', title: 'Match!', message: `Hai fatto match con ${emp.code} — ${emp.role}` })
-      setTimeout(() => setMatchCelebration(null), 2500)
-    } else {
-      addToast({ type: 'info', title: 'Ti interessa', message: `Hai salvato ${emp.code} tra i preferiti` })
+    if (authStatus === 'loading') return
+    if (authStatus === 'anonymous' || !user) {
+      navigate('/auth')
+      return
     }
-    setProfiles((prev) => prev.filter((p) => p.id !== emp.id))
-  }, [addToast])
+    void load()
+  }, [authStatus, user, load, navigate])
 
-  const handleDislike = useCallback((emp: GlassEmployeeProfile) => {
-    setRewindStack(prev => [emp, ...prev])
-    addToast({ type: 'info', title: 'Scartato', message: `Profilo ${emp.code} scartato` })
-    setProfiles((prev) => prev.filter((p) => p.id !== emp.id))
-  }, [addToast])
+  const handleAssign = async (shift: ShiftRow, candidate: Candidate) => {
+    setPendingAssign(shift.id + ':' + candidate.employee_id)
+    try {
+      // Genera qr_token via funzione DB security-definer.
+      const { data: tokenData, error: tErr } = await supabase.rpc('generate_shift_qr_token')
+      if (tErr) throw tErr
+      const qrToken = tokenData as unknown as string
 
-  const handleRewind = useCallback(() => {
-    if (rewindStack.length === 0) return
-    const last = rewindStack[0]
-    setProfiles(prev => [last, ...prev])
-    setRewindStack(prev => prev.slice(1))
-    addToast({ type: 'info', title: 'Annullato', message: `Profilo ${last.code} ripristinato` })
-  }, [rewindStack, addToast])
+      const { error } = await supabase
+        .from('shifts')
+        .update({
+          status: 'assigned',
+          employee_id: candidate.employee_id,
+          assigned_at: new Date().toISOString(),
+          qr_token: qrToken,
+        })
+        .eq('id', shift.id)
+      if (error) throw error
 
-  const resetFilters = useCallback(() => {
-    setActiveRole('Tutti')
-    setProfiles(allProfiles)
-    addToast({ type: 'info', title: 'Filtri resettati', message: 'Tutti i profili sono di nuovo visibili' })
-  }, [addToast])
-
-  /* tab content */
-  const tabMatches = activeTab === 'mutual' ? mutualMatches : activeTab === 'liked' ? likedEmployees : passedEmployees
-  const tabPhases: Record<string, MatchPhase> = {
-    mutual: 'mutual',
-    liked: 'liked',
-    passed: 'completed',
+      addToast({
+        type: 'success',
+        title: 'Turno assegnato!',
+        message: `${candidate.full_name ?? 'Il dipendente'} è stato confermato. Riceverà notifica e QR per il check-in.`,
+      })
+      await load()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore assegnazione'
+      addToast({ type: 'error', title: 'Errore', message })
+    } finally {
+      setPendingAssign(null)
+    }
   }
 
-  /* keyboard */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!currentProfile) return
-      if (e.key === 'ArrowRight') handleLike(currentProfile)
-      if (e.key === 'ArrowLeft') handleDislike(currentProfile)
-      if (e.key === 'ArrowUp') handleRewind()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [currentProfile, handleLike, handleDislike, handleRewind])
+  const stats = useMemo(() => {
+    const totalCandidates = shifts.reduce((acc, s) => acc + s.candidates.length, 0)
+    const openShifts = shifts.filter((s) => s.status === 'open').length
+    const assignedShifts = shifts.filter((s) => s.status === 'assigned').length
+    return { totalCandidates, openShifts, assignedShifts }
+  }, [shifts])
 
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
-        <div className="max-w-[1200px] mx-auto px-6 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <SkeletonCard className="h-[500px]" />
-            </div>
-            <div>
-              <SkeletonCard />
-            </div>
-          </div>
+      <div className="min-h-[100dvh] bg-[#06101E] pt-[40px]">
+        <div className="max-w-[1100px] mx-auto px-6 py-8 space-y-6">
+          <Skeleton className="h-10 w-60 rounded" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
         </div>
       </div>
     )
   }
 
+  if (fetchError) {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#F04545"
+        title="Impossibile caricare i candidati"
+        description={fetchError}
+        primaryAction={{ label: 'Riprova', onClick: () => void load() }}
+      />
+    )
+  }
+
+  if (!structure) {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#5BB8F5"
+        title="Struttura non trovata"
+        description="Non ci sono strutture associate al tuo account."
+        primaryAction={{ label: 'Vai al portale', onClick: () => navigate('/structure') }}
+      />
+    )
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
-      <div className="max-w-[1200px] mx-auto px-6 py-8">
-
-        {/* ── Filter Bar ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-8"
-        >
-          <PageHeader
-            title="Cerca Personale"
-            subtitle={`Profili compatibili: ${filteredProfiles.length}`}
-            showBack
-            backTo="/structure"
-            backLabel="Dashboard"
-            variant="display"
-            actions={
-              <>
-                <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)] whitespace-nowrap">
-                  Annunci attivi: 1
-                </span>
-                <GlassTooltip content="Filtra i profili">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={cn(
-                      'p-2.5 rounded-xl border transition-all',
-                      showFilters
-                        ? 'bg-[rgba(91,184,245,0.15)] border-[rgba(91,184,245,0.3)] text-[#5BB8F5]'
-                        : 'border-[rgba(255,255,255,0.1)] text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)]'
-                    )}
-                  >
-                    <SlidersHorizontal className="w-5 h-5" />
-                  </button>
-                </GlassTooltip>
-              </>
-            }
-          />
-
-          {/* Role filter pills */}
-          <div className="flex flex-wrap gap-2">
-            {roleFilters.map((role) => (
-              <motion.button
-                key={role}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveRole(role)}
-                className={cn(
-                  'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
-                  activeRole === role
-                    ? 'gradient-sky text-white shadow-[0_0_20px_rgba(91,184,245,0.2)] -translate-y-[2px]'
-                    : 'backdrop-blur-md bg-white/5 border border-white/10 text-[#94A3B8] hover:border-[rgba(91,184,245,0.25)] hover:text-white'
-                )}
+    <div className="min-h-[100dvh] bg-[#06101E] pt-[40px]">
+      <div className="max-w-[1100px] mx-auto px-6 py-8">
+        <PageHeader
+          title="I tuoi candidati"
+          subtitle={`${stats.totalCandidates} candidatur${stats.totalCandidates === 1 ? 'a' : 'e'} su ${stats.openShifts + stats.assignedShifts} turn${stats.openShifts + stats.assignedShifts === 1 ? 'o' : 'i'} attivi`}
+          showBack
+          backTo="/structure"
+          backLabel="Dashboard"
+          variant="display"
+          actions={
+            <>
+              <button
+                onClick={() => void load()}
+                className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                aria-label="Aggiorna"
               >
-                {role}
-              </motion.button>
+                <RefreshCw className="w-5 h-5 text-text-muted" />
+              </button>
+              <button
+                onClick={() => setShowNewShiftDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+              >
+                <UserPlus className="w-4 h-4" />
+                Nuovo turno
+              </button>
+            </>
+          }
+        />
+
+        {shifts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-8">
+            <Sparkles className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
+            <h2 className="text-lg font-semibold text-white mb-2">Nessun turno attivo</h2>
+            <p className="text-sm text-text-muted mb-4">
+              Pubblica un turno per cominciare a ricevere candidature dai dipendenti.
+            </p>
+            <button
+              onClick={() => setShowNewShiftDialog(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+            >
+              <UserPlus className="w-4 h-4" />
+              Pubblica primo turno
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {shifts.map((shift) => (
+              <motion.div
+                key={shift.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="rounded-2xl border border-[rgba(91,184,245,0.15)] bg-[rgba(13,30,52,0.7)] backdrop-blur-md overflow-hidden"
+              >
+                {/* Shift header */}
+                <div className="flex items-start justify-between gap-3 p-5 border-b border-[rgba(255,255,255,0.06)]">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-3 mb-1">
+                      <span className="text-lg font-semibold text-white">{shift.role}</span>
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 rounded-md text-xs font-medium border',
+                          shift.status === 'open'
+                            ? 'text-[#F5B800] bg-[rgba(245,184,0,0.12)] border-[rgba(245,184,0,0.3)]'
+                            : 'text-[#5BB8F5] bg-[rgba(91,184,245,0.12)] border-[rgba(91,184,245,0.3)]',
+                        )}
+                      >
+                        {shift.status === 'open' ? 'Da assegnare' : 'Assegnato'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-text-muted" />
+                        {new Date(shift.shift_date).getDate()} {MONTHS_IT[new Date(shift.shift_date).getMonth()]}
+                      </span>
+                      <span className="flex items-center gap-1.5 font-mono">
+                        <Clock className="w-3.5 h-3.5 text-text-muted" />
+                        {shift.time_start.slice(0, 5)}–{shift.time_end.slice(0, 5)}
+                      </span>
+                      <span className="text-[#1EC99A] font-mono">
+                        € {Number(shift.hourly_rate).toFixed(2)}/h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Candidati */}
+                {shift.status === 'assigned' ? (
+                  <div className="p-5 bg-[rgba(91,184,245,0.04)]">
+                    <div className="flex items-center gap-2 text-sm text-sky-primary">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Turno già assegnato. QR per check-in disponibile.</span>
+                    </div>
+                  </div>
+                ) : shift.candidates.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-sm text-text-muted">Ancora nessuna candidatura. Il turno è visibile nel feed dei dipendenti compatibili.</p>
+                  </div>
+                ) : (
+                  <div className="p-5">
+                    <p className="text-xs uppercase tracking-wider text-sky-primary mb-3 flex items-center gap-1.5">
+                      <Heart className="w-3 h-3" />
+                      {shift.candidates.length} candidat{shift.candidates.length === 1 ? 'o' : 'i'}
+                    </p>
+                    <div className="space-y-2">
+                      {shift.candidates.map((c) => {
+                        const isPending = pendingAssign === shift.id + ':' + c.employee_id
+                        return (
+                          <div
+                            key={c.employee_id}
+                            className="flex items-center gap-3 p-3 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(13,30,52,0.5)] hover:bg-[rgba(91,184,245,0.05)] transition-colors"
+                          >
+                            <Avatar
+                              src={c.avatar_url ?? undefined}
+                              alt={c.full_name ?? 'Candidato'}
+                              size="md"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">{c.full_name ?? '—'}</p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+                                {c.skills.length > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Briefcase className="w-3 h-3" />
+                                    {c.skills.slice(0, 2).join(', ')}
+                                  </span>
+                                )}
+                                {c.preferred_zone && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {c.preferred_zone}
+                                  </span>
+                                )}
+                                {c.min_hourly_rate && (
+                                  <span className="text-[#1EC99A] font-mono">
+                                    min €{Number(c.min_hourly_rate).toFixed(2)}/h
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <motion.button
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => void handleAssign(shift, c)}
+                              disabled={!!pendingAssign}
+                              className="px-4 py-2 text-sm font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              {isPending ? 'Conferma…' : 'Conferma'}
+                            </motion.button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
             ))}
           </div>
-        </motion.section>
-
-        {/* ── Main Content: Swipe Cards + Match Sidebar ── */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          {/* Swipe card area */}
-          <div className="lg:col-span-2">
-            {currentProfile ? (
-              <div className="relative">
-                {/* Stack depth visualization */}
-                {thirdProfile && (
-                  <div className="absolute inset-x-0 top-0 mx-auto w-full max-w-[420px] pointer-events-none">
-                    <div className="h-[600px] rounded-[24px] bg-[#0D1E34] border border-[rgba(255,255,255,0.06)] opacity-40" style={{ transform: 'translateY(32px) scale(0.84)' }} />
-                  </div>
-                )}
-                {nextProfile && (
-                  <div className="absolute inset-x-0 top-0 mx-auto w-full max-w-[420px] pointer-events-none">
-                    <div className="h-[600px] rounded-[24px] bg-[#0D1E34] border border-[rgba(255,255,255,0.06)] opacity-70" style={{ transform: 'translateY(16px) scale(0.92)' }} />
-                  </div>
-                )}
-
-                <GlassSwipeCard
-                  employee={currentProfile}
-                  onLike={handleLike}
-                  onDislike={handleDislike}
-                  onRewind={handleRewind}
-                  isTop={true}
-                  stackIndex={0}
-                />
-
-                {/* Keyboard hint */}
-                <p className="text-center text-xs text-[#5E7A95] mt-4">
-                  Usa <kbd className="px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.06)] text-[#94A3B8] font-mono text-[10px]">←</kbd>{' '}
-                  <kbd className="px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.06)] text-[#94A3B8] font-mono text-[10px]">→</kbd> per scorrere,{' '}
-                  <kbd className="px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.06)] text-[#94A3B8] font-mono text-[10px]">↑</kbd> per annullare
-                </p>
-              </div>
-            ) : (
-              /* Empty state */
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                className={cn(
-                  'max-w-[420px] mx-auto p-8 rounded-[24px] text-center',
-                  'backdrop-blur-md bg-white/5 border border-white/10'
-                )}
-              >
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[rgba(91,184,245,0.08)] border border-[rgba(91,184,245,0.15)] flex items-center justify-center">
-                  <Search className="w-8 h-8 text-[#5BB8F5]" />
-                </div>
-                <h3 className="font-playfair text-xl font-bold text-white mb-2">
-                  Hai visto tutti i profili compatibili
-                </h3>
-                <p className="text-sm text-[#94A3B8] mb-6">
-                  Torna piu tardi per nuovi candidati, o modifica i filtri per vedere piu opzioni.
-                </p>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={resetFilters}
-                    className="w-full py-3 text-sm font-medium text-[#06101E] gradient-sky rounded-xl hover:brightness-110 transition-all"
-                  >
-                    Modifica filtri
-                  </button>
-                  <button
-                    onClick={() => navigate('/structure')}
-                    className="w-full py-3 text-sm font-medium text-[#94A3B8] border border-[rgba(255,255,255,0.1)] rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                  >
-                    Torna alla dashboard
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Match Status Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className={cn(
-              'rounded-2xl p-6 backdrop-blur-md bg-white/5 border border-white/10',
-              'h-fit'
-            )}
-          >
-            <h2 className="font-playfair text-xl font-bold text-white mb-4">I tuoi match</h2>
-
-            {/* Tabs */}
-            <div className="flex gap-1 mb-4 p-1 rounded-xl bg-[rgba(255,255,255,0.04)]">
-              {[
-                { key: 'mutual', label: 'Reciproci', count: mutualMatches.length },
-                { key: 'liked', label: 'Preferiti', count: likedEmployees.length },
-                { key: 'passed', label: 'Scartati', count: passedEmployees.length },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                  className={cn(
-                    'flex-1 px-2 py-2 rounded-lg text-xs font-medium transition-all',
-                    activeTab === tab.key
-                      ? 'bg-[rgba(91,184,245,0.15)] text-[#5BB8F5]'
-                      : 'text-[#5E7A95] hover:text-white'
-                  )}
-                >
-                  {tab.label}
-                  <span className="ml-1 opacity-60">({tab.count})</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <AnimatePresence mode="wait">
-                {tabMatches.map((m, i) => (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, x: 16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -16 }}
-                    transition={{ delay: i * 0.06, duration: 0.3 }}
-                    className="flex items-center gap-3"
-                  >
-                    <Avatar
-                      src={avatarMap[m.employeeCode.replace('ATS-D-', 'p')]}
-                      alt={m.employeeName}
-                      size={40}
-                      borderColor="#1A56A0"
-                    />
-                    <div className="flex-1">
-                      <MatchStatus match={{ ...m, phase: tabPhases[activeTab] }} index={i} compact />
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {tabMatches.length === 0 && (
-                <div className="text-center py-8">
-                  <UserCheck className="w-8 h-8 text-[#5E7A95] mx-auto mb-2" />
-                  <p className="text-sm text-[#5E7A95]">Nessun match ancora. Inizia a fare swipe!</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </section>
+        )}
       </div>
 
-      {/* ── Match Celebration Modal ── */}
-      <AnimatePresence>
-        {matchCelebration && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[250] flex items-center justify-center bg-[rgba(6,16,30,0.9)] backdrop-blur-[12px] p-6"
-            onClick={() => setMatchCelebration(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.88, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.88, opacity: 0 }}
-              transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] as [number, number, number, number] }}
-              className={cn(
-                'w-full max-w-[480px] rounded-[20px] p-8 text-center',
-                'backdrop-blur-md bg-white/5 border border-white/10',
-                'shadow-[0_32px_80px_rgba(0,0,0,0.6)]'
-              )}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Sparkles className="w-8 h-8 text-[#5BB8F5]" />
-                <h2 className="font-playfair text-[28px] font-bold text-white">Match confermato!</h2>
-              </div>
-
-              <motion.div
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.1, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] as [number, number, number, number] }}
-                className="mx-auto mb-4"
-              >
-                <Avatar
-                  src={matchCelebration.avatar}
-                  alt={matchCelebration.firstName}
-                  size={80}
-                  borderColor="#5BB8F5"
-                  className="mx-auto"
-                />
-                <div className="mt-2 w-3 h-3 rounded-full bg-[#5BB8F5] mx-auto shadow-[0_0_20px_rgba(91,184,245,0.5)] animate-pulse" />
-              </motion.div>
-
-              <p className="text-lg font-semibold text-white mb-1">
-                Hai fatto match con {matchCelebration.code}
-              </p>
-              <p className="text-sm text-[#94A3B8] mb-4">
-                Ruolo: {matchCelebration.role} · Zona: Centro
-              </p>
-
-              <div className="p-3 rounded-xl bg-[rgba(91,184,245,0.08)] border border-[rgba(91,184,245,0.15)] mb-6">
-                <p className="text-xs text-[#94A3B8]">
-                  ATS assegnera il turno. Non puoi contattare direttamente il dipendente.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setMatchCelebration(null)}
-                  className="flex-1 py-3 text-sm font-medium text-[#06101E] gradient-sky rounded-xl hover:brightness-110 transition-all"
-                >
-                  Continua a cercare
-                </button>
-                <button
-                  onClick={() => {
-                    setMatchCelebration(null)
-                    navigate('/structure')
-                  }}
-                  className="px-6 py-3 text-sm font-medium text-[#5BB8F5] border border-[#5BB8F5] rounded-xl hover:bg-[rgba(91,184,245,0.1)] transition-colors"
-                >
-                  Vedi i miei match
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <NewShiftDialog
+        open={showNewShiftDialog}
+        structureId={structure.id}
+        suggestedRoles={structure.ruoli_cercati}
+        onClose={() => setShowNewShiftDialog(false)}
+        onCreated={() => void load()}
+      />
     </div>
   )
 }

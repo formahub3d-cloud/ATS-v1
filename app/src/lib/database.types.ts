@@ -26,6 +26,16 @@ export type DocumentType =
   | 'contract'
   | 'other'
 
+export type ShiftStatus =
+  | 'open'
+  | 'assigned'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show'
+
+export type ShiftLikeAction = 'like' | 'skip'
+
 export type EmployeeExperience = {
   id?: string
   ruolo?: string
@@ -131,6 +141,40 @@ type DocumentInsert = {
   uploaded_by?: string | null
   verified_at?: string | null
   verified_by?: string | null
+}
+
+type ShiftInsert = {
+  id?: string
+  structure_id: string
+  employee_id?: string | null
+  status?: ShiftStatus
+  shift_date: string
+  time_start: string
+  time_end: string
+  role: string
+  notes?: string | null
+  hourly_rate: number
+  estimated_hours?: number | null
+  qr_token?: string | null
+  check_in_at?: string | null
+  check_out_at?: string | null
+  check_in_lat?: number | null
+  check_in_lng?: number | null
+  no_show_reason?: string | null
+  created_by?: string | null
+  created_at?: string
+  updated_at?: string
+  assigned_at?: string | null
+  cancelled_at?: string | null
+  cancellation_reason?: string | null
+}
+
+type ShiftLikeInsert = {
+  id?: string
+  shift_id: string
+  employee_id: string
+  action: ShiftLikeAction
+  created_at?: string
 }
 
 export type Database = {
@@ -310,6 +354,78 @@ export type Database = {
           },
         ]
       }
+      shifts: {
+        Row: {
+          id: string
+          structure_id: string
+          employee_id: string | null
+          status: ShiftStatus
+          shift_date: string
+          time_start: string
+          time_end: string
+          role: string
+          notes: string | null
+          hourly_rate: number
+          estimated_hours: number | null
+          qr_token: string | null
+          check_in_at: string | null
+          check_out_at: string | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          no_show_reason: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          assigned_at: string | null
+          cancelled_at: string | null
+          cancellation_reason: string | null
+        }
+        Insert: ShiftInsert
+        Update: Partial<ShiftInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'shifts_structure_id_fkey'
+            columns: ['structure_id']
+            isOneToOne: false
+            referencedRelation: 'structures'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shifts_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'employees'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      shift_likes: {
+        Row: {
+          id: string
+          shift_id: string
+          employee_id: string
+          action: ShiftLikeAction
+          created_at: string
+        }
+        Insert: ShiftLikeInsert
+        Update: Partial<ShiftLikeInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'shift_likes_shift_id_fkey'
+            columns: ['shift_id']
+            isOneToOne: false
+            referencedRelation: 'shifts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shift_likes_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'employees'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -318,6 +434,8 @@ export type Database = {
       structure_status: StructureStatus
       contract_type: ContractType
       document_type: DocumentType
+      shift_status: ShiftStatus
+      shift_like_action: ShiftLikeAction
     }
   }
 }
