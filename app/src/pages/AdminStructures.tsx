@@ -13,6 +13,7 @@ import {
   Search, CheckCircle, X, Building2, MapPin, Mail,
   Phone, FileText, Hourglass, Ban, ShieldCheck, AlertCircle,
 } from 'lucide-react'
+import BulkActionsBar from '@/components/admin/BulkActionsBar'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
@@ -65,6 +66,31 @@ export default function AdminStructures() {
   const [selected, setSelected] = useState<StructureRow | null>(null)
   const [pendingAction, setPendingAction] = useState<{ id: string; type: 'approve' | 'reject' } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkInProgress, setBulkInProgress] = useState(false)
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const toggleSelectAll = (visible: StructureRow[]) => {
+    setSelectedIds((prev) => {
+      const allVisibleSelected = visible.every((r) => prev.has(r.id))
+      if (allVisibleSelected) {
+        const next = new Set(prev)
+        for (const r of visible) next.delete(r.id)
+        return next
+      }
+      const next = new Set(prev)
+      for (const r of visible) next.add(r.id)
+      return next
+    })
+  }
+  const clearSelection = () => setSelectedIds(new Set())
 
   const fetchStructures = useCallback(async () => {
     setLoading(true)
@@ -142,6 +168,58 @@ export default function AdminStructures() {
       addToast({ type: 'error', title: 'Errore', message })
     } finally {
       setPendingAction(null)
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    if (!user || selectedIds.size === 0) return
+    // Solo le pending vengono approvate (RLS / admin update può anche le altre,
+    // ma qui filtriamo per coerenza UI).
+    const ids = filtered.filter((s) => selectedIds.has(s.id) && s.status === 'pending_review').map((s) => s.id)
+    if (ids.length === 0) {
+      addToast({ type: 'warning', title: 'Nessuna struttura pending', message: 'Solo le candidature in attesa possono essere approvate.' })
+      return
+    }
+    setBulkInProgress(true)
+    try {
+      const { error } = await supabase
+        .from('structures')
+        .update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user.id })
+        .in('id', ids)
+      if (error) throw error
+      addToast({ type: 'success', title: `${ids.length} approvat${ids.length === 1 ? 'a' : 'e'}`, message: 'Le strutture sono ora attive.' })
+      clearSelection()
+      await fetchStructures()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore'
+      addToast({ type: 'error', title: 'Errore bulk approve', message })
+    } finally {
+      setBulkInProgress(false)
+    }
+  }
+
+  const handleBulkReject = async () => {
+    if (selectedIds.size === 0) return
+    const ids = filtered.filter((s) => selectedIds.has(s.id) && s.status === 'pending_review').map((s) => s.id)
+    if (ids.length === 0) {
+      addToast({ type: 'warning', title: 'Nessuna struttura pending', message: 'Solo le candidature in attesa possono essere respinte.' })
+      return
+    }
+    setBulkInProgress(true)
+    try {
+      const { error } = await supabase
+        .from('structures')
+        .update({ status: 'rejected', rejection_reason: 'Respinto via bulk admin' })
+        .in('id', ids)
+      if (error) throw error
+      addToast({ type: 'success', title: `${ids.length} respint${ids.length === 1 ? 'a' : 'e'}`, message: '' })
+      clearSelection()
+      await fetchStructures()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore'
+      addToast({ type: 'error', title: 'Errore bulk reject', message })
+    } finally {
+      setBulkInProgress(false)
     }
   }
 
@@ -266,6 +344,15 @@ export default function AdminStructures() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[rgba(255,255,255,0.06)]">
+                  <th className="px-3 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
+                      onChange={() => toggleSelectAll(filtered)}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-primary"
+                      aria-label="Seleziona tutte"
+                    />
+                  </th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Struttura</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">P.IVA</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Tipo · Zona</th>
@@ -281,9 +368,21 @@ export default function AdminStructures() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.25 }}
-                    className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors cursor-pointer"
+                    className={cn(
+                      'border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors cursor-pointer',
+                      selectedIds.has(s.id) && 'bg-[rgba(91,184,245,0.06)]',
+                    )}
                     onClick={() => setSelected(s)}
                   >
+                    <td className="px-3 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelect(s.id)}
+                        className="w-4 h-4 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-primary"
+                        aria-label={`Seleziona ${s.ragione_sociale}`}
+                      />
+                    </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-[rgba(91,184,245,0.12)] border border-[rgba(91,184,245,0.2)] flex items-center justify-center flex-shrink-0">
@@ -468,6 +567,16 @@ export default function AdminStructures() {
           </>
         )}
       </AnimatePresence>
+
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        itemLabel="struttur"
+        onClear={clearSelection}
+        actions={[
+          { label: 'Approva', icon: CheckCircle, variant: 'primary', disabled: bulkInProgress, onClick: () => void handleBulkApprove() },
+          { label: 'Respingi', icon: X, variant: 'danger', disabled: bulkInProgress, onClick: () => void handleBulkReject() },
+        ]}
+      />
     </motion.div>
   )
 }

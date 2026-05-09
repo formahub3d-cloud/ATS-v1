@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/ToastSystem'
 import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
+import BulkActionsBar from '@/components/admin/BulkActionsBar'
 import Avatar from '@/components/Avatar'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import { supabase } from '@/lib/supabase'
@@ -75,6 +76,20 @@ export default function AdminShifts() {
   const [selected, setSelected] = useState<ShiftWithJoins | null>(null)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [selectedReviews, setSelectedReviews] = useState<ReviewRow[]>([])
+  // Bulk
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkInProgress, setBulkInProgress] = useState(false)
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
+  const toggleSelectAll = (visible: ShiftWithJoins[]) => {
+    setSelectedIds((prev) => {
+      const all = visible.every((r) => prev.has(r.id))
+      const n = new Set(prev)
+      for (const r of visible) all ? n.delete(r.id) : n.add(r.id)
+      return n
+    })
+  }
 
   // Carico le recensioni del turno selezionato (solo quando cambia).
   useEffect(() => {
@@ -156,6 +171,31 @@ export default function AdminShifts() {
     for (const s of shifts) counts[s.status]++
     return counts
   }, [shifts])
+
+  const handleBulkCancel = async () => {
+    if (selectedIds.size === 0) return
+    const ids = filtered.filter((s) => selectedIds.has(s.id) && (s.status === 'open' || s.status === 'assigned')).map((s) => s.id)
+    if (ids.length === 0) {
+      addToast({ type: 'warning', title: 'Nessun turno annullabile', message: 'Solo turni open o assigned possono essere annullati.' })
+      return
+    }
+    setBulkInProgress(true)
+    try {
+      const { error } = await supabase
+        .from('shifts')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: 'Annullato via bulk admin' })
+        .in('id', ids)
+      if (error) throw error
+      addToast({ type: 'success', title: `${ids.length} turn${ids.length === 1 ? 'o' : 'i'} annullat${ids.length === 1 ? 'o' : 'i'}`, message: '' })
+      setSelectedIds(new Set())
+      await load()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore'
+      addToast({ type: 'error', title: 'Errore bulk cancel', message })
+    } finally {
+      setBulkInProgress(false)
+    }
+  }
 
   const handleCancel = async (s: ShiftRow) => {
     if (!user) return
@@ -271,6 +311,15 @@ export default function AdminShifts() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[rgba(255,255,255,0.06)]">
+                  <th className="px-3 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id))}
+                      onChange={() => toggleSelectAll(filtered)}
+                      className="w-4 h-4 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-primary"
+                      aria-label="Seleziona tutti"
+                    />
+                  </th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Quando</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Struttura · Zona</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Ruolo · Paga</th>
@@ -285,9 +334,21 @@ export default function AdminShifts() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.25 }}
-                    className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors cursor-pointer"
+                    className={cn(
+                      'border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors cursor-pointer',
+                      selectedIds.has(s.id) && 'bg-[rgba(91,184,245,0.06)]',
+                    )}
                     onClick={() => setSelected(s)}
                   >
+                    <td className="px-3 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelect(s.id)}
+                        className="w-4 h-4 rounded border-white/20 bg-white/5 cursor-pointer accent-sky-primary"
+                        aria-label={`Seleziona turno ${s.role}`}
+                      />
+                    </td>
                     <td className="px-3 py-3">
                       <div className="text-sm text-white font-medium">{new Date(s.shift_date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}</div>
                       <div className="text-xs text-text-muted flex items-center gap-1 font-mono">
@@ -450,6 +511,15 @@ export default function AdminShifts() {
           </>
         )}
       </AnimatePresence>
+
+      <BulkActionsBar
+        selectedCount={selectedIds.size}
+        itemLabel="turn"
+        onClear={() => setSelectedIds(new Set())}
+        actions={[
+          { label: 'Annulla turni', icon: Ban, variant: 'danger', disabled: bulkInProgress, onClick: () => void handleBulkCancel() },
+        ]}
+      />
     </motion.div>
   )
 }
