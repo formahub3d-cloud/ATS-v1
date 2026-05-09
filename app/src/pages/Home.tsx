@@ -164,7 +164,7 @@ export default function Home() {
       {/* 7. Prezzi */}
       <PricingSection />
 
-      {/* 8. Perch\u00E9 ATS */}
+      {/* 8. Perché ATS */}
       <WhyAtsSection />
 
       {/* 9. Testimonials */}
@@ -220,7 +220,7 @@ function HeroSection() {
           transition={{ delay: 1.1, duration: 0.7 }}
           className="mt-7 text-[clamp(17px,2vw,21px)] text-text-secondary leading-[1.7] max-w-[680px] mx-auto"
         >
-          ATS assume, forma e certifica i migliori professionisti dell'hospitality. Tu li ricevi gi\u00E0 pronti — con contratto, garanzia di presenza e check-in digitale.
+          ATS assume, forma e certifica i migliori professionisti dell'hospitality. Tu li ricevi già pronti — con contratto, garanzia di presenza e check-in digitale.
         </motion.p>
 
         <motion.div
@@ -337,7 +337,7 @@ function ProblemSection() {
   const isInView = useInView(ref, { once: true, margin: '-100px' })
 
   const chaosCards = [
-    { icon: MessageCircle, title: 'Trovi personale su WhatsApp', text: 'Gruppi caotici, richieste all\u2019ultimo momento, nessuna garanzia di risposta.' },
+    { icon: MessageCircle, title: 'Trovi personale su WhatsApp', text: "Gruppi caotici, richieste all'ultimo momento, nessuna garanzia di risposta." },
     { icon: FileX, title: 'Accordi verbali, zero traccia', text: 'Nessun contratto, nessuna fattura, nessuna prova. In caso di problema, sei solo.' },
     { icon: AlertTriangle, title: 'Personale non formato, turni a rischio', text: 'No-show, ritardi, mancanza di certificazioni. La tua struttura resta scoperta.' },
   ]
@@ -351,7 +351,7 @@ function ProblemSection() {
   ]
 
   return (
-    <Section className="bg-[#020810] py-[120px]">
+    <Section className="bg-[#020810] py-16 sm:py-20 lg:py-24">
       <div ref={ref} className="max-w-[1200px] mx-auto px-6">
         {/* Header */}
         <motion.div
@@ -362,7 +362,7 @@ function ProblemSection() {
         >
           <p className="text-[13px] font-mono uppercase tracking-[0.1em] text-error mb-4">IL PROBLEMA</p>
           <h2 className="font-playfair text-[clamp(32px,5vw,56px)] font-bold text-white leading-[1.1] mb-4">
-            L'hospitality di Benevento \u00E8 fermo al passato
+            L'hospitality di Benevento è fermo al passato
           </h2>
           <p className="text-[18px] text-text-secondary leading-[1.7] max-w-[640px]">
             WhatsApp, accordi verbali, personale non formato. Un mercato che perde tempo e soldi ogni giorno.
@@ -469,12 +469,12 @@ function HowItWorksSection() {
       icon: CreditCard,
       actor: 'Sistema',
       title: 'Check-in automatico e pagamento istantaneo',
-      text: 'QR code all\u2019arrivo, GPS verificato, ore calcolate automaticamente. La struttura paga, il dipendente riceve.',
+      text: "QR code all'arrivo, GPS verificato, ore calcolate automaticamente. La struttura paga, il dipendente riceve.",
     },
   ]
 
   return (
-    <Section id="how-it-works" className="bg-navy py-[140px]">
+    <Section id="how-it-works" className="bg-navy py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1280px] mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -576,7 +576,7 @@ function ActorsSection() {
       subtitle: 'Camerieri, chef, baristi, receptionist',
       features: [
         'Turni flessibili, tu scegli quando lavorare',
-        'Sistema rank: pi\u00F9 lavori, pi\u00F9 guadagni',
+        'Sistema rank: più lavori, più guadagni',
         'Check-in con un tap sul QR',
         'Paga maturata in tempo reale',
         'Corsi di formazione in-app',
@@ -587,7 +587,7 @@ function ActorsSection() {
   ]
 
   return (
-    <Section id="actors" className="bg-card-bg py-[140px]">
+    <Section id="actors" className="bg-card-bg py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1280px] mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -683,15 +683,15 @@ function RankSection() {
   const isInView = useInView(ref, { once: true, margin: '-100px' })
 
   const ranks = [
-    { level: 1, name: 'Rookie', points: 0, bonus: '\u20AC8/h base', color: '#94A3B8', achieved: true },
-    { level: 2, name: 'Affidabile', points: 500, bonus: '+\u20AC0.50/h', color: '#5BB8F5', achieved: true },
-    { level: 3, name: 'Senior', points: 1500, bonus: '+\u20AC1.00/h', color: '#3AA3E8', achieved: true, current: true },
-    { level: 4, name: 'Elite', points: 3000, bonus: '+\u20AC1.50/h', color: '#1EC99A', achieved: false },
-    { level: 5, name: 'Ambassador', points: 5000, bonus: '+\u20AC2.00/h', color: '#F5B800', achieved: false },
+    { level: 1, name: 'Rookie', points: 0, bonus: '€8/h base', color: '#94A3B8', achieved: true },
+    { level: 2, name: 'Affidabile', points: 500, bonus: '+€0.50/h', color: '#5BB8F5', achieved: true },
+    { level: 3, name: 'Senior', points: 1500, bonus: '+€1.00/h', color: '#3AA3E8', achieved: true, current: true },
+    { level: 4, name: 'Elite', points: 3000, bonus: '+€1.50/h', color: '#1EC99A', achieved: false },
+    { level: 5, name: 'Ambassador', points: 5000, bonus: '+€2.00/h', color: '#F5B800', achieved: false },
   ]
 
   return (
-    <Section id="rank" className="bg-navy py-[140px]">
+    <Section id="rank" className="bg-navy py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1200px] mx-auto px-6">
         <div className="grid lg:grid-cols-[45%_55%] gap-16 items-start">
           {/* Left text */}
@@ -702,13 +702,13 @@ function RankSection() {
           >
             <p className="text-[13px] font-mono uppercase tracking-[0.1em] text-sky-primary mb-4">CRESCITA PROFESSIONALE</p>
             <h2 className="font-playfair text-[clamp(32px,5vw,56px)] font-bold text-white leading-[1.1] mb-6">
-              Lavora. Cresci. Guadagna di pi\u00F9.
+              Lavora. Cresci. Guadagna di più.
             </h2>
             <p className="text-[18px] text-text-secondary leading-[1.7] mb-6">
-              Il sistema rank trasforma ogni turno in un passo avanti. Pi\u00F9 turni completi, pi\u00F9 punti accumuli. Pi\u00F9 punti hai, pi\u00F9 sali di livello. Pi\u00F9 alto \u00E8 il tuo rank, pi\u00F9 alta \u00E8 la tua paga base.
+              Il sistema rank trasforma ogni turno in un passo avanti. Più turni completi, più punti accumuli. Più punti hai, più sali di livello. Più alto è il tuo rank, più alta è la tua paga base.
             </p>
             <p className="font-playfair text-[24px] text-success mb-8">
-              Fino a +\u20AC2,00/h in pi\u00F9 al raggiungere Ambassador
+              Fino a +€2,00/h in più al raggiungere Ambassador
             </p>
             <Link
               to="/employee/rank"
@@ -791,7 +791,7 @@ function PricingSection() {
       featured: false,
     },
     {
-      badge: 'Pi\u00F9 richiesto',
+      badge: 'Più richiesto',
       badgeColor: 'text-success bg-[rgba(30,201,154,0.1)]',
       icon: Utensils,
       iconColor: '#5BB8F5',
@@ -813,7 +813,7 @@ function PricingSection() {
   ]
 
   return (
-    <Section id="pricing" className="bg-card-bg py-[140px]">
+    <Section id="pricing" className="bg-card-bg py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1100px] mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -855,7 +855,7 @@ function PricingSection() {
               <div className="mb-6">
                 <plan.icon className="w-9 h-9 mb-4" style={{ color: plan.iconColor }} />
                 <div className="flex items-baseline gap-1">
-                  <span className="font-playfair text-[48px] font-bold text-white">\u20AC{plan.price}</span>
+                  <span className="font-playfair text-[48px] font-bold text-white">€{plan.price}</span>
                   <span className="text-[13px] text-text-muted">/anno</span>
                 </div>
               </div>
@@ -890,7 +890,7 @@ function PricingSection() {
           className="mt-10 p-6 rounded-xl bg-[rgba(13,30,52,0.6)] border border-[rgba(255,255,255,0.06)]"
         >
           <p className="text-[13px] text-text-muted text-center">
-            Tariffa oraria a partire da \u20AC15/h. Include paga dipendente, contributi INPS/INAIL, margini operativi.
+            Tariffa oraria a partire da €15/h. Include paga dipendente, contributi INPS/INAIL, margini operativi.
           </p>
         </motion.div>
       </div>
@@ -906,16 +906,16 @@ function WhyAtsSection() {
   const features = [
     { icon: ShieldCheck, title: 'Antibypass strutturale', text: 'Contratti, anonimato tecnico e penali pre-liquidate rendono il bypass impossibile.' },
     { icon: QrCode, title: 'Check-in QR + GPS', text: 'Timbratura digitale con verifica posizione. Ore esatte, zero contestazioni.' },
-    { icon: HeartHandshake, title: 'Matching intelligente', text: 'Algoritmo che considera distanza, esperienza, paga e disponibilit\u00E0. Match solo con like reciproco.' },
-    { icon: CreditCard, title: 'Pagamenti automatici', text: 'Addebito struttura entro 24h. Bonifico dipendente a fine mese. Zero manualit\u00E0.' },
+    { icon: HeartHandshake, title: 'Matching intelligente', text: 'Algoritmo che considera distanza, esperienza, paga e disponibilità. Match solo con like reciproco.' },
+    { icon: CreditCard, title: 'Pagamenti automatici', text: 'Addebito struttura entro 24h. Bonifico dipendente a fine mese. Zero manualità.' },
     { icon: Truck, title: 'Sistema navette', text: 'ATS mette a disposizione mezzi propri, o il dipendente driver guadagna extra.' },
     { icon: GraduationCap, title: 'Formazione in-app', text: 'Corsi HACCP, sicurezza, specializzazione. ATS anticipa il 50%, resto a rate dalla paga.' },
-    { icon: Trophy, title: 'Rank & Punti', text: 'Gamification che premia affidabilit\u00E0. Pi\u00F9 punti = pi\u00F9 paga, turni migliori, priorit\u00E0 nelle notifiche.' },
-    { icon: MessageCircle, title: 'Chat tracciata', text: 'Solo canale verticale Admin\u2194Struttura e Admin\u2194Dipendente. Zero contatto diretto, tutto archiviato.' },
+    { icon: Trophy, title: 'Rank & Punti', text: 'Gamification che premia affidabilità. Più punti = più paga, turni migliori, priorità nelle notifiche.' },
+    { icon: MessageCircle, title: 'Chat tracciata', text: 'Solo canale verticale Admin↔Struttura e Admin↔Dipendente. Zero contatto diretto, tutto archiviato.' },
   ]
 
   return (
-    <Section id="features" className="bg-navy py-[140px]">
+    <Section id="features" className="bg-navy py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1280px] mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -923,7 +923,7 @@ function WhyAtsSection() {
           variants={fadeUp}
           className="text-center mb-20"
         >
-          <p className="text-[13px] font-mono uppercase tracking-[0.1em] text-sky-primary mb-4">PERCH\u00C9 SCEGLIERE ATS</p>
+          <p className="text-[13px] font-mono uppercase tracking-[0.1em] text-sky-primary mb-4">PERCHÉ SCEGLIERE ATS</p>
           <h2 className="font-playfair text-[clamp(32px,5vw,56px)] font-bold text-white leading-[1.1] mb-4">
             Tutto quello che le altre soluzioni non ti danno
           </h2>
@@ -965,22 +965,22 @@ function TestimonialsSection() {
 
   const testimonials = [
     {
-      quote: 'Prima trovavo personale all\u2019ultimo momento su WhatsApp. Ora pubblico la richiesta e in un\u2019ora ho il match confermato. Il check-in QR ha eliminato ogni discussione sulle ore.',
+      quote: "Prima trovavo personale all'ultimo momento su WhatsApp. Ora pubblico la richiesta e in un'ora ho il match confermato. Il check-in QR ha eliminato ogni discussione sulle ore.",
       avatar: '/avatar-employee-5.jpg',
       name: 'Marco R.',
-      role: 'Proprietario, Ristorante Il Torchio \u2014 Benevento',
+      role: 'Proprietario, Ristorante Il Torchio — Benevento',
     },
     {
       quote: 'Faccio i turni che voglio, quando voglio. La paga arriva puntualmente e il sistema rank mi spinge a fare sempre meglio. Da Rookie a Senior in 8 mesi.',
       avatar: '/avatar-employee-2.jpg',
       name: 'Giulia D.',
-      role: 'Chef de Partie \u2014 Livello Senior',
+      role: 'Chef de Partie — Livello Senior',
     },
     {
-      quote: 'Abbiamo provato agenzie di somministrazione e servizi esterni. ATS \u00E8 l\u2019unico che ci ha davvero liberato dalla gestione del personale. Tutto automatico, tutto tracciato.',
+      quote: "Abbiamo provato agenzie di somministrazione e servizi esterni. ATS è l'unico che ci ha davvero liberato dalla gestione del personale. Tutto automatico, tutto tracciato.",
       avatar: '/avatar-employee-7.jpg',
       name: 'Luca B.',
-      role: 'Direttore, Hotel Palazzo \u2014 Benevento',
+      role: 'Direttore, Hotel Palazzo — Benevento',
     },
   ]
 
@@ -993,7 +993,7 @@ function TestimonialsSection() {
   }, [next])
 
   return (
-    <Section className="bg-card-bg py-[140px]">
+    <Section className="bg-card-bg py-16 sm:py-20 lg:py-28">
       <div ref={ref} className="max-w-[1200px] mx-auto px-6">
         <motion.div
           initial="hidden"
@@ -1003,7 +1003,7 @@ function TestimonialsSection() {
         >
           <p className="text-[13px] font-mono uppercase tracking-[0.1em] text-sky-primary mb-4">TESTIMONIANZE</p>
           <h2 className="font-playfair text-[clamp(32px,5vw,56px)] font-bold text-white leading-[1.1] mb-4">
-            Cosa dicono chi gi\u00E0 usa ATS
+            Cosa dicono chi già usa ATS
           </h2>
           <p className="text-[18px] text-text-secondary leading-[1.7] max-w-[640px] mx-auto">
             Strutture e dipendenti raccontano la loro esperienza.
@@ -1084,7 +1084,7 @@ function CTABanner() {
   const isInView = useInView(ref, { once: true, margin: '-100px' })
 
   return (
-    <Section className="py-[120px] relative overflow-hidden">
+    <Section className="py-16 sm:py-20 lg:py-24 relative overflow-hidden">
       <div
         className="absolute inset-0 animate-gradient-shift"
         style={{

@@ -13,6 +13,7 @@ import { SkeletonCard } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import GlassSwipeCard, { type GlassEmployeeProfile } from '@/components/structure/GlassSwipeCard'
 import MatchStatus, { type MatchState, type MatchPhase } from '@/components/structure/MatchStatus'
+import PageHeader from '@/components/ui/PageHeader'
 import confetti from 'canvas-confetti'
 
 /* ─────────────── helpers ─────────────── */
@@ -174,32 +175,34 @@ export default function StructureMatching() {
           transition={{ duration: 0.4 }}
           className="mb-8"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div>
-              <h1 className="font-playfair text-[28px] font-bold text-white mb-1">Cerca Personale</h1>
-              <p className="text-sm text-[#94A3B8]">
-                Profili compatibili: <span className="text-[#5BB8F5] font-semibold">{filteredProfiles.length}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)]">
-                Annunci attivi: 1
-              </span>
-              <GlassTooltip content="Filtra i profili">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={cn(
-                    'p-2.5 rounded-xl border transition-all',
-                    showFilters
-                      ? 'bg-[rgba(91,184,245,0.15)] border-[rgba(91,184,245,0.3)] text-[#5BB8F5]'
-                      : 'border-[rgba(255,255,255,0.1)] text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)]'
-                  )}
-                >
-                  <SlidersHorizontal className="w-5 h-5" />
-                </button>
-              </GlassTooltip>
-            </div>
-          </div>
+          <PageHeader
+            title="Cerca Personale"
+            subtitle={`Profili compatibili: ${filteredProfiles.length}`}
+            showBack
+            backTo="/structure"
+            backLabel="Dashboard"
+            variant="display"
+            actions={
+              <>
+                <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)] whitespace-nowrap">
+                  Annunci attivi: 1
+                </span>
+                <GlassTooltip content="Filtra i profili">
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={cn(
+                      'p-2.5 rounded-xl border transition-all',
+                      showFilters
+                        ? 'bg-[rgba(91,184,245,0.15)] border-[rgba(91,184,245,0.3)] text-[#5BB8F5]'
+                        : 'border-[rgba(255,255,255,0.1)] text-[#94A3B8] hover:bg-[rgba(255,255,255,0.05)]'
+                    )}
+                  >
+                    <SlidersHorizontal className="w-5 h-5" />
+                  </button>
+                </GlassTooltip>
+              </>
+            }
+          />
 
           {/* Role filter pills */}
           <div className="flex flex-wrap gap-2">

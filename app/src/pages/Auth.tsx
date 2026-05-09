@@ -44,6 +44,7 @@ import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
 import Avatar from '@/components/Avatar'
 
+import { supabase } from '@/lib/supabase'
 import GlassRoleSelector, { type UserRole } from '@/components/auth/GlassRoleSelector'
 import GlassStepIndicator from '@/components/auth/GlassStepIndicator'
 import GlassOnboardingStep from '@/components/auth/GlassOnboardingStep'
@@ -64,11 +65,11 @@ const easeSmooth = [0.32, 0.72, 0, 1] as [number, number, number, number]
 
 /* ─── Structure Tags ─── */
 const STRUCTURE_TAGS: Tag[] = [
-  { id: 'puntualita', label: 'Puntualit\u00E0' },
-  { id: 'professionalita', label: 'Professionalit\u00E0' },
+  { id: 'puntualita', label: 'Puntualità' },
+  { id: 'professionalita', label: 'Professionalità' },
   { id: 'pulizia', label: 'Pulizia personale' },
   { id: 'abbigliamento', label: 'Abbigliamento adeguato' },
-  { id: 'velocita', label: 'Velocit\u00E0' },
+  { id: 'velocita', label: 'Velocità' },
   { id: 'pressione', label: 'Lavoro sotto pressione' },
   { id: 'lingue', label: 'Lingue straniere' },
   { id: 'sorriso', label: 'Sorriso' },
@@ -76,12 +77,12 @@ const STRUCTURE_TAGS: Tag[] = [
 ]
 
 const EMPLOYEE_TAGS: Tag[] = [
-  { id: 'flessibilita', label: 'Flessibilit\u00E0 orari' },
+  { id: 'flessibilita', label: 'Flessibilità orari' },
   { id: 'paga_equa', label: 'Paga equa' },
   { id: 'ambiente', label: 'Ambiente sereno' },
   { id: 'crescita', label: 'Crescita professionale' },
   { id: 'team', label: 'Lavoro di squadra' },
-  { id: 'stabilita', label: 'Stabilit\u00E0' },
+  { id: 'stabilita', label: 'Stabilità' },
   { id: 'vicinanza', label: 'Vicinanza casa' },
   { id: 'mensa', label: 'Mensa inclusa' },
   { id: 'trasporto', label: 'Navetta/Trasporto' },
@@ -113,10 +114,10 @@ export default function Auth() {
   const [role, setRole] = useState<UserRole | null>(null)
 
   /* Login state */
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('ats_remembered_email') || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('ats_remembered_email'))
   const [loginError, setLoginError] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
@@ -132,6 +133,8 @@ export default function Auth() {
     referenteRuolo: '',
     referenteTelefono: '',
     referenteEmail: '',
+    password: '',
+    passwordConfirm: '',
     tipoStruttura: '',
     zona: '',
     descrizione: '',
@@ -240,17 +243,8 @@ export default function Auth() {
     setView('login')
   }
 
-  const handleDemo = (demoRole: UserRole) => {
-    localStorage.setItem('ats_active_role', demoRole)
-    addToast({
-      type: 'success',
-      title: 'Modalità demo attivata',
-      message: `Navigazione come ${demoRole === 'admin' ? 'Admin' : demoRole === 'structure' ? 'Struttura' : 'Dipendente'}`,
-    })
-    if (demoRole === 'admin') navigate('/admin')
-    else if (demoRole === 'structure') navigate('/structure')
-    else navigate('/employee')
-  }
+  /* handleDemo rimosso: l'accesso "diretto senza credenziali" non è più
+     supportato. Ora si entra solo con un vero login Supabase via handleLogin. */
 
   /* ─── Login handler ─── */
   const handleLogin = async () => {
@@ -261,20 +255,66 @@ export default function Auth() {
       return
     }
     setIsLoggingIn(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setIsLoggingIn(false)
-    localStorage.setItem('ats_active_role', role || 'employee')
-    addToast({ type: 'success', title: 'Accesso effettuato', message: 'Bentornato!' })
-    if (role === 'admin') navigate('/admin')
-    else if (role === 'structure') navigate('/structure')
-    else navigate('/employee')
+    try {
+      // Login REALE su Supabase (era un setTimeout finto).
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      })
+      if (error) throw error
+
+      // Recupera il ruolo reale dal profilo (la signUp ha già scritto profiles.role).
+      const userId = data.user?.id
+      let realRole: 'admin' | 'structure' | 'employee' = role || 'employee'
+      if (userId) {
+        const { data: profile, error: profErr } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle()
+        if (!profErr && profile?.role) {
+          realRole = profile.role
+        }
+      }
+
+      // Mantiene allineato anche il "demo role" UI (RoleContext) per coerenza.
+      localStorage.setItem('ats_active_role', realRole)
+
+      // Ricorda email su questo dispositivo (solo l'email, MAI la password).
+      if (rememberMe) {
+        localStorage.setItem('ats_remembered_email', email.trim().toLowerCase())
+      } else {
+        localStorage.removeItem('ats_remembered_email')
+      }
+
+      addToast({ type: 'success', title: 'Accesso effettuato', message: 'Bentornato!' })
+      if (realRole === 'admin') navigate('/admin')
+      else if (realRole === 'structure') navigate('/structure')
+      else navigate('/employee')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login fallito'
+      setLoginError(message)
+      addToast({ type: 'error', title: 'Errore login', message })
+    } finally {
+      setIsLoggingIn(false)
+    }
   }
 
   /* ─── Structure step validation ─── */
   const canProceedStructure = (): boolean => {
     switch (structStep) {
-      case 1:
-        return !!(structData.ragioneSociale && structData.piva && structData.referenteNome && structData.referenteEmail)
+      case 1: {
+        const pwd = structData.password as string
+        const pwdConfirm = structData.passwordConfirm as string
+        return !!(
+          structData.ragioneSociale &&
+          structData.piva &&
+          structData.referenteNome &&
+          structData.referenteEmail &&
+          pwd && pwd.length >= 8 &&
+          pwd === pwdConfirm
+        )
+      }
       case 2:
         return !!(structData.tipoStruttura && structData.zona)
       case 3:
@@ -368,13 +408,135 @@ export default function Auth() {
   /* ─── Submit handlers ─── */
   const handleStructureSubmit = async () => {
     setIsSubmitting(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSubmitting(false)
-    addToast({ type: 'success', title: 'Candidatura inviata!', message: 'Ti contatteremo entro 48 ore per la verifica.' })
-    setTimeout(() => {
-      setView('login')
-      setStructStep(1)
-    }, 2500)
+    try {
+      // 1. Crea l'account auth con role='structure' (il trigger handle_new_user
+      //    crea automaticamente la riga in `profiles`).
+      const email = (structData.referenteEmail as string).trim().toLowerCase()
+      const password = structData.password as string
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: structData.referenteNome as string,
+            role: 'structure',
+          },
+        },
+      })
+
+      if (signUpError) throw signUpError
+      const userId = signUpData.user?.id
+      if (!userId) throw new Error('SignUp riuscito ma user.id mancante.')
+
+      // Se Supabase richiede email confirmation, signUp NON apre una sessione.
+      // Senza sessione non possiamo soddisfare la RLS `auth.uid() = user_id`,
+      // quindi non possiamo proseguire con insert/upload qui.
+      if (!signUpData.session) {
+        addToast({
+          type: 'info',
+          title: 'Conferma la tua email',
+          message: `Ti abbiamo inviato un link a ${email}. Confermala e poi accedi per completare l'invio.`,
+        })
+        setView('login')
+        return
+      }
+
+      // 2. Upload video di attestazione (Blob → Storage).
+      let videoPath: string | null = null
+      const videoBlob = structData.videoAttestazione as Blob | null
+      if (videoBlob) {
+        const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm'
+        videoPath = `${userId}/video-attestazione/${crypto.randomUUID()}.${ext}`
+        const { error: videoErr } = await supabase.storage
+          .from('structure-media')
+          .upload(videoPath, videoBlob, {
+            contentType: videoBlob.type || 'video/webm',
+            upsert: false,
+          })
+        if (videoErr) throw videoErr
+      }
+
+      // 3. INSERT della struttura (status = 'pending_review' di default).
+      const { data: structureRow, error: insertErr } = await supabase
+        .from('structures')
+        .insert({
+          user_id: userId,
+          ragione_sociale: structData.ragioneSociale as string,
+          piva: structData.piva as string,
+          codice_fiscale: (structData.cf as string) || null,
+          sede_legale: (structData.sedeLegale as string) || null,
+          sede_operativa: (structData.sedeOperativa as string) || null,
+          referente_nome: (structData.referenteNome as string) || null,
+          referente_ruolo: (structData.referenteRuolo as string) || null,
+          referente_telefono: (structData.referenteTelefono as string) || null,
+          referente_email: email,
+          tipo_struttura: (structData.tipoStruttura as string) || null,
+          zona: (structData.zona as string) || null,
+          descrizione: (structData.descrizione as string) || null,
+          ruoli_cercati: structData.ruoliCercati as string[],
+          fasce_orarie: structData.fasceOrarie as Record<string, string>,
+          persone_per_turno: structData.personePerTurno
+            ? Number(structData.personePerTurno)
+            : null,
+          servizi_aggiuntivi: structData.serviziAggiuntivi as string[],
+          tag_valori: structData.tagValori as string[],
+          eventi_settimana: structData.eventiSettimana
+            ? Number(structData.eventiSettimana)
+            : null,
+          dipendenti_interni: structData.dipendentiInterni
+            ? Number(structData.dipendentiInterni)
+            : null,
+          esperienze_esterne: (structData.esperienzeEsterne as string) || null,
+          fatturato: (structData.fatturato as string) || null,
+          ore_esterno_mensili: structData.oreEsternoMensili
+            ? Number(structData.oreEsternoMensili)
+            : null,
+          metodo_pagamento: structData.metodoPagamento as 'carta' | 'sepa',
+          video_attestazione_path: videoPath,
+          accettato_contratto: !!structData.accettatoContratto,
+          accettato_contratto_at: structData.accettatoContratto ? new Date().toISOString() : null,
+        })
+        .select('id')
+        .single()
+
+      if (insertErr) throw insertErr
+
+      // 4. Upload foto ambienti + insert in structure_photos.
+      const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+      for (let i = 0; i < photos.length; i++) {
+        const p = photos[i]
+        if (!p.file) continue
+        const ext = p.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/photos/${crypto.randomUUID()}.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('structure-media')
+          .upload(path, p.file, { contentType: p.file.type, upsert: false })
+        if (upErr) throw upErr
+
+        const { error: photoErr } = await supabase
+          .from('structure_photos')
+          .insert({ structure_id: structureRow.id, storage_path: path, sort_order: i })
+        if (photoErr) throw photoErr
+      }
+
+      // 5. Pulizia bozza locale + redirect.
+      localStorage.removeItem('ats_draft_structure')
+      addToast({
+        type: 'success',
+        title: 'Candidatura inviata!',
+        message: 'Ti contatteremo entro 48 ore per la verifica.',
+      })
+      setTimeout(() => {
+        setView('login')
+        setStructStep(1)
+      }, 1800)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      console.error('[register-structure] submit error', err)
+      addToast({ type: 'error', title: 'Errore durante l\u2019invio', message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleEmployeeSubmit = async () => {
@@ -391,7 +553,7 @@ export default function Auth() {
   /* ─── Step labels ─── */
   const structureSteps = [
     'Dati aziendali',
-    'Identit\u00E0 struttura',
+    'Identità struttura',
     'Video attestazione',
     'Esigenze operative',
     'Tag valori',
@@ -427,10 +589,10 @@ export default function Auth() {
 
   /* ─── Interview slots ─── */
   const interviewSlots = [
-    { day: 'Luned\u00EC 16', slots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'] },
-    { day: 'Marted\u00EC 17', slots: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
-    { day: 'Mercoled\u00EC 18', slots: ['10:00', '11:00', '14:00', '16:00'] },
-    { day: 'Gioved\u00EC 19', slots: ['09:00', '11:00', '14:00', '15:00'] },
+    { day: 'Lunedì 16', slots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'] },
+    { day: 'Martedì 17', slots: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
+    { day: 'Mercoledì 18', slots: ['10:00', '11:00', '14:00', '16:00'] },
+    { day: 'Giovedì 19', slots: ['09:00', '11:00', '14:00', '15:00'] },
   ]
 
   /* ─── Glass Input wrapper ─── */
@@ -551,7 +713,7 @@ export default function Auth() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-                  className="text-[40px] sm:text-[48px] font-playfair font-bold text-text-primary mb-2 text-center"
+                  className="text-[28px] sm:text-[32px] font-playfair font-bold text-text-primary mb-2 text-center"
                   style={{ textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
                 >
                   Accedi ad ATS
@@ -566,7 +728,7 @@ export default function Auth() {
                   Seleziona il tuo profilo per continuare
                 </motion.p>
 
-                <GlassRoleSelector selectedRole={role} onSelect={handleRoleSelect} onDemo={handleDemo} />
+                <GlassRoleSelector selectedRole={role} onSelect={handleRoleSelect} />
 
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -600,22 +762,102 @@ export default function Auth() {
                   Bentornato
                 </h1>
                 <p className="text-base text-text-secondary mb-8">
-                  Accedi direttamente senza credenziali
+                  Inserisci email e password per accedere
                 </p>
 
-                <div className="w-full space-y-4">
-                  {/* Accesso diretto */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (!isLoggingIn) handleLogin()
+                  }}
+                  className="w-full space-y-4"
+                >
+                  {/* Email */}
+                  <div className="space-y-1.5 text-left">
+                    <Label htmlFor="login-email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-sky-primary" />
+                      Email
+                    </Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder={
+                        role === 'structure'
+                          ? 'es. info@miastruttura.it'
+                          : role === 'admin'
+                          ? 'es. admin@ats.it'
+                          : 'es. mario.rossi@gmail.com'
+                      }
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1.5 text-left">
+                    <Label htmlFor="login-password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-sky-primary" />
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        placeholder="La tua password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-text-muted hover:text-white"
+                        aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Ricorda email */}
+                  <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
+                    <Checkbox
+                      checked={rememberMe}
+                      onCheckedChange={(v) => setRememberMe(v === true)}
+                    />
+                    Ricorda la mia email su questo dispositivo
+                  </label>
+
+                  {/* Errore */}
+                  {loginError && (
+                    <p className="text-sm text-error text-left">{loginError}</p>
+                  )}
+
+                  {/* Pulsante Accedi */}
                   <motion.button
-                    whileHover={{ scale: 1.02, boxShadow: '0 8px 24px rgba(91,184,245,0.25)' }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => role && handleDemo(role)}
-                    className="w-full py-3.5 text-sm font-semibold text-text-inverse rounded-xl transition-all duration-200 flex items-center justify-center gap-2 backdrop-blur-md gradient-sky hover:brightness-110"
+                    type="submit"
+                    disabled={isLoggingIn}
+                    whileHover={!isLoggingIn ? { scale: 1.02, boxShadow: '0 8px 24px rgba(91,184,245,0.25)' } : {}}
+                    whileTap={!isLoggingIn ? { scale: 0.98 } : {}}
+                    className="w-full py-3.5 text-sm font-semibold text-text-inverse rounded-xl transition-all duration-200 flex items-center justify-center gap-2 backdrop-blur-md gradient-sky hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Check className="w-4 h-4" />
-                    Entra come {role === 'admin' ? 'Admin' : role === 'structure' ? 'Struttura' : 'Dipendente'}
+                    {isLoggingIn ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-text-inverse border-t-transparent rounded-full animate-spin" />
+                        Accesso in corso…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Accedi
+                      </>
+                    )}
                   </motion.button>
 
-                  {/* Links */}
+                  {/* Links sotto */}
                   <div className="text-center space-y-3 pt-2">
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
@@ -628,6 +870,7 @@ export default function Auth() {
 
                     {role === 'admin' ? (
                       <button
+                        type="button"
                         onClick={() => setView('register-admin')}
                         className="text-sm text-sky-primary hover:text-sky-blue transition-colors"
                       >
@@ -637,6 +880,7 @@ export default function Auth() {
                       <p className="text-sm text-text-secondary">
                         Non hai un account?{' '}
                         <button
+                          type="button"
                           onClick={() =>
                             setView(role === 'structure' ? 'register-structure' : 'register-employee')
                           }
@@ -647,7 +891,7 @@ export default function Auth() {
                       </p>
                     )}
                   </div>
-                </div>
+                </form>
               </motion.div>
             )}
 
@@ -813,6 +1057,39 @@ export default function Auth() {
                               onChange={(e) => updateStruct('referenteEmail', e.target.value)}
                               className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
                             />
+                            <p className="text-xs text-text-muted">
+                              Sarà l'email di accesso al portale.
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2 border-t border-[rgba(255,255,255,0.06)] pt-4 mt-2">
+                            <p className="text-sm font-medium text-sky-primary mb-3 flex items-center gap-2">
+                              <Lock className="w-4 h-4" />
+                              Credenziali di accesso
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Password</Label>
+                            <Input
+                              type="password"
+                              placeholder="Almeno 8 caratteri"
+                              value={structData.password as string}
+                              onChange={(e) => updateStruct('password', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Conferma password</Label>
+                            <Input
+                              type="password"
+                              placeholder="Ripeti la password"
+                              value={structData.passwordConfirm as string}
+                              onChange={(e) => updateStruct('passwordConfirm', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                            {(structData.passwordConfirm as string) &&
+                              structData.password !== structData.passwordConfirm && (
+                                <p className="text-xs text-error">Le password non coincidono</p>
+                              )}
                           </div>
                         </div>
                       </GlassOnboardingStep>
@@ -979,7 +1256,7 @@ export default function Auth() {
                               <Clock className="w-4 h-4 text-sky-primary" />
                               Fasce Orarie Tipiche
                             </Label>
-                            {['Luned\u00EC', 'Marted\u00EC', 'Mercoled\u00EC', 'Gioved\u00EC', 'Venerd\u00EC', 'Sabato', 'Domenica'].map(
+                            {['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'].map(
                               (day) => (
                                 <div key={day} className="flex items-center gap-3">
                                   <span className="text-sm text-text-secondary w-28">{day}</span>

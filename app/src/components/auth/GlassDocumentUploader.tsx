@@ -10,6 +10,10 @@ export interface UploadedFile {
   size: number
   type: string
   url: string
+  // Riferimento all'oggetto File originale per poterlo caricare su Supabase
+  // Storage. Opzionale perché `existingFiles` può arrivare senza (es. file già
+  // su server quando si rientra in una bozza).
+  file?: File
 }
 
 interface GlassDocumentUploaderProps {
@@ -52,6 +56,7 @@ export default function GlassDocumentUploader({
           size: file.size,
           type: file.type,
           url: URL.createObjectURL(file),
+          file,
         })
       })
 

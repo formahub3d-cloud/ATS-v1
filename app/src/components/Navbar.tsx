@@ -11,7 +11,7 @@ const navLinks = [
   { label: 'I 3 Attori', href: '#actors' },
   { label: 'Sistema Rank', href: '#rank' },
   { label: 'Prezzi', href: '#pricing' },
-  { label: 'Perch\u00E9 ATS', href: '#features' },
+  { label: 'Perché ATS', href: '#features' },
 ]
 
 export default function Navbar() {

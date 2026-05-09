@@ -6,7 +6,7 @@ import {
   CheckCircle, UserCheck, CreditCard, MessageSquare,
   Star, ChevronRight, Calendar, Users, Clock,
   X, Info, Bell, BellRing, LayoutDashboard, HeartHandshake,
-  Settings
+  Settings, Hourglass, AlertCircle, Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
@@ -16,6 +16,12 @@ import Avatar from '@/components/Avatar'
 import CoverPhoto from '@/components/CoverPhoto'
 import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShiftCard'
 import MatchStatus, { type MatchState } from '@/components/structure/MatchStatus'
+import StatusScreen from '@/components/structure/StatusScreen'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
+import type { Database, StructureStatus } from '@/lib/database.types'
+
+type StructureRow = Database['public']['Tables']['structures']['Row']
 
 /* ─────────────── helpers ─────────────── */
 
@@ -70,6 +76,7 @@ const kpiData = [
 export default function StructurePortal() {
   const navigate = useNavigate()
   const { addToast } = useToast()
+  const { user, status: authStatus } = useAuth()
   const [showQRModal, setShowQRModal] = useState(false)
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
   const [ratings, setRatings] = useState<Record<string, number[]>>({})
@@ -78,10 +85,64 @@ export default function StructurePortal() {
   const [showNotifications, setShowNotifications] = useState(false)
   const progressDemo = 78
 
+  // Stato della struttura reale dell'utente loggato.
+  const [structure, setStructure] = useState<StructureRow | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(t)
-  }, [])
+    if (authStatus === 'loading') return
+    if (authStatus === 'anonymous' || !user) {
+      // Non autenticato: torna al login.
+      navigate('/auth')
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        // 1) Fetch della struttura dell'utente corrente (1:1 con user_id).
+        const { data: row, error } = await supabase
+          .from('structures')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (cancelled) return
+        if (error) throw error
+        setStructure(row)
+
+        // 2) Se ha foto, prendi la prima e genera signed URL per visualizzazione.
+        if (row) {
+          const { data: photos } = await supabase
+            .from('structure_photos')
+            .select('storage_path, sort_order')
+            .eq('structure_id', row.id)
+            .order('sort_order', { ascending: true })
+            .limit(1)
+
+          if (cancelled) return
+          if (photos && photos.length > 0) {
+            const { data: signed } = await supabase.storage
+              .from('structure-media')
+              .createSignedUrl(photos[0].storage_path, 60 * 60) // 1h
+            if (signed?.signedUrl) setCoverUrl(signed.signedUrl)
+          }
+        }
+      } catch (err) {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'Errore caricamento struttura'
+        console.error('[StructurePortal] fetch error', err)
+        setFetchError(message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authStatus, user, navigate])
 
   const handleRate = useCallback((id: string, tagIndex: number, value: number) => {
     setRatings(prev => {
@@ -118,6 +179,75 @@ export default function StructurePortal() {
     )
   }
 
+  // Errore di fetch — mostra schermata neutra con messaggio.
+  if (fetchError) {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#F04545"
+        title="Impossibile caricare la struttura"
+        description={fetchError}
+        primaryAction={{ label: 'Riprova', onClick: () => window.location.reload() }}
+      />
+    )
+  }
+
+  // Nessuna struttura associata all'account — invita alla registrazione.
+  if (!structure) {
+    return (
+      <StatusScreen
+        icon={Building2}
+        iconColor="#5BB8F5"
+        title="Nessuna struttura collegata"
+        description="Non c'è ancora una struttura associata a questo account. Completa la registrazione per accedere al portale."
+        primaryAction={{ label: 'Registra ora', onClick: () => navigate('/auth') }}
+      />
+    )
+  }
+
+  // Stato pending_review — la candidatura è in attesa di approvazione admin.
+  if (structure.status === 'pending_review') {
+    return (
+      <StatusScreen
+        icon={Hourglass}
+        iconColor="#F5B800"
+        title={`Candidatura in revisione`}
+        description={`Stiamo verificando i dati di "${structure.ragione_sociale}". Ti contatteremo entro 48 ore lavorative all'email ${structure.referente_email ?? '(email registrata)'}.`}
+        meta={[
+          { label: 'Inviata il', value: new Date(structure.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }) },
+          { label: 'Tipo struttura', value: structure.tipo_struttura ?? '—' },
+          { label: 'Zona', value: structure.zona ?? '—' },
+        ]}
+      />
+    )
+  }
+
+  if (structure.status === 'rejected') {
+    return (
+      <StatusScreen
+        icon={X}
+        iconColor="#F04545"
+        title="Candidatura non approvata"
+        description={
+          structure.rejection_reason ??
+          'Purtroppo la candidatura non è stata approvata. Contatta il supporto per maggiori informazioni.'
+        }
+      />
+    )
+  }
+
+  if (structure.status === 'suspended') {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#F5B800"
+        title="Account sospeso"
+        description="Il tuo account è temporaneamente sospeso. Contatta il supporto ATS per riattivarlo."
+      />
+    )
+  }
+
+  // Da qui in giù: structure.status === 'approved' → dashboard piena.
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
       <div className="max-w-[1200px] mx-auto px-6 py-8">
@@ -130,40 +260,42 @@ export default function StructurePortal() {
           className="relative rounded-[20px] overflow-hidden mb-8"
         >
           <div className="absolute inset-0">
-            <CoverPhoto src="/structure-1.jpg" alt="Ristorante Il Torchio" className="w-full h-full rounded-none" />
+            <CoverPhoto src={coverUrl ?? '/structure-1.jpg'} alt={structure.ragione_sociale} className="w-full h-full rounded-none" />
             <div className="absolute inset-0 bg-gradient-to-r from-[rgba(13,30,52,0.95)] via-[rgba(13,30,52,0.8)] to-transparent" />
           </div>
 
           <div className="relative p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <h1 className="font-playfair text-[28px] font-bold text-white mb-2">
-                Benvenuto, Ristorante Il Torchio
+                Benvenuto, {structure.ragione_sociale}
               </h1>
               <p className="text-sm text-[#94A3B8] mb-3">
-                Fee annuale: €900/anno · Sconto: -10% (128 turni pianificati)
+                {structure.tipo_struttura ?? 'Struttura'} · Zona {structure.zona ?? '—'}
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(30,201,154,0.15)] text-[#1EC99A] border border-[rgba(30,201,154,0.3)]">
                   <CheckCircle className="w-3 h-3" />
-                  Turni completati: 24
+                  Account approvato
                 </span>
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)]">
                   <Star className="w-3 h-3" />
-                  Rating medio personale: 4.2/5
+                  Rating medio personale: —
                 </span>
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(245,184,0,0.15)] text-[#F5B800] border border-[rgba(245,184,0,0.3)]">
                   <Clock className="w-3 h-3" />
-                  Prossimo turno: domani 08:00
+                  Nessun turno programmato
                 </span>
               </div>
             </div>
-            <div className="hidden lg:block flex-shrink-0">
-              <CoverPhoto
-                src="/structure-1.jpg"
-                alt="Ristorante"
-                className="w-[200px] h-[150px] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
-              />
-            </div>
+            {coverUrl && (
+              <div className="hidden lg:block flex-shrink-0">
+                <CoverPhoto
+                  src={coverUrl}
+                  alt={structure.ragione_sociale}
+                  className="w-[200px] h-[150px] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
+                />
+              </div>
+            )}
           </div>
         </motion.section>
 

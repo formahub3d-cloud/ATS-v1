@@ -12,6 +12,7 @@ import { SkeletonTable, SkeletonKpiRow, SkeletonText } from '@/components/ui/ske
 import Avatar from '@/components/Avatar'
 import GlassInvoiceCard from '@/components/structure/GlassInvoiceCard'
 import type { GlassInvoice } from '@/components/structure/GlassInvoiceCard'
+import PageHeader from '@/components/ui/PageHeader'
 
 /* ─────────────── helpers ─────────────── */
 
@@ -207,16 +208,14 @@ export default function StructureHistory() {
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
       <div className="max-w-[1200px] mx-auto px-6 py-8">
 
-        {/* ── Header ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-6"
-        >
-          <h1 className="font-playfair text-[32px] font-bold text-white mb-1">Storico & Pagamenti</h1>
-          <p className="text-sm text-[#94A3B8]">Tutti i turni, fatture e valutazioni della tua struttura</p>
-        </motion.section>
+        <PageHeader
+          title="Storico & Pagamenti"
+          subtitle="Tutti i turni, fatture e valutazioni della tua struttura"
+          showBack
+          backTo="/structure"
+          backLabel="Dashboard"
+          variant="display"
+        />
 
         {/* ── Summary Cards ── */}
         <motion.section

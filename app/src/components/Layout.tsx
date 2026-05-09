@@ -1,7 +1,8 @@
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './AccountSwitcher'
+import { useAuth } from '@/context/AuthContext'
 
 const adminNavItems = [
   { label: 'Dashboard', path: '/admin', icon: 'LayoutDashboard' },
@@ -27,6 +28,19 @@ const employeeNavItems = [
 
 function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: string }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { signOut, status } = useAuth()
+
+  const handleLogout = async () => {
+    try {
+      if (status === 'authenticated') await signOut()
+      localStorage.removeItem('ats_active_role')
+      localStorage.removeItem('ats_draft_structure')
+      localStorage.removeItem('ats_draft_employee')
+    } finally {
+      navigate('/auth')
+    }
+  }
   return (
     <aside
       className="hidden lg:flex flex-col w-[280px] min-h-screen fixed left-0 top-0 z-30"
@@ -68,15 +82,16 @@ function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: 
       </div>
       <div className="p-4 border-t border-[rgba(255,255,255,0.06)] space-y-3">
         <AccountSwitcher />
-        <Link
-          to="/"
+        <button
+          type="button"
+          onClick={handleLogout}
           className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-text-muted hover:text-white hover:bg-[rgba(255,255,255,0.04)] rounded-xl transition-all"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           Logout
-        </Link>
+        </button>
       </div>
     </aside>
   )
@@ -164,7 +179,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="lg:ml-[280px] min-h-screen p-6"
+            className="lg:ml-[280px] min-h-screen px-4 py-6 sm:px-6 sm:py-8 lg:px-10"
           >
             {children}
           </motion.main>
@@ -185,7 +200,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="lg:ml-[280px] min-h-screen p-6"
+            className="lg:ml-[280px] min-h-screen px-4 py-6 sm:px-6 sm:py-8 lg:px-10"
           >
             {children}
           </motion.main>
