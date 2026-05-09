@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Star, Award, TrendingUp, TrendingDown, BookOpen, Clock, CheckCircle, HelpCircle } from 'lucide-react';
 import Avatar from '@/components/Avatar';
@@ -7,6 +7,8 @@ import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import GlassTooltip from '@/components/ui/GlassTooltip';
 import PayCounter from '@/components/employee/PayCounter';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 // ---- Types ----
 interface RankLevel {
@@ -81,6 +83,56 @@ const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minP
 
 export default function EmployeeRank() {
   const [showPayTable, setShowPayTable] = useState(true);
+  const { user, profile } = useAuth();
+  const [realStats, setRealStats] = useState<{
+    avgRating: number | null;
+    totalReviews: number;
+    monthEarnings: number;
+    completedShifts: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const monthStart = new Date(); monthStart.setDate(1);
+      const monthStartStr = monthStart.toISOString().slice(0, 10);
+      const [
+        { data: rating },
+        { data: monthCompleted },
+      ] = await Promise.all([
+        supabase.from('employee_rating_summary').select('avg_rating, total_reviews').eq('employee_id', user.id).maybeSingle(),
+        supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end')
+          .eq('employee_id', user.id).eq('status', 'completed').gte('shift_date', monthStartStr),
+      ]);
+      if (cancelled) return;
+      let earnings = 0;
+      for (const s of (monthCompleted ?? [])) {
+        const rate = Number(s.hourly_rate);
+        let hours = Number(s.estimated_hours ?? 0);
+        if (!hours && s.check_in_at && s.check_out_at) {
+          hours = (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) / 3_600_000;
+        }
+        if (!hours) {
+          const [h1, m1] = s.time_start.split(':').map(Number);
+          const [h2, m2] = s.time_end.split(':').map(Number);
+          let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+          if (mins < 0) mins += 24 * 60;
+          hours = mins / 60;
+        }
+        earnings += rate * hours;
+      }
+      setRealStats({
+        avgRating: rating?.avg_rating != null ? Number(rating.avg_rating) : null,
+        totalReviews: rating?.total_reviews ?? 0,
+        monthEarnings: Math.round(earnings * 100) / 100,
+        completedShifts: (monthCompleted ?? []).length,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const displayName = profile?.full_name || 'Tu';
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
@@ -130,8 +182,8 @@ export default function EmployeeRank() {
               className="rounded-full"
             >
               <Avatar
-                src="/avatar-employee-2.jpg"
-                alt="Marco R."
+                src={profile?.avatar_url ?? undefined}
+                alt={displayName}
                 size={64}
                 borderColor={rankLevels[currentLevelIdx].color}
               />
@@ -159,7 +211,7 @@ export default function EmployeeRank() {
                   ))}
                 </div>
               </div>
-              <h2 className="text-lg font-semibold text-white">Marco R.</h2>
+              <h2 className="text-lg font-semibold text-white">{displayName}</h2>
               <p className="text-xs text-[#94A3B8]">Cameriere · Senior dal 15 Gen 2025</p>
             </div>
           </div>
@@ -209,6 +261,36 @@ export default function EmployeeRank() {
                 ~{pointsToNext} punti rimanenti
               </span>
             </div>
+          </div>
+        </motion.div>
+
+        {/* Statistiche reali del mese */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="px-4 mt-4 grid grid-cols-2 gap-3"
+        >
+          <div className="rounded-2xl p-4 bg-[rgba(13,30,52,0.7)] border border-[rgba(91,184,245,0.15)]">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Paga mese</p>
+            <p className="text-2xl font-bold font-mono text-[#1EC99A]">
+              € {realStats?.monthEarnings.toFixed(2) ?? '—'}
+            </p>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {realStats?.completedShifts ?? 0} turn{(realStats?.completedShifts ?? 0) === 1 ? 'o' : 'i'} completat{(realStats?.completedShifts ?? 0) === 1 ? 'o' : 'i'}
+            </p>
+          </div>
+          <div className="rounded-2xl p-4 bg-[rgba(13,30,52,0.7)] border border-[rgba(245,184,0,0.15)]">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Rating ricevuto</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-2xl font-bold text-white">
+                {realStats?.avgRating != null ? realStats.avgRating.toFixed(1) : '—'}
+              </p>
+              {realStats?.avgRating != null && <Star className="w-4 h-4 fill-[#F5B800] text-[#F5B800]" />}
+            </div>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {realStats?.totalReviews ?? 0} recension{(realStats?.totalReviews ?? 0) === 1 ? 'e' : 'i'}
+            </p>
           </div>
         </motion.div>
 

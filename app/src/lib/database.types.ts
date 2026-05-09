@@ -574,7 +574,24 @@ export type Database = {
         Relationships: []
       }
     }
-    Views: Record<string, never>
+    Views: {
+      employee_rating_summary: {
+        Row: {
+          employee_id: string
+          total_reviews: number
+          avg_rating: number | null
+        }
+        Relationships: []
+      }
+      structure_rating_summary: {
+        Row: {
+          structure_id: string
+          total_reviews: number
+          avg_rating: number | null
+        }
+        Relationships: []
+      }
+    }
     Functions: {
       generate_shift_qr_token: {
         Args: Record<string, never>

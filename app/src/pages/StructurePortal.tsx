@@ -119,6 +119,9 @@ export default function StructurePortal() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [myShifts, setMyShifts] = useState<ShiftRow[]>([])
   const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+  const [realKpi, setRealKpi] = useState<{
+    monthShifts: number; monthSpend: number; avgRating: number | null; activeMatches: number;
+  } | null>(null)
 
   const loadMyShifts = useCallback(async (structureId: string) => {
     const today = new Date().toISOString().slice(0, 10)
@@ -174,16 +177,56 @@ export default function StructurePortal() {
 
           // 3) Fetch turni della struttura: i prossimi 5 in ordine cronologico.
           const today = new Date().toISOString().slice(0, 10)
-          const { data: shiftsData } = await supabase
-            .from('shifts')
-            .select('*')
-            .eq('structure_id', row.id)
-            .gte('shift_date', today)
-            .order('shift_date', { ascending: true })
-            .order('time_start', { ascending: true })
-            .limit(5)
+          const monthStart = new Date()
+          monthStart.setDate(1)
+          const monthStartStr = monthStart.toISOString().slice(0, 10)
+
+          const [
+            { data: shiftsData },
+            { data: monthCompleted, count: monthShiftsCount },
+            { count: openShifts },
+            { data: ratingRow },
+          ] = await Promise.all([
+            supabase.from('shifts').select('*')
+              .eq('structure_id', row.id).gte('shift_date', today)
+              .order('shift_date', { ascending: true }).order('time_start', { ascending: true })
+              .limit(5),
+            supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end', { count: 'exact' })
+              .eq('structure_id', row.id).eq('status', 'completed')
+              .gte('shift_date', monthStartStr),
+            supabase.from('shifts').select('id', { count: 'exact', head: true })
+              .eq('structure_id', row.id).eq('status', 'open').gte('shift_date', today),
+            supabase.from('structure_rating_summary').select('avg_rating, total_reviews')
+              .eq('structure_id', row.id).maybeSingle(),
+          ])
+
           if (cancelled) return
           setMyShifts(shiftsData ?? [])
+
+          // Calcola spesa del mese.
+          let spend = 0
+          for (const s of (monthCompleted ?? [])) {
+            const rate = Number(s.hourly_rate)
+            let hours = Number(s.estimated_hours ?? 0)
+            if (!hours && s.check_in_at && s.check_out_at) {
+              hours = (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) / 3_600_000
+            }
+            if (!hours) {
+              const [h1, m1] = s.time_start.split(':').map(Number)
+              const [h2, m2] = s.time_end.split(':').map(Number)
+              let mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+              if (mins < 0) mins += 24 * 60
+              hours = mins / 60
+            }
+            spend += rate * hours
+          }
+
+          setRealKpi({
+            monthShifts: monthShiftsCount ?? 0,
+            monthSpend: Math.round(spend * 100) / 100,
+            avgRating: ratingRow?.avg_rating ? Number(ratingRow.avg_rating) : null,
+            activeMatches: openShifts ?? 0,
+          })
         }
       } catch (err) {
         if (cancelled) return
@@ -355,9 +398,14 @@ export default function StructurePortal() {
           </div>
         </motion.section>
 
-        {/* ── KPI Stat Cards ── */}
+        {/* ── KPI Stat Cards (dati reali) ── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          {kpiData.map((kpi, i) => (
+          {([
+            { label: 'Turni mese', value: realKpi ? String(realKpi.monthShifts) : '—', delta: 'Completati', icon: Calendar },
+            { label: 'Spesa mese', value: realKpi ? `€${realKpi.monthSpend.toFixed(2)}` : '—', delta: 'Compenso erogato', icon: CreditCard },
+            { label: 'Rating medio', value: realKpi?.avgRating != null ? realKpi.avgRating.toFixed(1) : '—', delta: realKpi?.avgRating != null ? 'su 5.0 stelle' : 'Nessuna recensione', icon: Star },
+            { label: 'Turni aperti', value: realKpi ? String(realKpi.activeMatches) : '—', delta: 'In attesa di match', icon: HeartHandshake },
+          ]).map((kpi, i) => (
             <motion.div
               key={kpi.label}
               initial={{ opacity: 0, y: 20 }}
@@ -374,7 +422,7 @@ export default function StructurePortal() {
                 <kpi.icon className="w-4 h-4 text-[#5BB8F5] opacity-60 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="font-playfair text-[32px] font-bold text-white leading-tight mb-1">{kpi.value}</p>
-              <p className={cn('text-xs', kpi.positive ? 'text-[#1EC99A]' : 'text-[#F04545]')}>{kpi.delta}</p>
+              <p className="text-xs text-[#94A3B8]">{kpi.delta}</p>
             </motion.div>
           ))}
         </section>

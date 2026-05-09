@@ -1,31 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell, Calendar, Search, QrCode, Trophy, Euro, Heart,
-  MessageCircle, Clock, Truck, CheckCircle, CreditCard,
-  AlertTriangle, ChevronRight, Star, HelpCircle,
-  Hourglass, AlertCircle,
+  Calendar, Search, QrCode, Trophy, Euro, Heart, FileText,
+  Hourglass, AlertCircle, HelpCircle, Truck, ChevronRight,
 } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import PayCounter from '@/components/employee/PayCounter';
-import GlassShiftCard from '@/components/employee/GlassShiftCard';
 import GlassTooltip from '@/components/ui/GlassTooltip';
-import { useToast } from '@/components/ui/ToastSystem';
 import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
 import StatusScreen from '@/components/structure/StatusScreen';
 import NotificationsBell from '@/components/notifications/NotificationsBell';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Database } from '@/lib/database.types';
-import {
-  dashboardData,
-  upcomingShift,
-  notifications,
-  shiftProposal,
-} from '@/components/employee/mockData';
-import type { Notification } from '@/components/employee/mockData';
+import { dashboardData } from '@/components/employee/mockData';
 import { cn } from '@/lib/utils';
 
 type EmployeeRow = Database['public']['Tables']['employees']['Row'];
@@ -40,55 +30,20 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0, 0, 0.2, 1] as [number, number, number, number] } },
 };
 
-const notificationIcons: Record<string, React.FC<{ className?: string }>> = {
-  bell: Bell,
-  truck: Truck,
-  'check-circle': CheckCircle,
-  'credit-card': CreditCard,
-  'alert-triangle': AlertTriangle,
-};
-
-function NotificationItem({ notif, index }: { notif: Notification; index: number }) {
-  const Icon = notificationIcons[notif.icon] || Bell;
-  return (
-    <motion.div
-      variants={itemVariants}
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.3 + index * 0.06, duration: 0.4 }}
-      className={cn(
-        'flex items-start gap-3 p-4 rounded-xl backdrop-blur-[16px]',
-        'bg-[rgba(13,30,52,0.7)] border border-[rgba(91,184,245,0.12)]',
-        'shadow-[0_4px_24px_rgba(0,0,0,0.2)]',
-        notif.unread && 'border-l-[3px] border-l-[#5BB8F5]'
-      )}
-    >
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ backgroundColor: `${notif.iconColor}15` }}
-      >
-        <div style={{ color: notif.iconColor }}>
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white">{notif.title}</p>
-        <p className="text-xs text-[#94A3B8] mt-0.5">{notif.description}</p>
-      </div>
-      <span className="text-xs text-[#5E7A95] flex-shrink-0">{notif.time}</span>
-    </motion.div>
-  );
-}
+// (NotificationItem mock rimosso: ora le notifiche vivono nel NotificationsBell
+// dropdown reale alimentato da Supabase Realtime.)
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
-  const { addToast } = useToast();
   const { user, profile, status: authStatus } = useAuth();
   const [greeting, setGreeting] = useState('');
-  const [showProposal, setShowProposal] = useState(true);
   const [loading, setLoading] = useState(true);
   const [employee, setEmployee] = useState<EmployeeRow | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  // Dati aggregati reali
+  const [monthlyEarnings, setMonthlyEarnings] = useState(0);
+  const [monthlyShifts, setMonthlyShifts] = useState(0);
+  const [nextShift, setNextShift] = useState<{ shift_date: string; time_start: string; structure_name: string | null; role: string } | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -106,14 +61,69 @@ export default function EmployeeDashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Fetch in parallelo: profilo employee + turni del mese + prossimo turno.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        const monthStartStr = monthStart.toISOString().slice(0, 10);
+
+        const [
+          { data: empRow, error: empErr },
+          { data: monthShifts, error: msErr },
+          { data: upcoming, error: upErr },
+        ] = await Promise.all([
+          supabase.from('employees').select('*').eq('id', user.id).maybeSingle(),
+          supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end')
+            .eq('employee_id', user.id).eq('status', 'completed')
+            .gte('shift_date', monthStartStr),
+          supabase.from('shifts').select('shift_date, time_start, role, structure_id, status')
+            .eq('employee_id', user.id).in('status', ['assigned', 'in_progress'])
+            .gte('shift_date', todayStr).order('shift_date', { ascending: true })
+            .order('time_start', { ascending: true }).limit(1),
+        ]);
+
         if (cancelled) return;
-        if (error) throw error;
-        setEmployee(data);
+        if (empErr) throw empErr;
+        if (msErr) throw msErr;
+        if (upErr) throw upErr;
+
+        setEmployee(empRow);
+
+        // Calcola paga del mese.
+        let earnings = 0;
+        for (const s of (monthShifts ?? [])) {
+          const rate = Number(s.hourly_rate);
+          let hours = Number(s.estimated_hours ?? 0);
+          if (!hours && s.check_in_at && s.check_out_at) {
+            hours = (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) / 3_600_000;
+          }
+          if (!hours) {
+            const [h1, m1] = s.time_start.split(':').map(Number);
+            const [h2, m2] = s.time_end.split(':').map(Number);
+            let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+            if (mins < 0) mins += 24 * 60;
+            hours = mins / 60;
+          }
+          earnings += rate * hours;
+        }
+        setMonthlyEarnings(Math.round(earnings * 100) / 100);
+        setMonthlyShifts((monthShifts ?? []).length);
+
+        // Recupera nome struttura per il prossimo turno.
+        const upRow = (upcoming ?? [])[0];
+        if (upRow) {
+          const { data: structRow } = await supabase
+            .from('structures').select('ragione_sociale').eq('id', upRow.structure_id).maybeSingle();
+          if (cancelled) return;
+          setNextShift({
+            shift_date: upRow.shift_date,
+            time_start: upRow.time_start,
+            structure_name: structRow?.ragione_sociale ?? null,
+            role: upRow.role,
+          });
+        } else {
+          setNextShift(null);
+        }
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : 'Errore caricamento profilo';
@@ -125,6 +135,9 @@ export default function EmployeeDashboard() {
     })();
     return () => { cancelled = true; };
   }, [authStatus, user, navigate]);
+
+  // Mese corrente in italiano
+  const monthLabel = useMemo(() => new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }), []);
 
   // Display values: nome reale dal profile, code = primi 8 caratteri dell'id.
   const displayName = profile?.full_name?.split(' ')[0] || 'collega';
@@ -139,14 +152,8 @@ export default function EmployeeDashboard() {
     { icon: Euro, label: 'Paghe', path: '/employee/rank' },
   ];
 
-  const handleAcceptShift = () => {
-    setShowProposal(false);
-    addToast({
-      type: 'success',
-      title: 'Turno accettato!',
-      message: 'RIST-BN-0047 · Chef de Partie · Sab-Dom',
-    });
-  };
+  // handleAcceptShift rimosso: la "Shift Proposal" mock non esiste più,
+  // l'accettazione turni avviene via like in /employee/matching.
 
   if (loading) {
     return (
@@ -282,8 +289,8 @@ export default function EmployeeDashboard() {
           {/* Top row: label + month */}
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-[#5E7A95] font-medium tracking-wide">Paga maturata</span>
-            <span className="text-[11px] text-[#94A3B8] bg-[rgba(255,255,255,0.05)] px-2.5 py-1 rounded-full border border-[rgba(255,255,255,0.08)]">
-              Maggio 2025
+            <span className="text-[11px] text-[#94A3B8] bg-[rgba(255,255,255,0.05)] px-2.5 py-1 rounded-full border border-[rgba(255,255,255,0.08)] capitalize">
+              {monthLabel}
             </span>
           </div>
 
@@ -291,16 +298,22 @@ export default function EmployeeDashboard() {
           <div className="mb-1">
             <div className="flex items-baseline gap-1">
               <PayCounter
-                amount={384}
+                amount={Math.floor(monthlyEarnings)}
                 duration={1.4}
                 prefix="€"
                 suffix=""
                 decimals={0}
                 className="text-[40px] font-bold text-white"
               />
-              <span className="text-xl font-bold text-white">,00</span>
+              <span className="text-xl font-bold text-white">
+                ,{String(Math.round((monthlyEarnings - Math.floor(monthlyEarnings)) * 100)).padStart(2, '0')}
+              </span>
             </div>
-            <p className="text-xs text-[#94A3B8]">24 turni completati questo mese</p>
+            <p className="text-xs text-[#94A3B8]">
+              {monthlyShifts === 0
+                ? 'Nessun turno completato questo mese'
+                : `${monthlyShifts} turn${monthlyShifts === 1 ? 'o' : 'i'} completat${monthlyShifts === 1 ? 'o' : 'i'} questo mese`}
+            </p>
           </div>
 
           {/* Hourly rate badge */}
@@ -377,38 +390,40 @@ export default function EmployeeDashboard() {
           </div>
         </motion.div>
 
-        {/* Upcoming Shift Card */}
+        {/* Prossimo turno reale (assigned/in_progress più imminente) */}
         <motion.div variants={itemVariants} className="px-4 mt-4">
-          <GlassShiftCard
-            code={upcomingShift.code}
-            role={upcomingShift.role}
-            time={upcomingShift.time}
-            date={upcomingShift.date}
-            status="confirmed"
-            addressHint={upcomingShift.addressHint}
-            showNavetta={upcomingShift.navettaAvailable}
-            photo="/structure-1.jpg"
-            onCheckIn={() => navigate('/employee/checkin')}
-            onDetails={() => {}}
-          />
-        </motion.div>
-
-        {/* Notifications Feed */}
-        <motion.div variants={itemVariants} className="px-4 mt-4 mb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-white">Notifiche</h3>
-            <span className="text-[11px] text-[#F5B800] bg-[rgba(245,184,0,0.12)] px-2 py-0.5 rounded-full border border-[rgba(245,184,0,0.2)]">
-              3 non lette
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {notifications.map((n, i) => (
-              <NotificationItem key={n.id} notif={n} index={i} />
-            ))}
-          </div>
-          <button className="mt-2 w-full py-2 text-xs text-[#94A3B8] hover:text-[#5BB8F5] transition-colors">
-            Segna tutte lette
-          </button>
+          {nextShift ? (
+            <button
+              type="button"
+              onClick={() => navigate('/employee/checkin')}
+              className="w-full text-left rounded-2xl border border-[rgba(91,184,245,0.25)] bg-[rgba(91,184,245,0.06)] backdrop-blur-md p-5 hover:bg-[rgba(91,184,245,0.1)] transition-all"
+            >
+              <p className="text-[10px] uppercase tracking-wider text-sky-primary font-semibold mb-1">Prossimo turno</p>
+              <p className="text-base font-semibold text-white">{nextShift.role}</p>
+              {nextShift.structure_name && (
+                <p className="text-xs text-text-muted truncate">{nextShift.structure_name}</p>
+              )}
+              <div className="flex items-center gap-2 mt-2 text-xs text-white">
+                <span className="font-mono">
+                  {new Date(nextShift.shift_date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                </span>
+                <span className="font-mono text-text-muted">·</span>
+                <span className="font-mono">{nextShift.time_start.slice(0, 5)}</span>
+              </div>
+              <p className="text-[11px] text-sky-primary mt-3 font-medium">Vai al check-in →</p>
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-center">
+              <p className="text-sm text-text-muted">Nessun turno in programma.</p>
+              <button
+                type="button"
+                onClick={() => navigate('/employee/matching')}
+                className="mt-2 text-xs text-sky-primary hover:underline"
+              >
+                Cerca nel feed →
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* Quick Actions Grid */}
@@ -441,67 +456,18 @@ export default function EmployeeDashboard() {
           </div>
         </motion.div>
 
-        {/* Shift Proposal Card */}
-        {showProposal && (
-          <motion.div
-            variants={itemVariants}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn(
-              'mx-4 mb-6 rounded-2xl p-5 border backdrop-blur-[16px]',
-              'bg-[rgba(245,184,0,0.05)] border-[rgba(245,184,0,0.25)]',
-              'shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
-              'border-l-[3px] border-l-[#F5B800]'
-            )}
+        {/* CTA "vai al feed turni" — sostituisce la Shift Proposal mock */}
+        <motion.div variants={itemVariants} className="px-4 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate('/employee/matching')}
+            className="w-full rounded-2xl p-5 border border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-left"
           >
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-[#F5B800]" />
-              <h3 className="text-base font-semibold text-[#F5B800]">Nuovo turno proposto</h3>
-              <motion.span
-                className="ml-auto text-[10px] text-[#F04545] font-medium bg-[rgba(240,69,69,0.08)] px-2 py-0.5 rounded"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                Rispondi entro {shiftProposal.responseDeadline}
-              </motion.span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-sm text-[#5BB8F5] bg-[rgba(91,184,245,0.08)] px-2 py-0.5 rounded border border-[rgba(91,184,245,0.15)]">
-                {shiftProposal.code}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-[rgba(30,201,154,0.1)] text-[#1EC99A] border border-[rgba(30,201,154,0.2)]">
-                +50% festivo
-              </span>
-            </div>
-            <p className="text-sm text-white font-medium mb-1">{shiftProposal.role}</p>
-            <p className="text-xs text-[#94A3B8] mb-1">
-              {shiftProposal.date} · {shiftProposal.time}
-            </p>
-            <p className="text-sm text-[#1EC99A] font-semibold mb-3">{shiftProposal.pay}</p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleAcceptShift}
-                className={cn(
-                  'flex-1 h-11 text-sm font-medium text-[#06101E] rounded-xl',
-                  'bg-[#1EC99A] hover:brightness-110 active:scale-[0.98] transition-all',
-                  'shadow-[0_0_20px_rgba(30,201,154,0.2)]'
-                )}
-              >
-                Accetta
-              </button>
-              <button
-                onClick={() => setShowProposal(false)}
-                className="flex-1 h-11 text-sm font-medium text-[#F04545] border border-[rgba(240,69,69,0.3)] rounded-xl hover:bg-[rgba(240,69,69,0.08)] active:scale-[0.98] transition-all"
-              >
-                Rifiuta
-              </button>
-            </div>
-            <button className="w-full mt-2 text-xs text-[#5BB8F5] hover:underline">
-              Richiedi modifica
-            </button>
-          </motion.div>
-        )}
+            <p className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mb-1">Cerca turni</p>
+            <p className="text-sm text-white">Sfoglia tutti i turni open compatibili con il tuo profilo.</p>
+            <p className="text-xs text-sky-primary mt-1">Vai al feed →</p>
+          </button>
+        </motion.div>
 
         {/* Navetta Confirmation Card */}
         <motion.div
