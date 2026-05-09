@@ -8,14 +8,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Users, AlertCircle, MapPin, Phone, Briefcase, Euro } from 'lucide-react'
+import { Search, Users, AlertCircle, MapPin, Phone, Briefcase, Euro, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
-import type { ContractType } from '@/lib/database.types'
+import type { ContractType, EmployeeRankLevel } from '@/lib/database.types'
+
+const LEVEL_COLOR: Record<EmployeeRankLevel, string> = {
+  rookie: '#94A3B8',
+  affidabile: '#5BB8F5',
+  senior: '#3AA3E8',
+  elite: '#1EC99A',
+  ambassador: '#F5B800',
+}
 
 // Vista combinata: profile + employee row (profile è canonico, employee è opzionale
 // per i dipendenti che non hanno ancora completato l'onboarding).
@@ -35,6 +43,9 @@ interface EmployeeRow {
   hourly_rate?: number | null
   active?: boolean
   onboarding_completed_at?: string | null
+  // Da public.employee_total_points:
+  total_points?: number
+  level?: EmployeeRankLevel
 }
 
 export default function AdminEmployees() {
@@ -51,7 +62,7 @@ export default function AdminEmployees() {
       // client-side. Più semplice e performante dei nested embed di postgrest
       // su tabelle che a volte non hanno la riga employees (signUp ma onboarding
       // non completato).
-      const [{ data: profiles, error: pErr }, { data: emps, error: eErr }] = await Promise.all([
+      const [{ data: profiles, error: pErr }, { data: emps, error: eErr }, { data: pointsRows, error: ptErr }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, full_name, phone, avatar_url, created_at')
@@ -60,15 +71,23 @@ export default function AdminEmployees() {
         supabase
           .from('employees')
           .select('id, cf, iban, preferred_zone, skills, tag_valori, contract_type, hourly_rate, active, onboarding_completed_at'),
+        supabase.from('employee_total_points').select('employee_id, total_points, level'),
       ])
       if (pErr) throw pErr
       if (eErr) throw eErr
+      if (ptErr) throw ptErr
 
       const empById = new Map((emps ?? []).map((e) => [e.id, e]))
-      const merged: EmployeeRow[] = (profiles ?? []).map((p) => ({
-        ...p,
-        ...(empById.get(p.id) ?? {}),
-      }))
+      const ptsById = new Map((pointsRows ?? []).map((p) => [p.employee_id, p]))
+      const merged: EmployeeRow[] = (profiles ?? []).map((p) => {
+        const pts = ptsById.get(p.id)
+        return {
+          ...p,
+          ...(empById.get(p.id) ?? {}),
+          total_points: pts?.total_points,
+          level: pts?.level,
+        }
+      })
       setEmployees(merged)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore caricamento dipendenti'
@@ -192,6 +211,7 @@ export default function AdminEmployees() {
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">CF</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Skills · Zona</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Contratto</th>
+                  <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Rank</th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Stato</th>
                 </tr>
               </thead>
@@ -246,6 +266,26 @@ export default function AdminEmployees() {
                           <div className="text-xs text-[#1EC99A] flex items-center gap-1 font-mono">
                             <Euro className="w-3 h-3" /> {e.hourly_rate}/h
                           </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {e.level && e.total_points !== undefined ? (
+                          <div>
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider"
+                              style={{
+                                color: LEVEL_COLOR[e.level],
+                                backgroundColor: `${LEVEL_COLOR[e.level]}15`,
+                                border: `1px solid ${LEVEL_COLOR[e.level]}30`,
+                              }}
+                            >
+                              <Trophy className="w-3 h-3" />
+                              {e.level}
+                            </span>
+                            <div className="text-[10px] text-text-muted font-mono mt-0.5">{e.total_points} pt</div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-text-muted">—</span>
                         )}
                       </td>
                       <td className="px-3 py-3">

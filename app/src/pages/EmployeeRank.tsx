@@ -44,18 +44,8 @@ const rankLevels: RankLevel[] = [
   { name: 'Ambassador', color: '#F5B800', glow: 'rgba(245,184,0,0.3)', minPoints: 3500, benefits: ['Tutti i benefit', '+€3/h bonus'] },
 ];
 
-const pointsHistory: PointsEntry[] = [
-  { id: '1', label: 'Turno completato · RIST-BN-0012', points: 120, date: '13 Mag', type: 'earned' },
-  { id: '2', label: 'Recensione 5 stelle', points: 50, date: '12 Mag', type: 'bonus' },
-  { id: '3', label: 'Puntualità bonus', points: 25, date: '12 Mag', type: 'bonus' },
-  { id: '4', label: 'Corso HACCP completato', points: 200, date: '10 Mag', type: 'earned' },
-  { id: '5', label: 'Navetta confermata', points: -5, date: '10 Mag', type: 'spent' },
-  { id: '6', label: 'Turno completato · HOTEL-BN-0003', points: 120, date: '8 Mag', type: 'earned' },
-  { id: '7', label: 'Mancia condivisa', points: 15, date: '8 Mag', type: 'bonus' },
-  { id: '8', label: 'Turno completato · BAR-BN-0011', points: 100, date: '5 Mag', type: 'earned' },
-  { id: '9', label: 'Assenza non giustificata', points: -100, date: '3 Mag', type: 'spent' },
-  { id: '10', label: 'Turno completato · EVEN-BN-0020', points: 150, date: '1 Mag', type: 'earned' },
-];
+// Mock pointsHistory rimosso: ora popolato da `employee_points` reali
+// dentro il componente (vedi useEffect → setRealHistory).
 
 const courses: Course[] = [
   { name: 'HACCP - Sicurezza alimentare', progress: 100, totalHours: 8, status: 'completed', certificate: 'HACCP-2025-0012' },
@@ -73,13 +63,14 @@ const payBreakdown = [
   { zone: 'Resort', base: '€14,00/h', rankBonus: '+€1,00/h', total: '€15,00/h', premiumDays: 'Festivi +100%' },
 ];
 
-const currentPoints = 1240;
-const currentLevelIdx = 2; // Senior
-const nextLevelIdx = 3; // Elite
-const nextLevel = rankLevels[nextLevelIdx];
-const prevLevel = rankLevels[currentLevelIdx];
-const pointsToNext = nextLevel.minPoints - currentPoints;
-const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100;
+// Helper: trova indice del livello rank in base ai punti totali.
+function levelIdxFromPoints(points: number): number {
+  if (points >= 3500) return 4; // ambassador
+  if (points >= 2000) return 3; // elite
+  if (points >= 1200) return 2; // senior
+  if (points >= 500)  return 1; // affidabile
+  return 0;                     // rookie
+}
 
 export default function EmployeeRank() {
   const [showPayTable, setShowPayTable] = useState(true);
@@ -89,7 +80,9 @@ export default function EmployeeRank() {
     totalReviews: number;
     monthEarnings: number;
     completedShifts: number;
+    totalPoints: number;
   } | null>(null);
+  const [realHistory, setRealHistory] = useState<{ id: string; label: string; points: number; date: string; type: 'earned' | 'spent' | 'bonus' }[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -100,10 +93,14 @@ export default function EmployeeRank() {
       const [
         { data: rating },
         { data: monthCompleted },
+        { data: pointsRow },
+        { data: ptsHistory },
       ] = await Promise.all([
         supabase.from('employee_rating_summary').select('avg_rating, total_reviews').eq('employee_id', user.id).maybeSingle(),
         supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end')
           .eq('employee_id', user.id).eq('status', 'completed').gte('shift_date', monthStartStr),
+        supabase.from('employee_total_points').select('total_points, level').eq('employee_id', user.id).maybeSingle(),
+        supabase.from('employee_points').select('id, source_type, points, reason, created_at').eq('employee_id', user.id).order('created_at', { ascending: false }).limit(20),
       ]);
       if (cancelled) return;
       let earnings = 0;
@@ -127,12 +124,31 @@ export default function EmployeeRank() {
         totalReviews: rating?.total_reviews ?? 0,
         monthEarnings: Math.round(earnings * 100) / 100,
         completedShifts: (monthCompleted ?? []).length,
+        totalPoints: pointsRow?.total_points ?? 0,
       });
+      setRealHistory((ptsHistory ?? []).map((p) => ({
+        id: p.id,
+        label: p.reason ?? p.source_type,
+        points: p.points,
+        date: new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
+        type: p.points > 0 ? (['review_5stars','review_4stars'].includes(p.source_type) ? 'bonus' : 'earned') : 'spent',
+      })));
     })();
     return () => { cancelled = true; };
   }, [user]);
 
   const displayName = profile?.full_name || 'Tu';
+
+  // Calcolo livello reale + progresso a partire dai punti.
+  const currentPoints = realStats?.totalPoints ?? 0;
+  const currentLevelIdx = levelIdxFromPoints(currentPoints);
+  const nextLevelIdx = Math.min(currentLevelIdx + 1, rankLevels.length - 1);
+  const nextLevel = rankLevels[nextLevelIdx];
+  const prevLevel = rankLevels[currentLevelIdx];
+  const pointsToNext = Math.max(nextLevel.minPoints - currentPoints, 0);
+  const progressPercent = currentLevelIdx === rankLevels.length - 1
+    ? 100
+    : Math.min(100, Math.max(0, ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100));
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
@@ -312,7 +328,7 @@ export default function EmployeeRank() {
               'shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
             )}
           >
-            {pointsHistory.map((entry, i) => (
+            {realHistory.map((entry, i) => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, x: -16 }}
@@ -320,7 +336,7 @@ export default function EmployeeRank() {
                 transition={{ delay: 0.2 + i * 0.04, duration: 0.35 }}
                 className={cn(
                   'flex items-center gap-3 px-4 py-3',
-                  i !== pointsHistory.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]'
+                  i !== realHistory.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]'
                 )}
               >
                 <div

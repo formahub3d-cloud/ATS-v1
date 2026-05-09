@@ -40,6 +40,22 @@ export type ConversationKind = 'admin_structure' | 'admin_employee'
 
 export type ReviewRole = 'structure' | 'employee'
 
+export type PointsSourceType =
+  | 'shift_completed'
+  | 'review_5stars'
+  | 'review_4stars'
+  | 'shift_no_show'
+  | 'doc_verified'
+  | 'onboarding_completed'
+  | 'admin_adjustment'
+
+export type EmployeeRankLevel =
+  | 'rookie'
+  | 'affidabile'
+  | 'senior'
+  | 'elite'
+  | 'ambassador'
+
 export type NotificationKind =
   | 'shift_assigned'
   | 'shift_cancelled'
@@ -540,6 +556,39 @@ export type Database = {
           },
         ]
       }
+      employee_points: {
+        Row: {
+          id: string
+          employee_id: string
+          source_type: PointsSourceType
+          source_id: string | null
+          points: number
+          reason: string | null
+          created_at: string
+          awarded_by: string | null
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          source_type: PointsSourceType
+          source_id?: string | null
+          points: number
+          reason?: string | null
+          created_at?: string
+          awarded_by?: string | null
+        }
+        Update: Partial<{
+          id?: string
+          employee_id?: string
+          source_type?: PointsSourceType
+          source_id?: string | null
+          points?: number
+          reason?: string | null
+          created_at?: string
+          awarded_by?: string | null
+        }>
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -612,6 +661,14 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_total_points: {
+        Row: {
+          employee_id: string
+          total_points: number
+          level: EmployeeRankLevel
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_shift_qr_token: {
@@ -653,6 +710,7 @@ export type Database = {
       conversation_kind: ConversationKind
       review_role: ReviewRole
       notification_kind: NotificationKind
+      points_source_type: PointsSourceType
     }
   }
 }
