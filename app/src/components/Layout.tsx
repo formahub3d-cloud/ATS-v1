@@ -13,6 +13,7 @@ const adminNavItems = [
   { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
   { label: 'Payroll', path: '/admin/payroll', icon: 'Euro' },
   { label: 'Fatture', path: '/admin/invoices', icon: 'FileText' },
+  { label: 'Leaderboard', path: '/admin/leaderboard', icon: 'Trophy' },
   { label: 'Audit', path: '/admin/audit', icon: 'ShieldCheck' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
 ]

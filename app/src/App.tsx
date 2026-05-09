@@ -6,6 +6,8 @@ import { ToastProvider } from './components/ui/ToastSystem'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Auth from './pages/Auth'
+import PWAUpdatePrompt from './components/PWAUpdatePrompt'
+import CommandPalette from './components/admin/CommandPalette'
 
 // Lazy load di tutte le pagine "interne" (post-auth) per ridurre il bundle
 // iniziale. Home + Auth restano eager perché sono i primi entry point.
@@ -17,6 +19,7 @@ const AdminCalendar    = lazy(() => import('./pages/AdminCalendar'))
 const AdminChat        = lazy(() => import('./pages/AdminChat'))
 const AdminPayroll     = lazy(() => import('./pages/AdminPayroll'))
 const AdminInvoices    = lazy(() => import('./pages/AdminInvoices'))
+const AdminLeaderboard = lazy(() => import('./pages/AdminLeaderboard'))
 const AdminAudit       = lazy(() => import('./pages/AdminAudit'))
 const AdminSettings    = lazy(() => import('./pages/AdminSettings'))
 const StructurePortal  = lazy(() => import('./pages/StructurePortal'))
@@ -57,6 +60,7 @@ export default function App() {
                 <Route path="/admin/chat" element={<AdminChat />} />
                 <Route path="/admin/payroll" element={<AdminPayroll />} />
                 <Route path="/admin/invoices" element={<AdminInvoices />} />
+                <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />
                 <Route path="/admin/audit" element={<AdminAudit />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/structure" element={<StructurePortal />} />
@@ -73,6 +77,8 @@ export default function App() {
               </Routes>
             </Suspense>
           </Layout>
+          <CommandPalette />
+          <PWAUpdatePrompt />
         </ToastProvider>
       </RoleProvider>
     </AuthProvider>
