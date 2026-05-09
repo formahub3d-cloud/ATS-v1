@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Building2, Users, Hourglass, ShieldCheck, Calendar, CreditCard,
-  HeartHandshake, ChevronRight, Bell, AlertCircle,
+  HeartHandshake, ChevronRight, Bell, AlertCircle, FileWarning,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
@@ -25,6 +25,8 @@ interface DashboardStats {
   structuresPending: number
   structuresApproved: number
   employeesTotal: number
+  docsExpiring: number          // documenti che scadono entro 30 giorni
+  docsExpired: number           // documenti già scaduti
   recentPending: StructureRow[]
 }
 
@@ -33,6 +35,8 @@ const initialStats: DashboardStats = {
   structuresPending: 0,
   structuresApproved: 0,
   employeesTotal: 0,
+  docsExpiring: 0,
+  docsExpired: 0,
   recentPending: [],
 }
 
@@ -45,22 +49,31 @@ export default function AdminDashboard() {
     setLoading(true)
     setFetchError(null)
     try {
-      // Eseguo le query in parallelo: 4 conteggi + 1 select leggera per le pending recenti.
+      const today = new Date().toISOString().slice(0, 10)
+      const in30 = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
+
+      // 7 query in parallelo (5 conteggi + 1 select pending + 1 conteggio docs).
       const [
         { count: structuresTotal, error: e1 },
         { count: structuresPending, error: e2 },
         { count: structuresApproved, error: e3 },
         { count: employeesTotal, error: e4 },
         { data: recentPending, error: e5 },
+        { count: docsExpiring, error: e6 },
+        { count: docsExpired, error: e7 },
       ] = await Promise.all([
         supabase.from('structures').select('*', { count: 'exact', head: true }),
         supabase.from('structures').select('*', { count: 'exact', head: true }).eq('status', 'pending_review'),
         supabase.from('structures').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'employee'),
         supabase.from('structures').select('*').eq('status', 'pending_review').order('created_at', { ascending: false }).limit(5),
+        supabase.from('documents').select('*', { count: 'exact', head: true })
+          .gte('expires_at', today).lte('expires_at', in30),
+        supabase.from('documents').select('*', { count: 'exact', head: true })
+          .lt('expires_at', today),
       ])
 
-      const firstError = e1 || e2 || e3 || e4 || e5
+      const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7
       if (firstError) throw firstError
 
       setStats({
@@ -68,6 +81,8 @@ export default function AdminDashboard() {
         structuresPending: structuresPending ?? 0,
         structuresApproved: structuresApproved ?? 0,
         employeesTotal: employeesTotal ?? 0,
+        docsExpiring: docsExpiring ?? 0,
+        docsExpired: docsExpired ?? 0,
         recentPending: recentPending ?? [],
       })
     } catch (err) {
@@ -147,6 +162,42 @@ export default function AdminDashboard() {
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {fetchError}
         </div>
+      )}
+
+      {/* Banner alert documenti scaduti / in scadenza */}
+      {(stats.docsExpired > 0 || stats.docsExpiring > 0) && (
+        <Link
+          to="/admin/employees"
+          className={cn(
+            'flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md transition-all hover:translate-y-[-1px]',
+            stats.docsExpired > 0
+              ? 'border-[rgba(240,69,69,0.3)] bg-[rgba(240,69,69,0.06)]'
+              : 'border-[rgba(245,184,0,0.3)] bg-[rgba(245,184,0,0.06)]',
+          )}
+        >
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: stats.docsExpired > 0 ? 'rgba(240,69,69,0.15)' : 'rgba(245,184,0,0.15)',
+              border: `1px solid ${stats.docsExpired > 0 ? 'rgba(240,69,69,0.3)' : 'rgba(245,184,0,0.3)'}`,
+            }}
+          >
+            <FileWarning className={cn('w-5 h-5', stats.docsExpired > 0 ? 'text-[#F04545]' : 'text-[#F5B800]')} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white">Documenti dipendenti — attenzione</p>
+            <p className="text-xs text-text-muted mt-0.5">
+              {stats.docsExpired > 0 && (
+                <span className="text-[#F04545] font-medium">{stats.docsExpired} scadut{stats.docsExpired === 1 ? 'o' : 'i'}</span>
+              )}
+              {stats.docsExpired > 0 && stats.docsExpiring > 0 && <span> · </span>}
+              {stats.docsExpiring > 0 && (
+                <span className="text-[#F5B800] font-medium">{stats.docsExpiring} in scadenza nei prossimi 30 giorni</span>
+              )}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+        </Link>
       )}
 
       {/* KPI grid */}

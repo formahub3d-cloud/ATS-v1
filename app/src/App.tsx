@@ -21,6 +21,7 @@ import EmployeeRank from './pages/EmployeeRank'
 import AdminChat from './pages/AdminChat'
 import StructureChat from './pages/StructureChat'
 import EmployeeChat from './pages/EmployeeChat'
+import EmployeeDocuments from './pages/EmployeeDocuments'
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/employee/matching" element={<EmployeeMatching />} />
               <Route path="/employee/checkin" element={<EmployeeCheckin />} />
               <Route path="/employee/chat" element={<EmployeeChat />} />
+              <Route path="/employee/documents" element={<EmployeeDocuments />} />
               <Route path="/employee/rank" element={<EmployeeRank />} />
             </Routes>
           </Layout>
