@@ -18,6 +18,7 @@ import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShi
 import MatchStatus, { type MatchState } from '@/components/structure/MatchStatus'
 import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog from '@/components/structure/NewShiftDialog'
+import NotificationsBell from '@/components/notifications/NotificationsBell'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
@@ -527,19 +528,7 @@ export default function StructurePortal() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-playfair text-2xl font-bold text-white">Azioni rapide</h2>
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors relative"
-                >
-                  {unreadCount > 0 ? <BellRing className="w-5 h-5 text-[#F5B800]" /> : <Bell className="w-5 h-5 text-[#5E7A95]" />}
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F04545] text-[10px] font-bold text-white flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-              </div>
+              <NotificationsBell />
             </div>
 
             <div className="space-y-2">

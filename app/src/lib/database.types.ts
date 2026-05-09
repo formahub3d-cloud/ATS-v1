@@ -40,6 +40,15 @@ export type ConversationKind = 'admin_structure' | 'admin_employee'
 
 export type ReviewRole = 'structure' | 'employee'
 
+export type NotificationKind =
+  | 'shift_assigned'
+  | 'shift_cancelled'
+  | 'shift_completed'
+  | 'review_received'
+  | 'structure_approved'
+  | 'structure_rejected'
+  | 'new_message'
+
 export type EmployeeExperience = {
   id?: string
   ruolo?: string
@@ -531,6 +540,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          kind: NotificationKind
+          title: string
+          body: string | null
+          link: string | null
+          created_at: string
+          read_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: NotificationKind
+          title: string
+          body?: string | null
+          link?: string | null
+          created_at?: string
+          read_at?: string | null
+        }
+        Update: Partial<{
+          id?: string
+          user_id?: string
+          kind?: NotificationKind
+          title?: string
+          body?: string | null
+          link?: string | null
+          created_at?: string
+          read_at?: string | null
+        }>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -558,6 +600,10 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: number
       }
+      notifications_mark_read: {
+        Args: { p_id?: string | null }
+        Returns: number
+      }
     }
     Enums: {
       user_role: UserRole
@@ -568,6 +614,7 @@ export type Database = {
       shift_like_action: ShiftLikeAction
       conversation_kind: ConversationKind
       review_role: ReviewRole
+      notification_kind: NotificationKind
     }
   }
 }

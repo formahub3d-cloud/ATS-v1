@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
+import NotificationsBell from '@/components/notifications/NotificationsBell'
 import { supabase } from '@/lib/supabase'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
@@ -128,13 +129,16 @@ export default function AdminDashboard() {
         title="Dashboard"
         subtitle={new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         actions={
-          <button
-            onClick={load}
-            disabled={loading}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm text-text-secondary border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Aggiornamento...' : 'Aggiorna'}
-          </button>
+          <>
+            <NotificationsBell />
+            <button
+              onClick={load}
+              disabled={loading}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm text-text-secondary border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Aggiornamento...' : 'Aggiorna'}
+            </button>
+          </>
         }
       />
 

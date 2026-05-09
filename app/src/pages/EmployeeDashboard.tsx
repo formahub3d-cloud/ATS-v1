@@ -15,6 +15,7 @@ import GlassTooltip from '@/components/ui/GlassTooltip';
 import { useToast } from '@/components/ui/ToastSystem';
 import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
 import StatusScreen from '@/components/structure/StatusScreen';
+import NotificationsBell from '@/components/notifications/NotificationsBell';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Database } from '@/lib/database.types';
@@ -246,16 +247,7 @@ export default function EmployeeDashboard() {
               </span>
             </div>
           </div>
-          <button className="relative p-2">
-            <Bell className="w-6 h-6 text-[#94A3B8]" />
-            {dashboardData.unreadNotifications > 0 && (
-              <motion.span
-                className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#F04545] rounded-full"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-            )}
-          </button>
+          <NotificationsBell variant="minimal" />
         </div>
       </header>
 
