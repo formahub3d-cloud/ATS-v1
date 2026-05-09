@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog from '@/components/structure/NewShiftDialog'
+import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -317,10 +318,15 @@ export default function StructureMatching() {
                 {/* Candidati */}
                 {shift.status === 'assigned' ? (
                   <div className="p-5 bg-[rgba(91,184,245,0.04)]">
-                    <div className="flex items-center gap-2 text-sm text-sky-primary">
+                    <div className="flex items-center gap-2 text-sm text-sky-primary mb-4">
                       <CheckCircle className="w-4 h-4" />
-                      <span>Turno già assegnato. QR per check-in disponibile.</span>
+                      <span>Turno assegnato. Mostra il QR al dipendente al suo arrivo.</span>
                     </div>
+                    {shift.qr_token && (
+                      <div className="flex justify-center">
+                        <ShiftQRDisplay token={shift.qr_token} caption="QR Check-in" size={180} />
+                      </div>
+                    )}
                   </div>
                 ) : shift.candidates.length === 0 ? (
                   <div className="p-6 text-center">

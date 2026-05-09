@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
+import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ShiftStatus } from '@/lib/database.types'
@@ -347,6 +348,13 @@ export default function AdminShifts() {
                   {selected.check_in_at && <Row icon={CheckCircle} label="Check-in" value={new Date(selected.check_in_at).toLocaleString('it-IT')} />}
                   {selected.check_out_at && <Row icon={CheckCircle} label="Check-out" value={new Date(selected.check_out_at).toLocaleString('it-IT')} />}
                 </div>
+
+                {/* QR display: visibile solo per turni assigned/in_progress */}
+                {selected.qr_token && (selected.status === 'assigned' || selected.status === 'in_progress') && (
+                  <div className="flex flex-col items-center pt-2">
+                    <ShiftQRDisplay token={selected.qr_token} caption="QR Check-in" size={180} />
+                  </div>
+                )}
 
                 {/* Audit */}
                 <div className="text-xs text-text-muted space-y-1">

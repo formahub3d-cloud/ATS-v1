@@ -428,7 +428,24 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      generate_shift_qr_token: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      shift_check_in: {
+        Args: { p_qr_token: string; p_lat?: number | null; p_lng?: number | null }
+        Returns: string
+      }
+      shift_check_out: {
+        Args: { p_shift_id: string }
+        Returns: number
+      }
+      current_user_role: {
+        Args: Record<string, never>
+        Returns: UserRole
+      }
+    }
     Enums: {
       user_role: UserRole
       structure_status: StructureStatus
