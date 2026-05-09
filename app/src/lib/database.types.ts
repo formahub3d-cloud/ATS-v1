@@ -49,6 +49,21 @@ export type PointsSourceType =
   | 'onboarding_completed'
   | 'admin_adjustment'
 
+export type AuditEventType =
+  | 'structure_approved'
+  | 'structure_rejected'
+  | 'structure_suspended'
+  | 'shift_assigned'
+  | 'shift_cancelled'
+  | 'shift_completed'
+  | 'shift_no_show'
+  | 'document_verified'
+  | 'document_deleted'
+  | 'employee_activated'
+  | 'employee_deactivated'
+  | 'role_changed'
+  | 'points_adjusted'
+
 export type EmployeeRankLevel =
   | 'rookie'
   | 'affidabile'
@@ -556,6 +571,36 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          id: string
+          event_type: AuditEventType
+          actor_id: string | null
+          target_type: string
+          target_id: string | null
+          metadata: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_type: AuditEventType
+          actor_id?: string | null
+          target_type: string
+          target_id?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: Partial<{
+          id?: string
+          event_type?: AuditEventType
+          actor_id?: string | null
+          target_type?: string
+          target_id?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }>
+        Relationships: []
+      }
       employee_points: {
         Row: {
           id: string
@@ -711,6 +756,7 @@ export type Database = {
       review_role: ReviewRole
       notification_kind: NotificationKind
       points_source_type: PointsSourceType
+      audit_event_type: AuditEventType
     }
   }
 }

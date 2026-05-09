@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { RoleProvider } from './context/RoleContext'
@@ -5,25 +6,37 @@ import { ToastProvider } from './components/ui/ToastSystem'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Auth from './pages/Auth'
-import AdminDashboard from './pages/AdminDashboard'
-import AdminStructures from './pages/AdminStructures'
-import AdminEmployees from './pages/AdminEmployees'
-import AdminShifts from './pages/AdminShifts'
-import AdminSettings from './pages/AdminSettings'
-import StructurePortal from './pages/StructurePortal'
-import StructureMatching from './pages/StructureMatching'
-import StructureHistory from './pages/StructureHistory'
-import EmployeeDashboard from './pages/EmployeeDashboard'
-import EmployeeCalendar from './pages/EmployeeCalendar'
-import EmployeeMatching from './pages/EmployeeMatching'
-import EmployeeCheckin from './pages/EmployeeCheckin'
-import EmployeeRank from './pages/EmployeeRank'
-import AdminChat from './pages/AdminChat'
-import StructureChat from './pages/StructureChat'
-import EmployeeChat from './pages/EmployeeChat'
-import EmployeeDocuments from './pages/EmployeeDocuments'
-import AdminPayroll from './pages/AdminPayroll'
-import AdminCalendar from './pages/AdminCalendar'
+
+// Lazy load di tutte le pagine "interne" (post-auth) per ridurre il bundle
+// iniziale. Home + Auth restano eager perché sono i primi entry point.
+const AdminDashboard   = lazy(() => import('./pages/AdminDashboard'))
+const AdminStructures  = lazy(() => import('./pages/AdminStructures'))
+const AdminEmployees   = lazy(() => import('./pages/AdminEmployees'))
+const AdminShifts      = lazy(() => import('./pages/AdminShifts'))
+const AdminCalendar    = lazy(() => import('./pages/AdminCalendar'))
+const AdminChat        = lazy(() => import('./pages/AdminChat'))
+const AdminPayroll     = lazy(() => import('./pages/AdminPayroll'))
+const AdminAudit       = lazy(() => import('./pages/AdminAudit'))
+const AdminSettings    = lazy(() => import('./pages/AdminSettings'))
+const StructurePortal  = lazy(() => import('./pages/StructurePortal'))
+const StructureMatching = lazy(() => import('./pages/StructureMatching'))
+const StructureHistory = lazy(() => import('./pages/StructureHistory'))
+const StructureChat    = lazy(() => import('./pages/StructureChat'))
+const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'))
+const EmployeeCalendar = lazy(() => import('./pages/EmployeeCalendar'))
+const EmployeeMatching = lazy(() => import('./pages/EmployeeMatching'))
+const EmployeeCheckin  = lazy(() => import('./pages/EmployeeCheckin'))
+const EmployeeChat     = lazy(() => import('./pages/EmployeeChat'))
+const EmployeeDocuments = lazy(() => import('./pages/EmployeeDocuments'))
+const EmployeeRank     = lazy(() => import('./pages/EmployeeRank'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-sky-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -31,29 +44,32 @@ export default function App() {
       <RoleProvider>
         <ToastProvider>
           <Layout>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/structures" element={<AdminStructures />} />
-              <Route path="/admin/employees" element={<AdminEmployees />} />
-              <Route path="/admin/shifts" element={<AdminShifts />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/chat" element={<AdminChat />} />
-              <Route path="/admin/payroll" element={<AdminPayroll />} />
-              <Route path="/admin/calendar" element={<AdminCalendar />} />
-              <Route path="/structure" element={<StructurePortal />} />
-              <Route path="/structure/matching" element={<StructureMatching />} />
-              <Route path="/structure/history" element={<StructureHistory />} />
-              <Route path="/structure/chat" element={<StructureChat />} />
-              <Route path="/employee" element={<EmployeeDashboard />} />
-              <Route path="/employee/calendar" element={<EmployeeCalendar />} />
-              <Route path="/employee/matching" element={<EmployeeMatching />} />
-              <Route path="/employee/checkin" element={<EmployeeCheckin />} />
-              <Route path="/employee/chat" element={<EmployeeChat />} />
-              <Route path="/employee/documents" element={<EmployeeDocuments />} />
-              <Route path="/employee/rank" element={<EmployeeRank />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/structures" element={<AdminStructures />} />
+                <Route path="/admin/employees" element={<AdminEmployees />} />
+                <Route path="/admin/shifts" element={<AdminShifts />} />
+                <Route path="/admin/calendar" element={<AdminCalendar />} />
+                <Route path="/admin/chat" element={<AdminChat />} />
+                <Route path="/admin/payroll" element={<AdminPayroll />} />
+                <Route path="/admin/audit" element={<AdminAudit />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
+                <Route path="/structure" element={<StructurePortal />} />
+                <Route path="/structure/matching" element={<StructureMatching />} />
+                <Route path="/structure/history" element={<StructureHistory />} />
+                <Route path="/structure/chat" element={<StructureChat />} />
+                <Route path="/employee" element={<EmployeeDashboard />} />
+                <Route path="/employee/calendar" element={<EmployeeCalendar />} />
+                <Route path="/employee/matching" element={<EmployeeMatching />} />
+                <Route path="/employee/checkin" element={<EmployeeCheckin />} />
+                <Route path="/employee/chat" element={<EmployeeChat />} />
+                <Route path="/employee/documents" element={<EmployeeDocuments />} />
+                <Route path="/employee/rank" element={<EmployeeRank />} />
+              </Routes>
+            </Suspense>
           </Layout>
         </ToastProvider>
       </RoleProvider>

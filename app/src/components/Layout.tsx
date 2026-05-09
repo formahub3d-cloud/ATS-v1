@@ -12,6 +12,7 @@ const adminNavItems = [
   { label: 'Calendario', path: '/admin/calendar', icon: 'CalendarDays' },
   { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
   { label: 'Payroll', path: '/admin/payroll', icon: 'Euro' },
+  { label: 'Audit', path: '/admin/audit', icon: 'ShieldCheck' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
 ]
 
