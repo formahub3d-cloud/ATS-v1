@@ -540,6 +540,27 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          value: unknown
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: unknown
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: Partial<{
+          key?: string
+          value?: unknown
+          updated_by?: string | null
+          updated_at?: string
+        }>
+        Relationships: []
+      }
       notifications: {
         Row: {
           id: string
