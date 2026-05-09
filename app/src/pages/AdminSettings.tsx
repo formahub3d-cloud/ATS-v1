@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import GlassCard from '@/components/admin/GlassCard'
 import GlassBadge from '@/components/admin/GlassBadge'
 import { useToast } from '@/components/ui/ToastSystem'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   roleRates, rankThresholds, penaltyRules, feeTiers, discountTiers,
   positivePoints, negativePoints, zoneRates, getHourlyRate,
@@ -121,26 +122,27 @@ export default function AdminSettings() {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-semibold text-white">Impostazioni Globali</h1>
-        <motion.button
-          animate={hasChanges ? { boxShadow: '0 0 20px rgba(91,184,245,0.3)' } : {}}
-          onClick={handleSave}
-          disabled={!hasChanges}
-          className={cn(
-            'flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl transition-all duration-300',
-            saved
-              ? 'bg-success text-text-inverse'
-              : hasChanges
-              ? 'gradient-sky text-text-inverse hover:brightness-110'
-              : 'bg-white/5 text-text-muted cursor-not-allowed'
-          )}
-        >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? 'Salvato!' : 'Salva modifiche'}
-        </motion.button>
-      </div>
+      <PageHeader
+        title="Impostazioni Globali"
+        actions={
+          <motion.button
+            animate={hasChanges ? { boxShadow: '0 0 20px rgba(91,184,245,0.3)' } : {}}
+            onClick={handleSave}
+            disabled={!hasChanges}
+            className={cn(
+              'flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-xl transition-all duration-300',
+              saved
+                ? 'bg-success text-text-inverse'
+                : hasChanges
+                ? 'gradient-sky text-text-inverse hover:brightness-110'
+                : 'bg-white/5 text-text-muted cursor-not-allowed'
+            )}
+          >
+            {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {saved ? 'Salvato!' : 'Salva modifiche'}
+          </motion.button>
+        }
+      />
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Settings Navigation */}
