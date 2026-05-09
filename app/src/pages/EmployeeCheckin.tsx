@@ -10,13 +10,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ScanLine, MapPin, Clock, Calendar, Building2, ShieldCheck,
-  AlertCircle, RefreshCw, LogOut, QrCode,
+  AlertCircle, RefreshCw, LogOut, QrCode, Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GlassBottomNav from '@/components/employee/GlassBottomNav'
 import QrScanner from '@/components/employee/QrScanner'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import StatusScreen from '@/components/structure/StatusScreen'
+import ReviewDialog from '@/components/reviews/ReviewDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
@@ -53,19 +54,23 @@ export default function EmployeeCheckin() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
+  // Recensioni: turni completati senza una mia recensione, e dialog state.
+  const [toReview, setToReview] = useState<ShiftWithStructure[]>([])
+  const [reviewTarget, setReviewTarget] = useState<ShiftWithStructure | null>(null)
 
   const load = useCallback(async () => {
     if (!user) return
     setLoading(true)
     setFetchError(null)
     try {
-      // Turni assigned o in_progress dell'employee corrente.
+      // Turni dell'employee in stati attivi o appena completati (per
+      // mostrare la sezione "Da recensire").
       const { data: rawShifts, error: sErr } = await supabase
         .from('shifts')
         .select('*')
         .eq('employee_id', user.id)
-        .in('status', ['assigned', 'in_progress'])
-        .order('shift_date', { ascending: true })
+        .in('status', ['assigned', 'in_progress', 'completed'])
+        .order('shift_date', { ascending: false })
       if (sErr) throw sErr
 
       const structIds = Array.from(new Set((rawShifts ?? []).map((s) => s.structure_id)))
@@ -78,7 +83,22 @@ export default function EmployeeCheckin() {
         structById = new Map((structs ?? []).map((s) => [s.id, s]))
       }
 
-      setShifts((rawShifts ?? []).map((s) => ({ ...s, structure: structById.get(s.structure_id) })))
+      const enriched = (rawShifts ?? []).map((s) => ({ ...s, structure: structById.get(s.structure_id) }))
+
+      // Calcola "da recensire": completati di cui non ho ancora una review.
+      const completedIds = enriched.filter((s) => s.status === 'completed').map((s) => s.id)
+      let myReviewedShiftIds = new Set<string>()
+      if (completedIds.length > 0) {
+        const { data: myReviews } = await supabase
+          .from('reviews')
+          .select('shift_id')
+          .eq('reviewer_id', user.id)
+          .in('shift_id', completedIds)
+        myReviewedShiftIds = new Set((myReviews ?? []).map((r) => r.shift_id))
+      }
+
+      setShifts(enriched.filter((s) => s.status !== 'completed'))
+      setToReview(enriched.filter((s) => s.status === 'completed' && !myReviewedShiftIds.has(s.id)))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore caricamento turni'
       console.error('[EmployeeCheckin] fetch error', err)
@@ -289,8 +309,48 @@ export default function EmployeeCheckin() {
           </section>
         )}
 
+        {/* Sezione: Turni da recensire */}
+        {toReview.length > 0 && (
+          <section>
+            <h2 className="text-xs uppercase tracking-wider text-[#F5B800] font-semibold mb-3 flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5" />
+              Da recensire
+            </h2>
+            <div className="space-y-3">
+              {toReview.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-2xl border border-[rgba(245,184,0,0.25)] bg-[rgba(245,184,0,0.04)] backdrop-blur-md p-5"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Building2 className="w-4 h-4 text-sky-primary flex-shrink-0" />
+                        <p className="text-sm font-semibold text-white truncate">
+                          {s.structure?.ragione_sociale ?? 'Struttura'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-text-muted">
+                        {s.role} · {new Date(s.shift_date).getDate()} {MONTHS_IT[new Date(s.shift_date).getMonth()]}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReviewTarget(s)}
+                    className="w-full py-2.5 text-sm font-semibold text-text-inverse rounded-xl gradient-sky hover:brightness-110 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Star className="w-4 h-4" />
+                    Lascia recensione
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Empty state */}
-        {assignedShifts.length === 0 && inProgressShifts.length === 0 && (
+        {assignedShifts.length === 0 && inProgressShifts.length === 0 && toReview.length === 0 && (
           <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-12">
             <Calendar className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
             <h2 className="text-lg font-semibold text-white mb-2">Nessun turno attivo</h2>
@@ -300,6 +360,15 @@ export default function EmployeeCheckin() {
           </div>
         )}
       </div>
+
+      <ReviewDialog
+        open={reviewTarget !== null}
+        shiftId={reviewTarget?.id ?? ''}
+        reviewerRole="employee"
+        recipientName={reviewTarget?.structure?.ragione_sociale ?? 'Struttura'}
+        onClose={() => setReviewTarget(null)}
+        onSubmitted={() => void load()}
+      />
 
       <GlassBottomNav />
     </div>

@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart, X, Calendar, Clock, MapPin, Briefcase, AlertCircle,
-  Sparkles, RefreshCw, CheckCircle, UserPlus,
+  Sparkles, RefreshCw, CheckCircle, UserPlus, Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
@@ -16,6 +16,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog from '@/components/structure/NewShiftDialog'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
+import ReviewDialog from '@/components/reviews/ReviewDialog'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -52,6 +53,9 @@ export default function StructureMatching() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [pendingAssign, setPendingAssign] = useState<string | null>(null)
   const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+  // Recensioni: turni completed dell'employee senza una mia recensione.
+  const [toReview, setToReview] = useState<Array<ShiftRow & { employee_name?: string }>>([])
+  const [reviewTarget, setReviewTarget] = useState<{ shiftId: string; recipient: string } | null>(null)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -71,16 +75,51 @@ export default function StructureMatching() {
         return
       }
 
-      // 2) Tutti i turni open della struttura.
+      // 2) Tutti i turni open + assigned + completed (per recensioni).
       const today = new Date().toISOString().slice(0, 10)
-      const { data: myShifts, error: sErr } = await supabase
+      const { data: allMyShifts, error: sErr } = await supabase
         .from('shifts')
         .select('*')
         .eq('structure_id', structRow.id)
-        .in('status', ['open', 'assigned'])
-        .gte('shift_date', today)
-        .order('shift_date', { ascending: true })
+        .order('shift_date', { ascending: false })
       if (sErr) throw sErr
+
+      // Splitto: turni attivi (open/assigned) per la lista candidati,
+      // turni completed (senza mia recensione) per la sezione "Da recensire".
+      const activeShifts = (allMyShifts ?? []).filter(
+        (s) => (s.status === 'open' || s.status === 'assigned') && s.shift_date >= today,
+      )
+      const completedShifts = (allMyShifts ?? []).filter((s) => s.status === 'completed')
+
+      // Reviews mie sui completed.
+      let myReviewedShiftIds = new Set<string>()
+      if (completedShifts.length > 0) {
+        const { data: myReviews } = await supabase
+          .from('reviews')
+          .select('shift_id')
+          .eq('reviewer_id', user.id)
+          .in('shift_id', completedShifts.map((s) => s.id))
+        myReviewedShiftIds = new Set((myReviews ?? []).map((r) => r.shift_id))
+      }
+      // Per i nomi dipendenti dei turni completed.
+      const completedEmpIds = Array.from(new Set(
+        completedShifts.map((s) => s.employee_id).filter((x): x is string => !!x),
+      ))
+      let empNameById = new Map<string, string>()
+      if (completedEmpIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', completedEmpIds)
+        empNameById = new Map((profs ?? []).map((p) => [p.id, p.full_name ?? '—']))
+      }
+      setToReview(
+        completedShifts
+          .filter((s) => !myReviewedShiftIds.has(s.id))
+          .map((s) => ({ ...s, employee_name: s.employee_id ? empNameById.get(s.employee_id) : undefined })),
+      )
+
+      const myShifts = activeShifts
 
       const shiftIds = (myShifts ?? []).map((s) => s.id)
       if (shiftIds.length === 0) {
@@ -258,7 +297,46 @@ export default function StructureMatching() {
           }
         />
 
-        {shifts.length === 0 ? (
+        {/* Sezione "Da recensire" — appare sopra alla lista turni attivi */}
+        {toReview.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xs uppercase tracking-wider text-[#F5B800] font-semibold mb-3 flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5" />
+              Turni da recensire
+            </h2>
+            <div className="space-y-3">
+              {toReview.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-2xl border border-[rgba(245,184,0,0.25)] bg-[rgba(245,184,0,0.04)] backdrop-blur-md p-5 flex items-center gap-4 flex-wrap"
+                >
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-semibold text-white">
+                      {s.employee_name ?? 'Dipendente'} · {s.role}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5 flex items-center gap-3">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(s.shift_date).getDate()} {MONTHS_IT[new Date(s.shift_date).getMonth()]}
+                      </span>
+                      <span className="font-mono">{s.time_start.slice(0, 5)}–{s.time_end.slice(0, 5)}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReviewTarget({ shiftId: s.id, recipient: s.employee_name ?? 'il dipendente' })}
+                    className="px-4 py-2 text-sm font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all flex items-center gap-1.5"
+                  >
+                    <Star className="w-4 h-4" />
+                    Recensisci
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {shifts.length === 0 && toReview.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-8">
             <Sparkles className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
             <h2 className="text-lg font-semibold text-white mb-2">Nessun turno attivo</h2>
@@ -400,6 +478,15 @@ export default function StructureMatching() {
         suggestedRoles={structure.ruoli_cercati}
         onClose={() => setShowNewShiftDialog(false)}
         onCreated={() => void load()}
+      />
+
+      <ReviewDialog
+        open={reviewTarget !== null}
+        shiftId={reviewTarget?.shiftId ?? ''}
+        reviewerRole="structure"
+        recipientName={reviewTarget?.recipient ?? '—'}
+        onClose={() => setReviewTarget(null)}
+        onSubmitted={() => void load()}
       />
     </div>
   )

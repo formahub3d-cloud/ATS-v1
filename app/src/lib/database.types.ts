@@ -38,6 +38,8 @@ export type ShiftLikeAction = 'like' | 'skip'
 
 export type ConversationKind = 'admin_structure' | 'admin_employee'
 
+export type ReviewRole = 'structure' | 'employee'
+
 export type EmployeeExperience = {
   id?: string
   ruolo?: string
@@ -195,6 +197,17 @@ type MessageInsert = {
   body: string
   created_at?: string
   read_at?: string | null
+}
+
+type ReviewInsert = {
+  id?: string
+  shift_id: string
+  reviewer_id: string
+  reviewer_role: ReviewRole
+  rating: number
+  tags?: string[]
+  comment?: string | null
+  created_at?: string
 }
 
 export type Database = {
@@ -495,6 +508,29 @@ export type Database = {
           },
         ]
       }
+      reviews: {
+        Row: {
+          id: string
+          shift_id: string
+          reviewer_id: string
+          reviewer_role: ReviewRole
+          rating: number
+          tags: string[]
+          comment: string | null
+          created_at: string
+        }
+        Insert: ReviewInsert
+        Update: Partial<ReviewInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'reviews_shift_id_fkey'
+            columns: ['shift_id']
+            isOneToOne: false
+            referencedRelation: 'shifts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -531,6 +567,7 @@ export type Database = {
       shift_status: ShiftStatus
       shift_like_action: ShiftLikeAction
       conversation_kind: ConversationKind
+      review_role: ReviewRole
     }
   }
 }

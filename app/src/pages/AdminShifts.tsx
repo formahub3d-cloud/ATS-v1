@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Calendar, Clock, MapPin, Search, X, AlertCircle, Building2,
-  User as UserIcon, CheckCircle, Hourglass, Ban, Play, Trophy, UserX,
+  User as UserIcon, CheckCircle, Hourglass, Ban, Play, Trophy, UserX, Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
@@ -24,6 +24,7 @@ import type { Database, ShiftStatus } from '@/lib/database.types'
 type ShiftRow = Database['public']['Tables']['shifts']['Row']
 type StructureRow = Database['public']['Tables']['structures']['Row']
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
+type ReviewRow = Database['public']['Tables']['reviews']['Row']
 
 interface ShiftWithJoins extends ShiftRow {
   structure?: Pick<StructureRow, 'id' | 'ragione_sociale' | 'zona' | 'tipo_struttura'>
@@ -73,6 +74,28 @@ export default function AdminShifts() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selected, setSelected] = useState<ShiftWithJoins | null>(null)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const [selectedReviews, setSelectedReviews] = useState<ReviewRow[]>([])
+
+  // Carico le recensioni del turno selezionato (solo quando cambia).
+  useEffect(() => {
+    if (!selected) { setSelectedReviews([]); return }
+    let cancelled = false
+    void supabase
+      .from('reviews')
+      .select('*')
+      .eq('shift_id', selected.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.error('[AdminShifts] reviews fetch error', error)
+          setSelectedReviews([])
+          return
+        }
+        setSelectedReviews(data ?? [])
+      })
+    return () => { cancelled = true }
+  }, [selected])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -353,6 +376,54 @@ export default function AdminShifts() {
                 {selected.qr_token && (selected.status === 'assigned' || selected.status === 'in_progress') && (
                   <div className="flex flex-col items-center pt-2">
                     <ShiftQRDisplay token={selected.qr_token} caption="QR Check-in" size={180} />
+                  </div>
+                )}
+
+                {/* Recensioni (solo per turni completati con almeno una review) */}
+                {selectedReviews.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-[#F5B800] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Star className="w-3 h-3" />
+                      Recensioni ({selectedReviews.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedReviews.map((r) => (
+                        <div
+                          key={r.id}
+                          className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(13,30,52,0.5)] p-3"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-sky-primary">
+                              {r.reviewer_role === 'structure' ? 'Struttura → Dipendente' : 'Dipendente → Struttura'}
+                            </span>
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <Star
+                                  key={n}
+                                  className={cn(
+                                    'w-3.5 h-3.5',
+                                    n <= r.rating ? 'fill-[#F5B800] text-[#F5B800]' : 'fill-transparent text-text-muted',
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          {r.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {r.tags.map((t) => (
+                                <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-[rgba(91,184,245,0.1)] text-sky-primary">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {r.comment && (
+                            <p className="text-xs text-text-secondary leading-relaxed italic">"{r.comment}"</p>
+                          )}
+                          <p className="text-[10px] text-text-muted mt-1.5">{new Date(r.created_at).toLocaleString('it-IT')}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
