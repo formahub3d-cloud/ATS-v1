@@ -23,6 +23,7 @@ import StructureChat from './pages/StructureChat'
 import EmployeeChat from './pages/EmployeeChat'
 import EmployeeDocuments from './pages/EmployeeDocuments'
 import AdminPayroll from './pages/AdminPayroll'
+import AdminCalendar from './pages/AdminCalendar'
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/admin/chat" element={<AdminChat />} />
               <Route path="/admin/payroll" element={<AdminPayroll />} />
+              <Route path="/admin/calendar" element={<AdminCalendar />} />
               <Route path="/structure" element={<StructurePortal />} />
               <Route path="/structure/matching" element={<StructureMatching />} />
               <Route path="/structure/history" element={<StructureHistory />} />

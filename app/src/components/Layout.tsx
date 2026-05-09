@@ -9,6 +9,7 @@ const adminNavItems = [
   { label: 'Strutture', path: '/admin/structures', icon: 'Building2' },
   { label: 'Dipendenti', path: '/admin/employees', icon: 'Users' },
   { label: 'Turni', path: '/admin/shifts', icon: 'Calendar' },
+  { label: 'Calendario', path: '/admin/calendar', icon: 'CalendarDays' },
   { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
   { label: 'Payroll', path: '/admin/payroll', icon: 'Euro' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
