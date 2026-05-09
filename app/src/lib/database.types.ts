@@ -11,6 +11,36 @@ export type StructureStatus = 'pending_review' | 'approved' | 'rejected' | 'susp
 
 export type PaymentMethod = 'carta' | 'sepa'
 
+export type ContractType =
+  | 'a_chiamata'
+  | 'tempo_determinato'
+  | 'tempo_indeterminato'
+  | 'occasionale'
+
+export type DocumentType =
+  | 'id_card'
+  | 'tax_code'
+  | 'iban_proof'
+  | 'haccp'
+  | 'health_cert'
+  | 'contract'
+  | 'other'
+
+export type EmployeeExperience = {
+  id?: string
+  ruolo?: string
+  tipoStruttura?: string
+  periodoDa?: string
+  periodoA?: string
+}
+
+export type EmployeeCertification = {
+  id?: string
+  tipo?: string
+  rilascio?: string
+  scadenza?: string
+}
+
 // Estratti come alias per poterli riusare in Update senza self-reference dentro
 // Database (TypeScript fatica a risolvere ricorsive in object literal types).
 type StructureInsert = {
@@ -56,6 +86,51 @@ type StructurePhotoInsert = {
   storage_path: string
   sort_order?: number
   created_at?: string
+}
+
+type EmployeeInsert = {
+  id: string
+  cf?: string | null
+  iban?: string | null
+  birth_date?: string | null
+  birth_place?: string | null
+  contract_type?: ContractType | null
+  hourly_rate?: number | null
+  weekly_hours_max?: number | null
+  hire_date?: string | null
+  termination_date?: string | null
+  active?: boolean
+  skills?: unknown[]
+  bio?: string | null
+  home_address?: string | null
+  home_city?: string | null
+  home_province?: string | null
+  // Aggiunte mig 7 (onboarding wizard)
+  video_attestation_path?: string | null
+  experiences?: EmployeeExperience[]
+  certifications?: EmployeeCertification[]
+  preferred_zone?: string | null
+  min_hourly_rate?: number | null
+  tag_valori?: string[]
+  navetta_driver?: boolean
+  onboarding_completed_at?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+type DocumentInsert = {
+  id?: string
+  employee_id: string
+  type: DocumentType
+  file_path: string
+  file_name?: string | null
+  mime_type?: string | null
+  size_bytes?: number | null
+  expires_at?: string | null
+  uploaded_at?: string
+  uploaded_by?: string | null
+  verified_at?: string | null
+  verified_by?: string | null
 }
 
 export type Database = {
@@ -167,12 +242,82 @@ export type Database = {
           },
         ]
       }
+      employees: {
+        Row: {
+          id: string
+          cf: string | null
+          iban: string | null
+          birth_date: string | null
+          birth_place: string | null
+          contract_type: ContractType | null
+          hourly_rate: number | null
+          weekly_hours_max: number | null
+          hire_date: string | null
+          termination_date: string | null
+          active: boolean
+          skills: unknown[]
+          bio: string | null
+          home_address: string | null
+          home_city: string | null
+          home_province: string | null
+          video_attestation_path: string | null
+          experiences: EmployeeExperience[]
+          certifications: EmployeeCertification[]
+          preferred_zone: string | null
+          min_hourly_rate: number | null
+          tag_valori: string[]
+          navetta_driver: boolean
+          onboarding_completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: EmployeeInsert
+        Update: Partial<EmployeeInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'employees_id_fkey'
+            columns: ['id']
+            isOneToOne: true
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          id: string
+          employee_id: string
+          type: DocumentType
+          file_path: string
+          file_name: string | null
+          mime_type: string | null
+          size_bytes: number | null
+          expires_at: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: DocumentInsert
+        Update: Partial<DocumentInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'documents_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'employees'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
       user_role: UserRole
       structure_status: StructureStatus
+      contract_type: ContractType
+      document_type: DocumentType
     }
   }
 }

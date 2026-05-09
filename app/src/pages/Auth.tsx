@@ -51,6 +51,7 @@ import GlassOnboardingStep from '@/components/auth/GlassOnboardingStep'
 import GlassVideoRecorder from '@/components/auth/GlassVideoRecorder'
 import GlassDocumentUploader from '@/components/auth/GlassDocumentUploader'
 import type { UploadedFile } from '@/components/auth/GlassDocumentUploader'
+import type { EmployeeExperience, EmployeeCertification } from '@/lib/database.types'
 import GlassCalendarPicker from '@/components/auth/GlassCalendarPicker'
 import type { CalendarDay } from '@/components/auth/GlassCalendarPicker'
 import GlassOTPInput from '@/components/auth/GlassOTPInput'
@@ -172,6 +173,8 @@ export default function Auth() {
     indirizzo: '',
     telefono: '',
     email: '',
+    password: '',
+    passwordConfirm: '',
     cf: '',
     documentoFiles: [] as UploadedFile[],
     iban: '',
@@ -340,8 +343,19 @@ export default function Auth() {
   /* ─── Employee step validation ─── */
   const canProceedEmployee = (): boolean => {
     switch (empStep) {
-      case 1:
-        return !!(empData.nome && empData.cognome && empData.dataNascita && empData.email && empData.cf)
+      case 1: {
+        const pwd = empData.password as string
+        const pwdConfirm = empData.passwordConfirm as string
+        return !!(
+          empData.nome &&
+          empData.cognome &&
+          empData.dataNascita &&
+          empData.email &&
+          empData.cf &&
+          pwd && pwd.length >= 8 &&
+          pwd === pwdConfirm
+        )
+      }
       case 2:
         return (empData.fotoProfessionale as UploadedFile[]).length > 0
       case 3:
@@ -541,13 +555,146 @@ export default function Auth() {
 
   const handleEmployeeSubmit = async () => {
     setIsSubmitting(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSubmitting(false)
-    addToast({ type: 'success', title: 'Benvenuto nel network ATS!', message: "Scarica l'app e inizia a ricevere turni." })
-    setTimeout(() => {
-      setView('login')
-      setEmpStep(1)
-    }, 2500)
+    try {
+      const email = (empData.email as string).trim().toLowerCase()
+      const password = empData.password as string
+      const fullName = `${(empData.nome as string).trim()} ${(empData.cognome as string).trim()}`.trim()
+
+      // 1) signUp Supabase con role='employee'.
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName, role: 'employee' },
+        },
+      })
+      if (signUpError) throw signUpError
+      const userId = signUpData.user?.id
+      if (!userId) throw new Error('SignUp riuscito ma user.id mancante.')
+
+      if (!signUpData.session) {
+        addToast({
+          type: 'info',
+          title: 'Conferma la tua email',
+          message: `Ti abbiamo inviato un link a ${email}. Confermala e poi accedi per completare l'invio.`,
+        })
+        setView('login')
+        return
+      }
+
+      // 2) Upload video di attestazione (se presente).
+      let videoPath: string | null = null
+      const videoBlob = empData.videoAttestazione as Blob | null
+      if (videoBlob) {
+        const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm'
+        videoPath = `${userId}/${crypto.randomUUID()}-attestation.${ext}`
+        const { error: vErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(videoPath, videoBlob, {
+            contentType: videoBlob.type || 'video/webm',
+            upsert: false,
+          })
+        if (vErr) throw vErr
+      }
+
+      // 3) Aggiorna profile con phone (full_name è già settato dal trigger).
+      const phone = (empData.telefono as string).trim()
+      if (phone) {
+        const { error: pErr } = await supabase
+          .from('profiles')
+          .update({ phone })
+          .eq('id', userId)
+        if (pErr) console.warn('[register-employee] profile phone update warn', pErr)
+      }
+
+      // 4) INSERT employees: anagrafica + preferenze + esperienze + certificazioni.
+      const skills: string[] = [
+        empData.ruoloPrincipale as string,
+        ...(empData.ruoliSecondari as string[]),
+      ].filter(Boolean)
+
+      const { error: eErr } = await supabase.from('employees').insert({
+        id: userId,
+        cf: (empData.cf as string).trim() || null,
+        iban: (empData.iban as string).trim() || null,
+        birth_date: (empData.dataNascita as string) || null,
+        home_address: (empData.indirizzo as string) || null,
+        skills,
+        video_attestation_path: videoPath,
+        experiences: (empData.esperienze as EmployeeExperience[]) || [],
+        certifications: (empData.certificazioni as EmployeeCertification[]) || [],
+        preferred_zone: (empData.zonaLavoro as string) || null,
+        min_hourly_rate: empData.pagaMinima ? Number(empData.pagaMinima) : null,
+        tag_valori: (empData.tagValori as string[]) || [],
+        navetta_driver: !!empData.navettaDriver,
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      if (eErr) throw eErr
+
+      // 5) Upload documenti d'identità (1+ files), insert in `documents`.
+      const docFiles = (empData.documentoFiles as UploadedFile[]) || []
+      for (const d of docFiles) {
+        if (!d.file) continue
+        const ext = d.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/${crypto.randomUUID()}-id_card.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(path, d.file, { contentType: d.file.type, upsert: false })
+        if (upErr) throw upErr
+        const { error: docErr } = await supabase.from('documents').insert({
+          employee_id: userId,
+          type: 'id_card',
+          file_path: path,
+          file_name: d.file.name,
+          mime_type: d.file.type,
+          size_bytes: d.file.size,
+          uploaded_by: userId,
+        })
+        if (docErr) throw docErr
+      }
+
+      // 6) Foto professionali → caricate come documenti type='other'; la prima
+      //    diventa avatar_url del profilo (signed URL del bucket).
+      const photoFiles = (empData.fotoProfessionale as UploadedFile[]) || []
+      for (let i = 0; i < photoFiles.length; i++) {
+        const p = photoFiles[i]
+        if (!p.file) continue
+        const ext = p.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/${crypto.randomUUID()}-photo.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(path, p.file, { contentType: p.file.type, upsert: false })
+        if (upErr) throw upErr
+        const { error: docErr } = await supabase.from('documents').insert({
+          employee_id: userId,
+          type: 'other',
+          file_path: path,
+          file_name: p.file.name,
+          mime_type: p.file.type,
+          size_bytes: p.file.size,
+          uploaded_by: userId,
+        })
+        if (docErr) throw docErr
+      }
+
+      // 7) Pulizia bozza locale + redirect.
+      localStorage.removeItem('ats_draft_employee')
+      addToast({
+        type: 'success',
+        title: 'Benvenuto nel network ATS!',
+        message: 'Profilo creato. Accedi per iniziare a ricevere turni.',
+      })
+      setTimeout(() => {
+        setView('login')
+        setEmpStep(1)
+      }, 1800)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      console.error('[register-employee] submit error', err)
+      addToast({ type: 'error', title: 'Errore durante l’invio', message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   /* ─── Step labels ─── */
@@ -1741,6 +1888,37 @@ export default function Auth() {
                               onChange={(e) => updateEmp('email', e.target.value)}
                               className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
                             />
+                            <p className="text-xs text-text-muted">Sarà la tua email di accesso.</p>
+                          </div>
+                          <div className="sm:col-span-2 border-t border-[rgba(255,255,255,0.06)] pt-4 mt-2">
+                            <p className="text-sm font-medium text-sky-primary mb-3 flex items-center gap-2">
+                              <Lock className="w-4 h-4" />
+                              Credenziali di accesso
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Password</Label>
+                            <Input
+                              type="password"
+                              placeholder="Almeno 8 caratteri"
+                              value={empData.password as string}
+                              onChange={(e) => updateEmp('password', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Conferma password</Label>
+                            <Input
+                              type="password"
+                              placeholder="Ripeti la password"
+                              value={empData.passwordConfirm as string}
+                              onChange={(e) => updateEmp('passwordConfirm', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                            {(empData.passwordConfirm as string) &&
+                              empData.password !== empData.passwordConfirm && (
+                                <p className="text-xs text-error">Le password non coincidono</p>
+                              )}
                           </div>
                           <div className="sm:col-span-2 space-y-1.5">
                             <Label className="flex items-center gap-2">

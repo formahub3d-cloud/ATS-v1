@@ -5,6 +5,7 @@ import {
   Bell, Calendar, Search, QrCode, Trophy, Euro, Heart,
   MessageCircle, Clock, Truck, CheckCircle, CreditCard,
   AlertTriangle, ChevronRight, Star, HelpCircle,
+  Hourglass, AlertCircle,
 } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
@@ -13,16 +14,20 @@ import GlassShiftCard from '@/components/employee/GlassShiftCard';
 import GlassTooltip from '@/components/ui/GlassTooltip';
 import { useToast } from '@/components/ui/ToastSystem';
 import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
+import StatusScreen from '@/components/structure/StatusScreen';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import type { Database } from '@/lib/database.types';
 import {
   dashboardData,
   upcomingShift,
   notifications,
   shiftProposal,
-  EMPLOYEE_NAME,
-  EMPLOYEE_CODE,
 } from '@/components/employee/mockData';
 import type { Notification } from '@/components/employee/mockData';
 import { cn } from '@/lib/utils';
+
+type EmployeeRow = Database['public']['Tables']['employees']['Row'];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -77,20 +82,52 @@ function NotificationItem({ notif, index }: { notif: Notification; index: number
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { user, profile, status: authStatus } = useAuth();
   const [greeting, setGreeting] = useState('');
   const [showProposal, setShowProposal] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [employee, setEmployee] = useState<EmployeeRow | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Buongiorno');
     else if (hour < 18) setGreeting('Buon pomeriggio');
     else setGreeting('Buonasera');
-
-    // Simulated loading
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'anonymous' || !user) {
+      navigate('/auth');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) throw error;
+        setEmployee(data);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'Errore caricamento profilo';
+        console.error('[EmployeeDashboard] fetch error', err);
+        setFetchError(message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authStatus, user, navigate]);
+
+  // Display values: nome reale dal profile, code = primi 8 caratteri dell'id.
+  const displayName = profile?.full_name?.split(' ')[0] || 'collega';
+  const displayCode = user ? `ATS-D-${user.id.slice(0, 8).toUpperCase()}` : '—';
 
   const quickActions = [
     { icon: Calendar, label: 'Calendario', path: '/employee/calendar' },
@@ -130,6 +167,53 @@ export default function EmployeeDashboard() {
     );
   }
 
+  // Errore di fetch.
+  if (fetchError) {
+    return (
+      <>
+        <StatusScreen
+          icon={AlertCircle}
+          iconColor="#F04545"
+          title="Impossibile caricare il profilo"
+          description={fetchError}
+          primaryAction={{ label: 'Riprova', onClick: () => window.location.reload() }}
+        />
+        <GlassBottomNav />
+      </>
+    );
+  }
+
+  // Nessuna riga `employees` per questo utente: profilo non completato.
+  if (!employee) {
+    return (
+      <>
+        <StatusScreen
+          icon={Hourglass}
+          iconColor="#5BB8F5"
+          title="Profilo non completato"
+          description="Sembra che tu abbia un account ma non hai completato l'onboarding di registrazione. Completa la registrazione per iniziare a ricevere turni."
+          primaryAction={{ label: 'Completa registrazione', onClick: () => navigate('/auth') }}
+        />
+        <GlassBottomNav />
+      </>
+    );
+  }
+
+  // Account disattivato dall'admin.
+  if (!employee.active) {
+    return (
+      <>
+        <StatusScreen
+          icon={AlertCircle}
+          iconColor="#F5B800"
+          title="Account in pausa"
+          description="Il tuo profilo è momentaneamente disattivato. Contatta il supporto ATS per maggiori informazioni."
+        />
+        <GlassBottomNav />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
       {/* Glass Header */}
@@ -155,7 +239,7 @@ export default function EmployeeDashboard() {
             </motion.div>
             <div>
               <span className="font-mono text-[11px] text-[#5BB8F5] tracking-wider bg-[rgba(91,184,245,0.08)] px-1.5 py-0.5 rounded">
-                {EMPLOYEE_CODE}
+                {displayCode}
               </span>
               <span className="ml-2 text-[10px] font-semibold text-[#3AA3E8] bg-[rgba(58,163,232,0.12)] px-1.5 py-0.5 rounded border border-[rgba(58,163,232,0.2)]">
                 SENIOR
@@ -189,7 +273,7 @@ export default function EmployeeDashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {greeting}, {EMPLOYEE_NAME}
+            {greeting}, {displayName}
           </motion.h1>
           <p className="text-sm text-[#94A3B8] mt-0.5">Ecco il tuo riepilogo</p>
         </motion.div>
