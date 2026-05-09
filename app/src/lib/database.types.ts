@@ -49,6 +49,8 @@ export type PointsSourceType =
   | 'onboarding_completed'
   | 'admin_adjustment'
 
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void'
+
 export type AuditEventType =
   | 'structure_approved'
   | 'structure_rejected'
@@ -571,6 +573,75 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          id: string
+          structure_id: string
+          period_year: number
+          period_month: number
+          shifts_count: number
+          total_hours: number
+          total_amount: number
+          fee_amount: number
+          grand_total: number
+          status: InvoiceStatus
+          stripe_payment_intent_id: string | null
+          stripe_invoice_id: string | null
+          payment_due: string | null
+          sent_at: string | null
+          paid_at: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          structure_id: string
+          period_year: number
+          period_month: number
+          shifts_count?: number
+          total_hours?: number
+          total_amount?: number
+          fee_amount?: number
+          grand_total?: number
+          status?: InvoiceStatus
+          stripe_payment_intent_id?: string | null
+          stripe_invoice_id?: string | null
+          payment_due?: string | null
+          sent_at?: string | null
+          paid_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<{
+          id?: string
+          structure_id?: string
+          period_year?: number
+          period_month?: number
+          shifts_count?: number
+          total_hours?: number
+          total_amount?: number
+          fee_amount?: number
+          grand_total?: number
+          status?: InvoiceStatus
+          stripe_payment_intent_id?: string | null
+          stripe_invoice_id?: string | null
+          payment_due?: string | null
+          sent_at?: string | null
+          paid_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }>
+        Relationships: [{
+          foreignKeyName: 'invoices_structure_id_fkey'
+          columns: ['structure_id']
+          isOneToOne: false
+          referencedRelation: 'structures'
+          referencedColumns: ['id']
+        }]
+      }
       audit_log: {
         Row: {
           id: string
@@ -744,6 +815,14 @@ export type Database = {
         Args: { p_id?: string | null }
         Returns: number
       }
+      generate_invoice_for_period: {
+        Args: { p_structure_id: string; p_year: number; p_month: number }
+        Returns: string
+      }
+      generate_all_invoices_for_period: {
+        Args: { p_year: number; p_month: number }
+        Returns: number
+      }
     }
     Enums: {
       user_role: UserRole
@@ -757,6 +836,7 @@ export type Database = {
       notification_kind: NotificationKind
       points_source_type: PointsSourceType
       audit_event_type: AuditEventType
+      invoice_status: InvoiceStatus
     }
   }
 }

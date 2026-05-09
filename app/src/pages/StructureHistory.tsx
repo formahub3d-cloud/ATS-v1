@@ -18,11 +18,12 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
-import type { Database, ShiftStatus } from '@/lib/database.types'
+import type { Database, ShiftStatus, InvoiceStatus } from '@/lib/database.types'
 
 type ShiftRow = Database['public']['Tables']['shifts']['Row']
 type ReviewRow = Database['public']['Tables']['reviews']['Row']
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
+type InvoiceRow = Database['public']['Tables']['invoices']['Row']
 
 interface ShiftWithEmp extends ShiftRow {
   employee_name?: string | null
@@ -35,6 +36,15 @@ interface ReviewWithEmp extends ReviewRow {
 }
 
 const MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+const MONTHS_FULL_IT = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+
+const INVOICE_STATUS_CLS: Record<InvoiceStatus, { label: string; cls: string }> = {
+  draft:   { label: 'Bozza',     cls: 'bg-[rgba(148,163,184,0.10)] text-[#94A3B8] border-[rgba(148,163,184,0.25)]' },
+  sent:    { label: 'Da pagare', cls: 'bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border-[rgba(91,184,245,0.30)]' },
+  paid:    { label: 'Pagata',    cls: 'bg-[rgba(30,201,154,0.12)] text-[#1EC99A] border-[rgba(30,201,154,0.30)]' },
+  overdue: { label: 'Scaduta',   cls: 'bg-[rgba(240,69,69,0.12)] text-[#F04545] border-[rgba(240,69,69,0.30)]' },
+  void:    { label: 'Annullata', cls: 'bg-[rgba(148,163,184,0.10)] text-[#94A3B8] border-[rgba(148,163,184,0.25)] line-through' },
+}
 
 const STATUS_BADGE: Record<ShiftStatus, { label: string; cls: string }> = {
   open:        { label: 'Aperto',     cls: 'bg-[rgba(245,184,0,0.12)] text-[#F5B800] border-[rgba(245,184,0,0.3)]' },
@@ -63,6 +73,7 @@ export default function StructureHistory() {
   const [structureId, setStructureId] = useState<string | null>(null)
   const [shifts, setShifts] = useState<ShiftWithEmp[]>([])
   const [reviews, setReviews] = useState<ReviewWithEmp[]>([])
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([])
   const [avgRating, setAvgRating] = useState<number | null>(null)
   const [totalReviewsReceived, setTotalReviewsReceived] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -92,13 +103,16 @@ export default function StructureHistory() {
         .limit(50)
       if (sErr) throw sErr
 
-      // 3) Recensioni date (dalla struttura) + ricevute (dagli employee).
-      const [{ data: givenReviews }, { data: ratingRow }] = await Promise.all([
+      // 3) Recensioni date + summary rating + fatture della struttura.
+      const [{ data: givenReviews }, { data: ratingRow }, { data: invs }] = await Promise.all([
         supabase.from('reviews').select('*').eq('reviewer_id', user.id)
           .order('created_at', { ascending: false }),
         supabase.from('structure_rating_summary').select('avg_rating, total_reviews')
           .eq('structure_id', structRow.id).maybeSingle(),
+        supabase.from('invoices').select('*').eq('structure_id', structRow.id)
+          .order('period_year', { ascending: false }).order('period_month', { ascending: false }),
       ])
+      setInvoices(invs ?? [])
 
       // 4) Lookup nomi dipendenti.
       const empIds = Array.from(new Set([
@@ -344,21 +358,63 @@ export default function StructureHistory() {
         )}
       </GlassCard>
 
-      {/* Fatture & Pagamenti — placeholder onesti */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ComingSoon
-          title="Fatture"
-          icon={FileText}
-          color="#5BB8F5"
-          description="Fatturazione automatica dei turni completati. Schema fatture (numero, periodo, importo) in arrivo."
-        />
-        <ComingSoon
-          title="Pagamenti"
-          icon={CreditCard}
-          color="#1EC99A"
-          description="Storico addebiti (carta/SEPA) e bonifici dipendenti. Integrazione Stripe in fetta dedicata."
-        />
-      </section>
+      {/* Fatture reali */}
+      <GlassCard>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <FileText className="w-5 h-5 text-sky-primary" />
+            Fatture
+          </h2>
+          <span className="text-xs text-text-muted">{invoices.length}</span>
+        </div>
+        {invoices.length === 0 ? (
+          <div className="py-10 text-center text-text-muted">
+            <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">Nessuna fattura ancora generata.</p>
+            <p className="text-xs mt-1 opacity-70">Le fatture vengono create dall'admin a fine mese sui turni completati.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[rgba(255,255,255,0.06)]">
+                  <th className="text-left px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Periodo</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Turni</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Compenso</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Fee</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Totale</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Stato</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Scadenza</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((i) => {
+                  const statusCls = INVOICE_STATUS_CLS[i.status]
+                  return (
+                    <tr key={i.id} className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors">
+                      <td className="px-3 py-3 text-sm text-white">
+                        {MONTHS_FULL_IT[i.period_month - 1]} {i.period_year}
+                      </td>
+                      <td className="px-3 py-3 text-right text-sm text-text-secondary font-mono">{i.shifts_count}</td>
+                      <td className="px-3 py-3 text-right text-sm text-text-secondary font-mono">€ {Number(i.total_amount).toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right text-sm text-[#F5B800] font-mono">€ {Number(i.fee_amount).toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right text-sm font-bold text-[#1EC99A] font-mono">€ {Number(i.grand_total).toFixed(2)}</td>
+                      <td className="px-3 py-3">
+                        <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', statusCls.cls)}>
+                          {statusCls.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-text-muted">
+                        {i.payment_due ? new Date(i.payment_due).toLocaleDateString('it-IT') : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassCard>
     </motion.div>
   )
 }

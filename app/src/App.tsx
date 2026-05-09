@@ -16,6 +16,7 @@ const AdminShifts      = lazy(() => import('./pages/AdminShifts'))
 const AdminCalendar    = lazy(() => import('./pages/AdminCalendar'))
 const AdminChat        = lazy(() => import('./pages/AdminChat'))
 const AdminPayroll     = lazy(() => import('./pages/AdminPayroll'))
+const AdminInvoices    = lazy(() => import('./pages/AdminInvoices'))
 const AdminAudit       = lazy(() => import('./pages/AdminAudit'))
 const AdminSettings    = lazy(() => import('./pages/AdminSettings'))
 const StructurePortal  = lazy(() => import('./pages/StructurePortal'))
@@ -55,6 +56,7 @@ export default function App() {
                 <Route path="/admin/calendar" element={<AdminCalendar />} />
                 <Route path="/admin/chat" element={<AdminChat />} />
                 <Route path="/admin/payroll" element={<AdminPayroll />} />
+                <Route path="/admin/invoices" element={<AdminInvoices />} />
                 <Route path="/admin/audit" element={<AdminAudit />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/structure" element={<StructurePortal />} />
