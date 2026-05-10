@@ -7,8 +7,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Download, Calendar, AlertCircle, Users, Clock, Euro, FileText,
-  TrendingUp,
+  TrendingUp, ChevronDown, ChevronRight, MapPin,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -75,6 +76,14 @@ export default function AdminPayroll() {
   const [rows, setRows] = useState<PayrollRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  // Drill-down: id dei dipendenti con riga espansa (set: posso espandere multipli).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
 
   const range = useMemo(() => monthRange(month), [month])
 
@@ -274,7 +283,7 @@ export default function AdminPayroll() {
         <KPI icon={Users} color="#5BB8F5" label="Dipendenti" value={totals.employees} loading={loading} />
         <KPI icon={Calendar} color="#3AA3E8" label="Turni completati" value={totals.shifts} loading={loading} />
         <KPI icon={Clock} color="#F5B800" label="Ore totali" value={totals.hours} suffix="h" loading={loading} />
-        <KPI icon={Euro} color="#1EC99A" label="Compenso totale" value={totals.amount} prefix="€ " loading={loading} />
+        <KPI icon={Euro} color="#1EC99A" label="Compenso lordo" value={totals.amount} prefix="€ " loading={loading} />
       </section>
 
       {/* Tabella aggregata per dipendente */}
@@ -300,33 +309,93 @@ export default function AdminPayroll() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[rgba(255,255,255,0.06)]">
+                  <th className="w-8"></th>
                   <th className="text-left px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Dipendente</th>
                   <th className="text-right px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Turni</th>
                   <th className="text-right px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Ore</th>
-                  <th className="text-right px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Compenso</th>
+                  <th className="text-right px-3 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Compenso lordo</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <motion.tr
-                    key={r.employee_id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.25 }}
-                    className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors"
-                  >
-                    <td className="px-3 py-3">
-                      <p className="text-sm font-medium text-white">{r.employee_name}</p>
-                      <p className="text-[10px] font-mono text-text-muted">ATS-D-{r.employee_id.slice(0, 8).toUpperCase()}</p>
-                    </td>
-                    <td className="px-3 py-3 text-right text-sm text-text-secondary font-mono">{r.shifts_count}</td>
-                    <td className="px-3 py-3 text-right text-sm text-white font-mono">{r.total_hours.toFixed(2)} h</td>
-                    <td className="px-3 py-3 text-right">
-                      <span className="text-sm font-semibold text-[#1EC99A] font-mono">€ {r.total_amount.toFixed(2)}</span>
-                    </td>
-                  </motion.tr>
-                ))}
+                {rows.map((r, i) => {
+                  const isOpen = expanded.has(r.employee_id)
+                  return (
+                    <motion.tr
+                      key={r.employee_id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.25 }}
+                      className={cn(
+                        'border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.04)] transition-colors cursor-pointer',
+                        isOpen && 'bg-[rgba(91,184,245,0.04)]',
+                      )}
+                      onClick={() => toggleExpanded(r.employee_id)}
+                    >
+                      <td className="px-2 py-3 text-text-muted">
+                        {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="text-sm font-medium text-white">{r.employee_name}</p>
+                        <p className="text-[10px] font-mono text-text-muted">ATS-D-{r.employee_id.slice(0, 8).toUpperCase()}</p>
+                      </td>
+                      <td className="px-3 py-3 text-right text-sm text-text-secondary font-mono">{r.shifts_count}</td>
+                      <td className="px-3 py-3 text-right text-sm text-white font-mono">{r.total_hours.toFixed(2)} h</td>
+                      <td className="px-3 py-3 text-right">
+                        <span className="text-sm font-semibold text-[#1EC99A] font-mono">€ {r.total_amount.toFixed(2)}</span>
+                      </td>
+                    </motion.tr>
+                  )
+                }).flatMap((row, i) => {
+                  const r = rows[i]
+                  if (!expanded.has(r.employee_id)) return [row]
+                  // Riga espansa: dettaglio turni che compongono il totale.
+                  return [
+                    row,
+                    <tr key={`${r.employee_id}-detail`} className="bg-[rgba(13,30,52,0.6)]">
+                      <td colSpan={5} className="px-2 py-0">
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] uppercase tracking-wider text-text-muted">
+                            Turni che compongono il totale
+                          </p>
+                          <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
+                            {r.shifts.map((s) => {
+                              const hours = computeHours(s)
+                              const amount = hours * Number(s.hourly_rate)
+                              return (
+                                <li key={s.id} className="flex items-center gap-3 py-2 text-xs">
+                                  <span className="text-text-muted font-mono w-20 flex-shrink-0">
+                                    {new Date(s.shift_date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                                  </span>
+                                  <span className="text-white font-medium w-32 flex-shrink-0 truncate">
+                                    {s.role}
+                                  </span>
+                                  <span className="text-text-muted flex items-center gap-1 flex-1 min-w-0 truncate">
+                                    <MapPin className="w-3 h-3 opacity-70 flex-shrink-0" />
+                                    {s.structure_name ?? '—'}
+                                  </span>
+                                  <span className="text-text-secondary font-mono w-16 text-right flex-shrink-0">
+                                    {s.time_start.slice(0, 5)}-{s.time_end.slice(0, 5)}
+                                  </span>
+                                  <span className="text-white font-mono w-16 text-right flex-shrink-0">
+                                    {hours.toFixed(2)}h
+                                  </span>
+                                  <span className="text-text-muted font-mono w-20 text-right flex-shrink-0">
+                                    €{Number(s.hourly_rate).toFixed(2)}/h
+                                  </span>
+                                  <span className="text-[#1EC99A] font-mono font-semibold w-20 text-right flex-shrink-0">
+                                    €{amount.toFixed(2)}
+                                  </span>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>,
+                  ]
+                })}
                 <tr className="border-t-2 border-[rgba(91,184,245,0.3)] bg-[rgba(91,184,245,0.04)]">
+                  <td className="px-2 py-3"></td>
                   <td className="px-3 py-3 text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                     <TrendingUp className="w-4 h-4 text-sky-primary" />
                     Totale {range.label}
