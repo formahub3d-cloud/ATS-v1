@@ -6,7 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  // base assoluto: con BrowserRouter le sotto-route (es. /strutture) devono
+  // poter risolvere /assets/* anche dopo un page refresh. Con './' la
+  // risoluzione diventava relativa a /strutture/assets/* → 404.
+  base: '/',
   plugins: [
     inspectAttr(),
     react(),

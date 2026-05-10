@@ -1,0 +1,4 @@
+# Netlify / Cloudflare Pages SPA fallback.
+# Tutte le route lato client (es. /strutture, /admin/...) vengono servite
+# tramite index.html così BrowserRouter può fare il routing.
+/*    /index.html   200
