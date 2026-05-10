@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import Auth from './pages/Auth'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CommandPalette from './components/admin/CommandPalette'
+import { useNotificationsToast } from './hooks/useNotificationsToast'
 
 // Le landing dedicate + pagine "completamento landing" sono lazy: il
 // visitatore della homepage non ha bisogno di scaricarle subito.
@@ -53,6 +54,13 @@ function PageLoader() {
       <div className="w-8 h-8 border-2 border-sky-primary border-t-transparent rounded-full animate-spin" />
     </div>
   )
+}
+
+// Hook che subscribe a notifications/INSERT e dispara toast — deve vivere
+// dentro ToastProvider per accedere a useToast(). Wrapper minimo dedicato.
+function GlobalRealtimeListeners() {
+  useNotificationsToast()
+  return null
 }
 
 export default function App() {
@@ -102,6 +110,7 @@ export default function App() {
           </Layout>
           <CommandPalette />
           <PWAUpdatePrompt />
+          <GlobalRealtimeListeners />
         </ToastProvider>
       </RoleProvider>
     </AuthProvider>
