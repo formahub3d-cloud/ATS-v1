@@ -28,7 +28,9 @@ create or replace function public._seed_demo_user(
   p_id uuid, p_email text, p_role text, p_full_name text
 ) returns uuid
 language plpgsql
-security definer set search_path = public, auth
+-- Search_path include extensions perché pgcrypto (crypt, gen_salt) su Supabase
+-- è installato in schema extensions, non in public.
+security definer set search_path = public, auth, extensions
 as $$
 begin
   -- Insert in auth.users con campi minimi richiesti da GoTrue.
@@ -46,7 +48,8 @@ begin
     'authenticated',
     'authenticated',
     p_email,
-    crypt('DemoPassword123!', gen_salt('bf')),
+    -- Schema-qualified + cast esplicito a text per evitare "unknown" overload.
+    extensions.crypt('DemoPassword123!'::text, extensions.gen_salt('bf'::text)),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('role', p_role, 'full_name', p_full_name),
