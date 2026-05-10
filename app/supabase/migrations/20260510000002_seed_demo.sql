@@ -271,9 +271,12 @@ select
   ((current_date - ((s.idx * 11 + s.struct_idx * 3 + 5) || ' days')::interval))::timestamptz,
   ((current_date - ((s.idx * 11 + s.struct_idx * 3 + 7) || ' days')::interval))::timestamptz
 from (
+  -- generate_series senza alias di colonna esplicito esporrebbe la colonna
+  -- col stesso nome della tabella; obbligatorio "as t(nome_col)" per
+  -- usare struct_idx / idx come riferimento.
   select struct_idx, idx
-  from generate_series(1, 6) struct_idx,
-       generate_series(1, 5) idx
+  from generate_series(1, 6) as ts(struct_idx),
+       generate_series(1, 5) as ti(idx)
 ) s
 on conflict (id) do nothing;
 
@@ -303,8 +306,8 @@ from public.shifts sh
 join public.structures s on s.id = sh.structure_id
 where sh.status = 'completed'
   and sh.id in (
-    select md5('seed:shift:' || ss.struct_idx || ':' || ss.idx)::uuid
-    from generate_series(1, 6) ss(struct_idx), generate_series(1, 5) tt(idx)
+    select md5('seed:shift:' || ss.struct_idx || ':' || tt.idx)::uuid
+    from generate_series(1, 6) as ss(struct_idx), generate_series(1, 5) as tt(idx)
   )
 on conflict (shift_id, reviewer_id) do nothing;
 
@@ -322,8 +325,8 @@ from public.shifts sh
 where sh.status = 'completed'
   and sh.employee_id is not null
   and sh.id in (
-    select md5('seed:shift:' || ss.struct_idx || ':' || ss.idx)::uuid
-    from generate_series(1, 6) ss(struct_idx), generate_series(1, 5) tt(idx)
+    select md5('seed:shift:' || ss.struct_idx || ':' || tt.idx)::uuid
+    from generate_series(1, 6) as ss(struct_idx), generate_series(1, 5) as tt(idx)
   )
 on conflict (shift_id, reviewer_id) do nothing;
 
