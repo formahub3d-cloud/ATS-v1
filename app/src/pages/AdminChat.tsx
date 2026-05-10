@@ -1,7 +1,7 @@
 // AdminChat — pagina chat per admin: lista conversazioni a sinistra,
 // thread aperto a destra. Realtime via ChatPanel.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Building2, User as UserIcon, MessageCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,7 @@ import Avatar from '@/components/Avatar'
 import ChatPanel from '@/components/chat/ChatPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import type { Database, ConversationKind } from '@/lib/database.types'
 
 type ConversationRow = Database['public']['Tables']['conversations']['Row']
@@ -24,33 +25,56 @@ interface ConversationDisplay {
   subtitle: string
   avatar_url?: string | null
   last_message_at: string | null
+  unread_count: number
 }
 
 export default function AdminChat() {
+  const { user } = useAuth()
   const [conversations, setConversations] = useState<ConversationDisplay[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  // Tengo selectedId in ref per evitare re-bind del realtime listener al
+  // cambio chat (che chiuderebbe e riaprirebbe il canale ad ogni click).
+  const selectedIdRef = useRef<string | null>(null)
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
 
   const load = useCallback(async () => {
     setLoading(true)
     setFetchError(null)
     try {
-      const [{ data: rawConvs, error: cErr }, { data: structs, error: stErr }, { data: profs, error: pErr }] =
-        await Promise.all([
-          supabase.from('conversations').select('*').order('last_message_at', { ascending: false, nullsFirst: false }),
-          supabase.from('structures').select('id, ragione_sociale, tipo_struttura'),
-          supabase.from('profiles').select('id, full_name, avatar_url').eq('role', 'employee'),
-        ])
+      const [
+        { data: rawConvs, error: cErr },
+        { data: structs, error: stErr },
+        { data: profs, error: pErr },
+        { data: unreadRows, error: uErr },
+      ] = await Promise.all([
+        supabase.from('conversations').select('*').order('last_message_at', { ascending: false, nullsFirst: false }),
+        supabase.from('structures').select('id, ragione_sociale, tipo_struttura'),
+        supabase.from('profiles').select('id, full_name, avatar_url').eq('role', 'employee'),
+        // Tutti i messaggi non letti non miei. Volume basso (chat 1:1 admin↔X),
+        // un singolo round-trip è sufficiente; aggreghiamo client-side.
+        supabase.from('messages')
+          .select('conversation_id, sender_id, read_at')
+          .is('read_at', null),
+      ])
       if (cErr) throw cErr
       if (stErr) throw stErr
       if (pErr) throw pErr
+      if (uErr) throw uErr
 
       const structById = new Map((structs ?? []).map((s) => [s.id, s]))
       const profById = new Map((profs ?? []).map((p) => [p.id, p]))
+      // Conta unread per conversation_id, escludendo quelli inviati dall'admin.
+      const unreadByConv = new Map<string, number>()
+      for (const r of unreadRows ?? []) {
+        if (r.sender_id === user?.id) continue
+        unreadByConv.set(r.conversation_id, (unreadByConv.get(r.conversation_id) ?? 0) + 1)
+      }
 
       const display: ConversationDisplay[] = (rawConvs ?? []).map((c) => {
+        const unread = unreadByConv.get(c.id) ?? 0
         if (c.kind === 'admin_structure' && c.structure_id) {
           const s = structById.get(c.structure_id) as Pick<StructureRow, 'ragione_sociale' | 'tipo_struttura'> | undefined
           return {
@@ -59,6 +83,7 @@ export default function AdminChat() {
             title: s?.ragione_sociale ?? 'Struttura',
             subtitle: s?.tipo_struttura ?? '',
             last_message_at: c.last_message_at,
+            unread_count: unread,
           }
         }
         const p = c.employee_id
@@ -71,14 +96,13 @@ export default function AdminChat() {
           subtitle: 'Dipendente',
           avatar_url: p?.avatar_url ?? null,
           last_message_at: c.last_message_at,
+          unread_count: unread,
         }
       })
 
       setConversations(display)
       // Auto-seleziona la prima conversazione se nessuna selezionata.
-      if (display.length > 0 && !selectedId) {
-        setSelectedId(display[0].id)
-      }
+      setSelectedId((prev) => prev ?? (display[0]?.id ?? null))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore'
       console.error('[AdminChat] fetch error', err)
@@ -86,11 +110,56 @@ export default function AdminChat() {
     } finally {
       setLoading(false)
     }
-  }, [selectedId])
+  }, [user?.id])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  // Realtime sidebar: subscribe a TUTTI i messages INSERT (admin vede ogni
+  // conversazione). Aggiorna last_message_at + unread_count + riordina la
+  // lista mettendo in cima la chat che ha appena ricevuto un messaggio.
+  // Skip se il msg è in selectedId (la chat aperta) o se è dell'admin stesso.
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase
+      .channel('admin-chat-sidebar')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const m = payload.new as { id: string; conversation_id: string; sender_id: string; created_at: string }
+          if (m.sender_id === user.id) return
+          setConversations((prev) => {
+            const next = prev.map((c) => {
+              if (c.id !== m.conversation_id) return c
+              return {
+                ...c,
+                last_message_at: m.created_at,
+                // Se la chat è quella aperta, ChatPanel marca read subito → no badge.
+                unread_count: m.conversation_id === selectedIdRef.current ? c.unread_count : c.unread_count + 1,
+              }
+            })
+            // Riordina: la chat aggiornata sale in cima.
+            next.sort((a, b) => {
+              const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+              const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+              return tb - ta
+            })
+            return next
+          })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [user])
+
+  // Quando l'admin apre una chat, azzera il badge unread localmente.
+  // (ChatPanel invierà mark_conversation_read; questo è solo UI sync immediato).
+  const openConversation = (id: string) => {
+    setSelectedId(id)
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c)))
+  }
 
   const filtered = useMemo(() => {
     if (!searchQuery) return conversations
@@ -157,10 +226,11 @@ export default function AdminChat() {
                     <li key={c.id}>
                       <button
                         type="button"
-                        onClick={() => setSelectedId(c.id)}
+                        onClick={() => openConversation(c.id)}
                         className={cn(
                           'w-full text-left px-3 py-3 hover:bg-[rgba(91,184,245,0.05)] transition-colors flex items-center gap-3',
                           isActive && 'bg-[rgba(91,184,245,0.08)] border-l-2 border-l-sky-primary',
+                          c.unread_count > 0 && !isActive && 'bg-[rgba(245,184,0,0.04)]',
                         )}
                       >
                         {c.avatar_url ? (
@@ -171,14 +241,21 @@ export default function AdminChat() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-white truncate">{c.title}</p>
+                          <p className={cn('text-sm truncate', c.unread_count > 0 ? 'font-semibold text-white' : 'font-medium text-white')}>{c.title}</p>
                           <p className="text-xs text-text-muted truncate">{c.subtitle}</p>
                         </div>
-                        {c.last_message_at && (
-                          <span className="text-[10px] text-text-muted font-mono flex-shrink-0">
-                            {new Date(c.last_message_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {c.last_message_at && (
+                            <span className="text-[10px] text-text-muted font-mono">
+                              {new Date(c.last_message_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                            </span>
+                          )}
+                          {c.unread_count > 0 && (
+                            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-sky-primary text-[10px] font-bold text-text-inverse">
+                              {c.unread_count > 9 ? '9+' : c.unread_count}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     </li>
                   )

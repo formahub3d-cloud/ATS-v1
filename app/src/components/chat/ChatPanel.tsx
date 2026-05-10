@@ -48,6 +48,16 @@ export default function ChatPanel({ conversationId, title, subtitle, className }
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-grow textarea fino a max-height (lascia in CSS il vincolo).
+  // Misuriamo scrollHeight ad ogni cambio input.
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+  }, [input])
 
   // Auto-scroll al fondo quando arrivano messaggi.
   const scrollToBottom = useCallback(() => {
@@ -246,6 +256,7 @@ export default function ChatPanel({ conversationId, title, subtitle, className }
           className="flex items-end gap-2"
         >
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
