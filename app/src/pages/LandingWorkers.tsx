@@ -50,13 +50,23 @@ export default function LandingWorkers() {
       <Navbar />
 
       <main className="pt-24 pb-12">
-        {/* HERO */}
-        <section className="px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto text-center">
+        {/* HERO — green-dominant per identificare la pagina persona.
+            Ambient glow verde, headline gradient green, CTA verde. */}
+        <section className="relative px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto text-center">
+          {/* Ambient glow verde sottile */}
+          <div
+            className="absolute inset-x-0 top-0 h-[420px] -z-10 pointer-events-none opacity-60"
+            style={{
+              background:
+                'radial-gradient(ellipse at center top, rgba(30,201,154,0.18) 0%, transparent 60%), radial-gradient(ellipse at 30% 40%, rgba(30,201,154,0.08) 0%, transparent 70%)',
+            }}
+          />
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[rgba(30,201,154,0.25)] bg-[rgba(30,201,154,0.08)] mb-6"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[rgba(30,201,154,0.3)] bg-[rgba(30,201,154,0.1)] mb-6"
           >
             <User className="w-4 h-4 text-[#1EC99A]" />
             <span className="text-xs font-medium text-[#1EC99A] uppercase tracking-wider">Per chi cerca lavoro</span>
@@ -68,7 +78,7 @@ export default function LandingWorkers() {
             transition={{ delay: 0.1, duration: 0.5 }}
             className="font-playfair text-[clamp(36px,5vw,56px)] font-bold text-white leading-[1.1] mb-6"
           >
-            Noi <span className="text-gradient-sky">ti assumiamo</span>.<br />
+            Noi <span className="text-gradient-green">ti assumiamo</span>.<br />
             E ti facciamo crescere.
           </motion.h1>
 
@@ -90,7 +100,7 @@ export default function LandingWorkers() {
           >
             <button
               onClick={() => navigate('/auth')}
-              className="px-7 py-3.5 text-sm font-semibold text-text-inverse rounded-xl gradient-sky hover:brightness-110 transition-all flex items-center gap-2 shadow-[0_8px_24px_rgba(91,184,245,0.25)]"
+              className="px-7 py-3.5 text-sm font-semibold text-white rounded-xl gradient-green hover:brightness-110 transition-all flex items-center gap-2 shadow-[0_8px_24px_rgba(30,201,154,0.3)]"
             >
               Candidati ora
               <ArrowRight className="w-4 h-4" />
@@ -102,11 +112,32 @@ export default function LandingWorkers() {
               Sei una struttura? →
             </Link>
           </motion.div>
+
+          {/* Trust strip sotto CTA — accenti verdi che rinforzano l'identità */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.4 }}
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-text-muted"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1EC99A]" />
+              Contratto regolare
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1EC99A]" />
+              Paga entro il 10 del mese
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1EC99A]" />
+              Sistema rank trasparente
+            </span>
+          </motion.div>
         </section>
 
         {/* COSA TI PROMETTIAMO */}
         <section className="px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto mt-24 sm:mt-32">
-          <p className="text-xs uppercase tracking-[0.2em] text-sky-primary font-semibold mb-3">Cosa ti promettiamo</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-[#1EC99A] font-semibold mb-3">Cosa ti promettiamo</p>
           <h2 className="font-playfair text-[clamp(28px,4vw,40px)] font-bold text-white leading-[1.2] mb-12 max-w-[680px]">
             Lavoro vero. Paga vera. Crescita vera.
           </h2>

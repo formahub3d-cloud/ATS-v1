@@ -80,8 +80,9 @@ export default function About() {
           </motion.p>
         </section>
 
-        {/* MISSIONE */}
-        <section className="px-4 sm:px-6 lg:px-8 max-w-[900px] mx-auto mt-20">
+        {/* MISSIONE — su desktop: testo a sinistra, KPI strip a destra
+            per riempire il viewport e dare immediato senso di concretezza. */}
+        <section className="px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto mt-20">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -89,17 +90,29 @@ export default function About() {
             transition={{ duration: 0.6 }}
             className="rounded-3xl border border-[rgba(255,255,255,0.06)] bg-gradient-to-br from-[rgba(91,184,245,0.04)] to-transparent p-8 sm:p-12"
           >
-            <h2 className="text-3xl font-playfair font-bold text-white mb-4">La nostra missione</h2>
-            <p className="text-lg text-text-secondary leading-relaxed">
-              Vogliamo che chi lavora in cucina, in sala o dietro al banco abbia uno stipendio dignitoso,
-              un contratto regolare e la possibilità di crescere. E che chi gestisce un ristorante, un hotel,
-              un catering possa contare su personale formato senza dover passare ore su WhatsApp.
-            </p>
-            <p className="text-lg text-text-secondary leading-relaxed mt-4">
-              Per farlo costruiamo un&apos;unica cosa, semplice: una piattaforma in cui le strutture pubblicano
-              i turni, i nostri dipendenti li accettano, noi gestiamo contratti, paghe e qualità.
-              Nient&apos;altro.
-            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-10 lg:gap-14">
+              <div>
+                <h2 className="text-3xl font-playfair font-bold text-white mb-4">La nostra missione</h2>
+                <p className="text-lg text-text-secondary leading-relaxed">
+                  Vogliamo che chi lavora in cucina, in sala o dietro al banco abbia uno stipendio dignitoso,
+                  un contratto regolare e la possibilità di crescere. E che chi gestisce un ristorante, un hotel,
+                  un catering possa contare su personale formato senza dover passare ore su WhatsApp.
+                </p>
+                <p className="text-lg text-text-secondary leading-relaxed mt-4">
+                  Per farlo costruiamo un&apos;unica cosa, semplice: una piattaforma in cui le strutture pubblicano
+                  i turni, i nostri dipendenti li accettano, noi gestiamo contratti, paghe e qualità.
+                  Nient&apos;altro.
+                </p>
+              </div>
+
+              {/* KPI strip — numeri "promessa" non metriche reali (ancora). */}
+              <div className="grid grid-cols-2 gap-3 self-center">
+                <KpiTile big="100%" label="Contratti regolari" />
+                <KpiTile big="48h" label="Risposta candidatura" />
+                <KpiTile big="24h" label="Pubblicazione turno" />
+                <KpiTile big="0€" label="Costo iscrizione" />
+              </div>
+            </div>
           </motion.div>
         </section>
 
@@ -118,7 +131,7 @@ export default function About() {
             Quattro principi che guidano ogni decisione di prodotto e ogni contratto che firmiamo.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {VALUES.map((v, i) => (
               <motion.div
                 key={v.title}
@@ -200,6 +213,15 @@ export default function About() {
       </main>
 
       <Footer />
+    </div>
+  )
+}
+
+function KpiTile({ big, label }: { big: string; label: string }) {
+  return (
+    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4 text-center">
+      <p className="text-3xl font-playfair font-bold text-sky-primary leading-none">{big}</p>
+      <p className="text-xs text-text-muted mt-1.5 uppercase tracking-wider">{label}</p>
     </div>
   )
 }

@@ -4,7 +4,7 @@
 
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Instagram, Linkedin, Facebook, Mail } from 'lucide-react'
+import { Mail, Phone, MapPin } from 'lucide-react'
 import { LogoAts } from './icons/LogoAts'
 
 const structureLinks = [
@@ -33,11 +33,12 @@ const legalLinks = [
   { label: 'Cookie Policy', to: '/cookie' },
 ]
 
-const socialLinks = [
-  { icon: Instagram, href: '#', label: 'Instagram' },
-  { icon: Linkedin, href: '#', label: 'LinkedIn' },
-  { icon: Facebook, href: '#', label: 'Facebook' },
-  { icon: Mail, href: 'mailto:info@ats-servizio.it', label: 'Email' },
+// Contatti diretti reali — niente social finti che puntano a "#" finché
+// gli account non saranno creati. Quando ci saranno, basta aggiungerli qui.
+const contactBlocks = [
+  { icon: Mail,    label: 'info@ats-servizio.it', href: 'mailto:info@ats-servizio.it' },
+  { icon: Phone,   label: '+39 0824 XXX XXX',     href: 'tel:+390824000000' },
+  { icon: MapPin,  label: 'Benevento, Italia',    href: null },
 ]
 
 function FooterColumn({ title, children, delay }: { title: string; children: React.ReactNode; delay: number }) {
@@ -79,22 +80,24 @@ export default function Footer() {
           {/* Brand column — occupa 2 colonne su desktop wide */}
           <FooterColumn title="" delay={0}>
             <LogoAts className="w-[140px] h-[42px] mb-4" />
-            <p className="text-sm text-text-muted mb-4 leading-relaxed">
+            <p className="text-sm text-text-muted mb-5 leading-relaxed">
               Catering HORECA con dipendenti diretti. Operiamo a Benevento e provincia.
             </p>
-            <div className="flex items-center gap-3 mb-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="text-text-muted hover:text-sky-primary hover:scale-[1.2] transition-all duration-200"
-                >
-                  <social.icon className="w-5 h-5" />
-                </a>
-              ))}
-            </div>
-            <p className="text-[13px] text-text-muted">Made in Benevento</p>
+            <ul className="space-y-2.5">
+              {contactBlocks.map((c) => {
+                const inner = (
+                  <span className="flex items-center gap-2 text-[13px] text-text-muted hover:text-sky-primary transition-colors group">
+                    <c.icon className="w-4 h-4 flex-shrink-0 opacity-70 group-hover:opacity-100" />
+                    <span>{c.label}</span>
+                  </span>
+                )
+                return (
+                  <li key={c.label}>
+                    {c.href ? <a href={c.href}>{inner}</a> : inner}
+                  </li>
+                )
+              })}
+            </ul>
           </FooterColumn>
 
           {/* Strutture */}

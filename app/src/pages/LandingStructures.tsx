@@ -49,16 +49,26 @@ export default function LandingStructures() {
       <Navbar />
 
       <main className="pt-24 pb-12">
-        {/* HERO */}
-        <section className="px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto text-center">
+        {/* HERO — sky-dominant per identificare la pagina B2B.
+            Ambient glow più presente, badge B2B, trust strip sotto CTA. */}
+        <section className="relative px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto text-center">
+          {/* Ambient glow sky */}
+          <div
+            className="absolute inset-x-0 top-0 h-[420px] -z-10 pointer-events-none opacity-60"
+            style={{
+              background:
+                'radial-gradient(ellipse at center top, rgba(91,184,245,0.18) 0%, transparent 60%), radial-gradient(ellipse at 70% 40%, rgba(91,184,245,0.08) 0%, transparent 70%)',
+            }}
+          />
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[rgba(91,184,245,0.25)] bg-[rgba(91,184,245,0.08)] mb-6"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[rgba(91,184,245,0.3)] bg-[rgba(91,184,245,0.1)] mb-6"
           >
             <Building2 className="w-4 h-4 text-sky-primary" />
-            <span className="text-xs font-medium text-sky-primary uppercase tracking-wider">Per strutture HORECA</span>
+            <span className="text-xs font-medium text-sky-primary uppercase tracking-wider">B2B · Per strutture HORECA</span>
           </motion.div>
 
           <motion.h1
@@ -89,7 +99,7 @@ export default function LandingStructures() {
           >
             <button
               onClick={() => navigate('/auth')}
-              className="px-7 py-3.5 text-sm font-semibold text-text-inverse rounded-xl gradient-sky hover:brightness-110 transition-all flex items-center gap-2 shadow-[0_8px_24px_rgba(91,184,245,0.25)]"
+              className="px-7 py-3.5 text-sm font-semibold text-text-inverse rounded-xl gradient-sky hover:brightness-110 transition-all flex items-center gap-2 shadow-[0_8px_24px_rgba(91,184,245,0.3)]"
             >
               Registra la tua struttura
               <ArrowRight className="w-4 h-4" />
@@ -100,6 +110,27 @@ export default function LandingStructures() {
             >
               Sei un lavoratore? →
             </Link>
+          </motion.div>
+
+          {/* Trust strip B2B sotto CTA */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.4 }}
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-text-muted"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-primary" />
+              Fatturazione mensile aggregata
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-primary" />
+              Personale certificato HACCP
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-primary" />
+              Zero canoni, paghi solo i turni
+            </span>
           </motion.div>
         </section>
 

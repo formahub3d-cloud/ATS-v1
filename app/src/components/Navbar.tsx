@@ -92,13 +92,20 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Desktop CTA: solo Accedi (la registrazione è dentro Auth) */}
-          <div className="hidden lg:flex items-center gap-3">
+          {/* Desktop CTA: due azioni distinte. "Accedi" ghost per chi ha
+              già account, "Registrati" gradient-sky per acquisizione. */}
+          <div className="hidden lg:flex items-center gap-2">
+            <Link
+              to="/auth?mode=login"
+              className="px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-white hover:bg-white/[0.05] rounded-lg transition-all duration-200"
+            >
+              Accedi
+            </Link>
             <Link
               to="/auth"
               className="px-5 py-2.5 text-sm font-medium text-text-inverse gradient-sky rounded-lg hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
-              Accedi / Registrati
+              Registrati
             </Link>
           </div>
 
@@ -142,14 +149,21 @@ export default function Navbar() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="flex flex-col gap-3 mt-4 w-64"
+                className="flex flex-col gap-2 mt-4 w-64"
               >
                 <Link
                   to="/auth"
                   onClick={() => setMobileOpen(false)}
                   className="w-full py-3 text-center text-sm font-medium text-text-inverse gradient-sky rounded-lg"
                 >
-                  Accedi / Registrati
+                  Registrati
+                </Link>
+                <Link
+                  to="/auth?mode=login"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full py-3 text-center text-sm font-medium text-text-secondary border border-white/10 rounded-lg hover:bg-white/[0.05] transition-colors"
+                >
+                  Accedi
                 </Link>
               </motion.div>
             </div>

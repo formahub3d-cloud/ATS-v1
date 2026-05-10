@@ -95,7 +95,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.6 }}
-              className="font-playfair text-[clamp(40px,7vw,84px)] font-bold text-white leading-[0.95] mb-6 tracking-tight"
+              className="font-playfair text-[clamp(34px,7vw,84px)] font-bold text-white leading-[0.98] mb-5 sm:mb-6 tracking-tight"
             >
               Il personale giusto,<br />
               <span className="text-gradient-sky">al momento giusto.</span>
@@ -325,7 +325,7 @@ export default function Home() {
                   to="/strutture"
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-text-inverse rounded-xl gradient-sky hover:brightness-110 transition-all"
                 >
-                  Scopri di più <ChevronRight className="w-4 h-4" />
+                  Vedi come funziona per te <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
 
@@ -347,7 +347,7 @@ export default function Home() {
                   to="/lavoratori"
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl border border-[rgba(30,201,154,0.40)] bg-[rgba(30,201,154,0.10)] hover:bg-[rgba(30,201,154,0.18)] transition-all"
                 >
-                  Scopri di più <ChevronRight className="w-4 h-4" />
+                  Scopri come ti assumiamo <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
             </div>

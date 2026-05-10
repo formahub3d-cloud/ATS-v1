@@ -27,7 +27,8 @@ export default function LegalLayout({
       <Navbar />
 
       <main className="pt-24 pb-16">
-        <section className="px-4 sm:px-6 lg:px-8 max-w-[900px] mx-auto">
+        {/* Header full-width centrato */}
+        <section className="px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -56,33 +57,37 @@ export default function LegalLayout({
             </div>
           </div>
 
-          {/* Indice */}
-          <nav className="rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] p-5 mb-10">
-            <p className="text-xs uppercase tracking-wider text-text-muted mb-3">In questa pagina</p>
-            <ol className="space-y-1.5 text-sm">
-              {sections.map((s, i) => (
-                <li key={s.id}>
-                  <a
-                    href={`#${s.id}`}
-                    className="text-text-secondary hover:text-sky-primary transition-colors"
-                  >
-                    {i + 1}. {s.title}
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          {/* Layout 2-col su desktop: TOC sticky a sinistra, contenuto a destra.
+              Su mobile/tablet rimane stack singola con TOC inline in alto. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
+            {/* TOC */}
+            <nav className="lg:sticky lg:top-24 lg:self-start rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] p-5">
+              <p className="text-xs uppercase tracking-wider text-text-muted mb-3">In questa pagina</p>
+              <ol className="space-y-1.5 text-sm">
+                {sections.map((s, i) => (
+                  <li key={s.id}>
+                    <a
+                      href={`#${s.id}`}
+                      className="text-text-secondary hover:text-sky-primary transition-colors"
+                    >
+                      {i + 1}. {s.title}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
 
-          {/* Sezioni */}
-          <div className="space-y-12">
-            {sections.map((s) => (
-              <section key={s.id} id={s.id} className="scroll-mt-24">
-                <h2 className="text-2xl font-playfair font-bold text-white mb-4">{s.title}</h2>
-                <div className="space-y-3 text-text-secondary leading-relaxed [&_a]:text-sky-primary [&_a]:hover:underline [&_strong]:text-white [&_li]:list-disc [&_li]:ml-5">
-                  {s.body}
-                </div>
-              </section>
-            ))}
+            {/* Sezioni */}
+            <div className="space-y-12 max-w-[760px]">
+              {sections.map((s) => (
+                <section key={s.id} id={s.id} className="scroll-mt-24">
+                  <h2 className="text-2xl font-playfair font-bold text-white mb-4">{s.title}</h2>
+                  <div className="space-y-3 text-text-secondary leading-relaxed [&_a]:text-sky-primary [&_a]:hover:underline [&_strong]:text-white [&_li]:list-disc [&_li]:ml-5">
+                    {s.body}
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
         </section>
       </main>

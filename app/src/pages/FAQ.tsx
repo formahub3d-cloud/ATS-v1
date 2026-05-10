@@ -2,11 +2,11 @@
 // Domande organizzate per audience (Strutture, Lavoratori, Pagamenti).
 // Accordion in pure React (no librerie extra).
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
-  HelpCircle, ChevronDown, Building2, User, Euro, ArrowRight,
+  HelpCircle, ChevronDown, Building2, User, Euro, ArrowRight, Search, X,
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
@@ -104,8 +104,44 @@ const SECTIONS: Section[] = [
   },
 ]
 
+// Helper per evidenziare il match nella ricerca: spezza il testo ovunque
+// trovi q (case insensitive) e wrappa con <mark>.
+function highlight(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text
+  const q = query.trim().toLowerCase()
+  const lower = text.toLowerCase()
+  const out: React.ReactNode[] = []
+  let i = 0
+  while (i < text.length) {
+    const idx = lower.indexOf(q, i)
+    if (idx === -1) { out.push(text.slice(i)); break }
+    if (idx > i) out.push(text.slice(i, idx))
+    out.push(<mark key={idx} className="bg-[rgba(91,184,245,0.25)] text-sky-primary rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>)
+    i = idx + q.length
+  }
+  return <>{out}</>
+}
+
 export default function FAQ() {
   const [openId, setOpenId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+
+  // Filtro live: matcha sia question che answer, case insensitive.
+  // Sezioni con 0 match dopo filtro vengono nascoste.
+  const filteredSections = useMemo(() => {
+    if (!query.trim()) return SECTIONS
+    const q = query.trim().toLowerCase()
+    return SECTIONS
+      .map((s) => ({
+        ...s,
+        items: s.items.filter(
+          (it) => it.q.toLowerCase().includes(q) || it.a.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((s) => s.items.length > 0)
+  }, [query])
+
+  const totalMatches = filteredSections.reduce((sum, s) => sum + s.items.length, 0)
 
   return (
     <div className="min-h-[100dvh] bg-navy">
@@ -142,16 +178,63 @@ export default function FAQ() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-lg text-text-secondary"
+            className="text-lg text-text-secondary mb-8"
           >
             Tutto quello che ci chiedono prima di iniziare. Se non trovi risposta,{' '}
             <Link to="/contatti" className="text-sky-primary hover:underline">scrivici</Link>.
           </motion.p>
+
+          {/* Search bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="relative max-w-[520px] mx-auto"
+          >
+            <div className="flex items-center bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 focus-within:border-sky-primary transition-colors">
+              <Search className="w-5 h-5 text-text-muted mr-3 flex-shrink-0" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cerca tra le domande... (es. paga, contratto, HACCP)"
+                className="bg-transparent flex-1 text-white placeholder-text-muted text-sm outline-none"
+                autoFocus={false}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="ml-2 text-text-muted hover:text-white transition-colors"
+                  aria-label="Pulisci ricerca"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {query && (
+              <p className="text-xs text-text-muted mt-2 text-left">
+                {totalMatches === 0
+                  ? <>Nessun risultato per <strong className="text-white">"{query}"</strong>.</>
+                  : <><strong className="text-white">{totalMatches}</strong> risposte trovate.</>}
+              </p>
+            )}
+          </motion.div>
         </section>
 
         {/* SEZIONI */}
-        <section className="px-4 sm:px-6 lg:px-8 max-w-[900px] mx-auto mt-16 space-y-12">
-          {SECTIONS.map((section, sIdx) => {
+        <section className="px-4 sm:px-6 lg:px-8 max-w-[900px] mx-auto mt-12 space-y-12">
+          {filteredSections.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-muted mb-4">Non abbiamo trovato risposte alla tua domanda.</p>
+              <Link
+                to="/contatti"
+                className="inline-flex items-center gap-2 px-5 py-2.5 gradient-sky text-text-inverse font-medium rounded-xl hover:brightness-110 transition-all"
+              >
+                Chiedicelo direttamente <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : filteredSections.map((section, sIdx) => {
             const SectionIcon = section.icon
             return (
               <motion.div
@@ -174,7 +257,10 @@ export default function FAQ() {
                 <div className="space-y-2">
                   {section.items.map((item, i) => {
                     const id = `${section.id}-${i}`
-                    const isOpen = openId === id
+                    // Quando c'è una ricerca attiva apriamo automaticamente tutti
+                    // i risultati: l'utente vuole leggere la risposta, non
+                    // dover cliccare ogni voce dopo aver già scritto la query.
+                    const isOpen = query.trim() ? true : openId === id
                     return (
                       <div
                         key={id}
@@ -184,7 +270,7 @@ export default function FAQ() {
                           onClick={() => setOpenId(isOpen ? null : id)}
                           className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-[rgba(255,255,255,0.03)] transition-colors"
                         >
-                          <span className="text-sm sm:text-base font-medium text-white">{item.q}</span>
+                          <span className="text-sm sm:text-base font-medium text-white">{highlight(item.q, query)}</span>
                           <ChevronDown
                             className={cn(
                               'w-5 h-5 text-text-muted flex-shrink-0 transition-transform',
@@ -198,7 +284,7 @@ export default function FAQ() {
                           transition={{ duration: 0.25 }}
                           className="overflow-hidden"
                         >
-                          <p className="px-5 pb-4 text-sm text-text-secondary leading-relaxed">{item.a}</p>
+                          <p className="px-5 pb-4 text-sm text-text-secondary leading-relaxed">{highlight(item.a, query)}</p>
                         </motion.div>
                       </div>
                     )

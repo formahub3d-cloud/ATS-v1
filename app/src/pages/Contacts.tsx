@@ -6,19 +6,22 @@
 
 import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, Phone, MapPin, Send, CheckCircle, Loader2 } from 'lucide-react'
+import { Mail, Phone, MapPin, Send, CheckCircle, Loader2, Building2, User, Wrench, Newspaper, MoreHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import PageMeta from '@/components/PageMeta'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/ToastSystem'
 
-const SUBJECTS = [
-  'Sono una struttura HORECA e voglio info',
-  'Cerco lavoro e voglio iscrivermi',
-  'Problema tecnico / supporto',
-  'Stampa / partnership',
-  'Altro',
+// Chip cliccabili (più moderne di una <select>): mostrano subito le opzioni
+// e su mobile evitano il menu nativo che è sempre orribile.
+const SUBJECTS: Array<{ value: string; label: string; icon: typeof Building2 }> = [
+  { value: 'Sono una struttura HORECA e voglio info', label: 'Sono una struttura', icon: Building2 },
+  { value: 'Cerco lavoro e voglio iscrivermi',         label: 'Cerco lavoro',       icon: User },
+  { value: 'Problema tecnico / supporto',              label: 'Supporto',           icon: Wrench },
+  { value: 'Stampa / partnership',                     label: 'Stampa',             icon: Newspaper },
+  { value: 'Altro',                                    label: 'Altro',              icon: MoreHorizontal },
 ]
 
 export default function Contacts() {
@@ -27,7 +30,8 @@ export default function Contacts() {
   const [form, setForm] = useState({
     name: '',
     email: '',
-    subject: SUBJECTS[0],
+    phone: '',
+    subject: SUBJECTS[0].value,
     body: '',
   })
   const [submitting, setSubmitting] = useState(false)
@@ -51,11 +55,16 @@ export default function Contacts() {
     if (!validate() || submitting) return
     setSubmitting(true)
     try {
+      // Telefono opzionale: se fornito lo prepongo al body per non cambiare lo
+      // schema SQL (la RPC non ha p_phone). In futuro si può aggiungere.
+      const bodyWithPhone = form.phone.trim()
+        ? `[Tel: ${form.phone.trim()}]\n\n${form.body.trim()}`
+        : form.body.trim()
       const { error } = await supabase.rpc('submit_contact_message', {
         p_name: form.name.trim(),
         p_email: form.email.trim(),
         p_subject: form.subject.trim(),
-        p_body: form.body.trim(),
+        p_body: bodyWithPhone,
         p_source: '/contatti',
       })
       if (error) throw error
@@ -128,7 +137,7 @@ export default function Contacts() {
                     type="button"
                     onClick={() => {
                       setDone(false)
-                      setForm({ name: '', email: '', subject: SUBJECTS[0], body: '' })
+                      setForm({ name: '', email: '', phone: '', subject: SUBJECTS[0].value, body: '' })
                     }}
                     className="mt-6 text-sm text-sky-primary hover:underline"
                   >
@@ -148,33 +157,66 @@ export default function Contacts() {
                     />
                   </Field>
 
-                  <Field label="Email" error={errors.email}>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="mario@esempio.it"
-                      autoComplete="email"
-                      className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-text-muted focus:border-sky-primary focus:outline-none transition-colors"
-                    />
-                  </Field>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <Field label="Email" error={errors.email}>
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        placeholder="mario@esempio.it"
+                        autoComplete="email"
+                        className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-text-muted focus:border-sky-primary focus:outline-none transition-colors"
+                      />
+                    </Field>
 
-                  <Field label="Oggetto" error={errors.subject}>
-                    <select
-                      value={form.subject}
-                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                      className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white focus:border-sky-primary focus:outline-none transition-colors"
-                    >
-                      {SUBJECTS.map((s) => (
-                        <option key={s} value={s} className="bg-navy">{s}</option>
-                      ))}
-                    </select>
+                    <Field label="Telefono (opzionale)">
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        placeholder="+39 ..."
+                        autoComplete="tel"
+                        className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white placeholder-text-muted focus:border-sky-primary focus:outline-none transition-colors"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Di cosa parliamo?" error={errors.subject}>
+                    <div className="flex flex-wrap gap-2">
+                      {SUBJECTS.map((s) => {
+                        const SIcon = s.icon
+                        const active = form.subject === s.value
+                        return (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => setForm({ ...form, subject: s.value })}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium border transition-all',
+                              active
+                                ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                                : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06] hover:text-white',
+                            )}
+                          >
+                            <SIcon className="w-3.5 h-3.5" />
+                            {s.label}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </Field>
 
                   <Field
                     label="Messaggio"
                     error={errors.body}
-                    hint={`${form.body.length}/4000`}
+                    hint={
+                      <span className={cn(
+                        'tabular-nums',
+                        form.body.length > 3800 ? 'text-[#F5B800]' : 'text-text-muted',
+                      )}>
+                        {form.body.length} / 4000
+                      </span>
+                    }
                   >
                     <textarea
                       value={form.body}
@@ -189,16 +231,16 @@ export default function Contacts() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 gradient-sky text-text-inverse font-medium rounded-xl hover:brightness-110 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:hover:scale-100"
+                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 gradient-sky text-text-inverse font-semibold text-base rounded-xl hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 disabled:hover:scale-100 shadow-lg shadow-sky-primary/20"
                   >
                     {submitting ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                         Invio…
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
+                        <Send className="w-5 h-5" />
                         Invia messaggio
                       </>
                     )}
@@ -255,7 +297,7 @@ function Field({
 }: {
   label: string
   error?: string
-  hint?: string
+  hint?: React.ReactNode
   children: React.ReactNode
 }) {
   return (

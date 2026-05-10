@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -111,7 +111,11 @@ type AuthView = 'role-select' | 'login' | 'register-admin' | 'register-structure
 export default function Auth() {
   const navigate = useNavigate()
   const { addToast } = useToast()
-  const [view, setView] = useState<AuthView>('role-select')
+  const [searchParams] = useSearchParams()
+  // ?mode=login da Navbar "Accedi" → salta direttamente al form login
+  // invece di passare per la scelta ruolo (che ha senso solo per registrati nuovi).
+  const initialView: AuthView = searchParams.get('mode') === 'login' ? 'login' : 'role-select'
+  const [view, setView] = useState<AuthView>(initialView)
   const [role, setRole] = useState<UserRole | null>(null)
 
   /* Login state */
@@ -860,20 +864,33 @@ export default function Auth() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-                  className="text-[28px] sm:text-[32px] font-playfair font-bold text-text-primary mb-2 text-center"
+                  className="text-[28px] sm:text-[36px] font-playfair font-bold text-text-primary mb-3 text-center"
                   style={{ textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
                 >
-                  Accedi ad ATS
+                  Iniziamo. Da che parte sei?
                 </motion.h1>
 
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.15, ease: easeOut }}
-                  className="text-base text-text-secondary mb-12 text-center"
+                  className="text-base text-text-secondary mb-3 text-center max-w-[460px] mx-auto"
                 >
-                  Seleziona il tuo profilo per continuare
+                  Scegli il tuo profilo: ti porteremo subito a un onboarding rapido,
+                  poi il nostro team verifica i dati e ti attiva entro 48h.
                 </motion.p>
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 0.2, ease: easeOut }}
+                  className="flex items-center justify-center gap-2 mb-10 text-[11px] text-text-muted"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-success animate-status-pulse" />
+                  Già attivi a Benevento e provincia
+                  <span className="mx-1.5 opacity-50">·</span>
+                  Risposta entro 48h lavorative
+                </motion.div>
 
                 <GlassRoleSelector selectedRole={role} onSelect={handleRoleSelect} />
 
@@ -883,11 +900,22 @@ export default function Auth() {
                   transition={{ delay: 0.6, duration: 0.4 }}
                   className="mt-12 flex flex-col items-center gap-6"
                 >
+                  <p className="text-xs text-text-muted text-center max-w-[380px]">
+                    Hai già un account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setView('login')}
+                      className="text-sky-primary hover:underline font-medium"
+                    >
+                      Accedi qui
+                    </button>
+                  </p>
+
                   <Link
                     to="/"
-                    className="text-sm text-sky-primary hover:text-sky-blue transition-colors"
+                    className="text-sm text-text-muted hover:text-sky-primary transition-colors"
                   >
-                    Torna alla home
+                    ← Torna alla home
                   </Link>
 
                   {/* Footer discreto: accesso amministrativo riservato. */}
