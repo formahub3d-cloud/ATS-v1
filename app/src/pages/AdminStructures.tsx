@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, CheckCircle, X, Building2, MapPin, Mail,
-  Phone, FileText, Hourglass, Ban, ShieldCheck, AlertCircle,
+  Phone, FileText, Hourglass, Ban, ShieldCheck, AlertCircle, ImageOff, Clock,
 } from 'lucide-react'
 import BulkActionsBar from '@/components/admin/BulkActionsBar'
 import { cn } from '@/lib/utils'
@@ -69,6 +69,9 @@ export default function AdminStructures() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkInProgress, setBulkInProgress] = useState(false)
+  // Foto della struttura selezionata nel drawer (signed URLs).
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([])
+  const [photosLoading, setPhotosLoading] = useState(false)
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -114,6 +117,48 @@ export default function AdminStructures() {
   useEffect(() => {
     void fetchStructures()
   }, [fetchStructures])
+
+  // Quando l'admin apre il drawer su una struttura, carica le foto ambienti
+  // dalla tabella structure_photos + genera signed URLs (1h) dal bucket
+  // 'structure-media'. Reset quando il drawer si chiude.
+  useEffect(() => {
+    if (!selected) {
+      setSelectedPhotos([])
+      return
+    }
+    let cancelled = false
+    setPhotosLoading(true)
+    setSelectedPhotos([])
+    ;(async () => {
+      try {
+        const { data: photos } = await supabase
+          .from('structure_photos')
+          .select('storage_path')
+          .eq('structure_id', selected.id)
+          .order('sort_order', { ascending: true })
+          .limit(20)
+        if (cancelled || !photos || photos.length === 0) {
+          setPhotosLoading(false)
+          return
+        }
+        const signed = await Promise.all(
+          photos.map((p) =>
+            supabase.storage.from('structure-media').createSignedUrl(p.storage_path, 3600),
+          ),
+        )
+        if (cancelled) return
+        const urls = signed.map((s) => s.data?.signedUrl).filter((u): u is string => !!u)
+        setSelectedPhotos(urls)
+      } finally {
+        if (!cancelled) setPhotosLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [selected])
+
+  // Quanti giorni fa è stata creata la candidatura. Usato per evidenziare
+  // i pending vecchi nella tabella.
+  const daysAgo = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
 
   // Filtraggio + ricerca client-side (i volumi sono ridotti per MVP).
   const filtered = useMemo(() => {
@@ -390,7 +435,26 @@ export default function AdminStructures() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white truncate">{s.ragione_sociale}</p>
-                          <p className="text-xs text-text-muted truncate">{new Date(s.created_at).toLocaleDateString('it-IT')}</p>
+                          <p className="text-xs text-text-muted truncate flex items-center gap-1.5">
+                            {new Date(s.created_at).toLocaleDateString('it-IT')}
+                            {s.status === 'pending_review' && (() => {
+                              const d = daysAgo(s.created_at)
+                              const urgent = d >= 2
+                              return (
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium',
+                                    urgent
+                                      ? 'bg-[rgba(240,69,69,0.12)] text-[#F04545] border border-[rgba(240,69,69,0.3)]'
+                                      : 'bg-[rgba(245,184,0,0.12)] text-[#F5B800] border border-[rgba(245,184,0,0.3)]',
+                                  )}
+                                >
+                                  <Clock className="w-2.5 h-2.5" />
+                                  {d === 0 ? 'oggi' : d === 1 ? '1g' : `${d}g`}
+                                </span>
+                              )
+                            })()}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -494,6 +558,44 @@ export default function AdminStructures() {
                   <DetailRow label="Zona" value={selected.zona} />
                   <DetailRow label="Descrizione" value={selected.descrizione} multiline />
                 </DetailSection>
+
+                {/* Sezione: Foto ambienti — signed URLs caricate via useEffect */}
+                <div>
+                  <h3 className="text-xs font-semibold text-sky-primary uppercase tracking-wider mb-2">
+                    Foto ambienti
+                  </h3>
+                  {photosLoading ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {[0, 1, 2].map((i) => (
+                        <Skeleton key={i} className="aspect-square rounded-lg" />
+                      ))}
+                    </div>
+                  ) : selectedPhotos.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.08)] bg-[rgba(13,30,52,0.5)] p-6 flex flex-col items-center text-center text-text-muted">
+                      <ImageOff className="w-6 h-6 mb-2 opacity-40" />
+                      <p className="text-xs">Nessuna foto caricata.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedPhotos.map((url, i) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block aspect-square rounded-lg overflow-hidden border border-[rgba(255,255,255,0.06)] hover:border-sky-primary transition-colors"
+                        >
+                          <img
+                            src={url}
+                            alt={`Foto ambiente ${i + 1}`}
+                            loading="lazy"
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Sezione: Dati aziendali */}
                 <DetailSection title="Dati aziendali">
