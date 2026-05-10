@@ -11,6 +11,7 @@ const adminNavItems = [
   { label: 'Turni', path: '/admin/shifts', icon: 'Calendar' },
   { label: 'Calendario', path: '/admin/calendar', icon: 'CalendarDays' },
   { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
+  { label: 'Messaggi', path: '/admin/messages', icon: 'Mail' },
   { label: 'Payroll', path: '/admin/payroll', icon: 'Euro' },
   { label: 'Fatture', path: '/admin/invoices', icon: 'FileText' },
   { label: 'Leaderboard', path: '/admin/leaderboard', icon: 'Trophy' },
@@ -155,8 +156,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const path = location.pathname
 
-  // Landing/auth routes - no sidebar, use Navbar/Footer from pages
-  if (path === '/' || path === '/auth' || path === '/strutture' || path === '/lavoratori') {
+  // Landing/auth routes - no sidebar, use Navbar/Footer from pages.
+  // Comprende anche le pagine "completamento landing": chi-siamo, faq,
+  // contatti, legali, e qualsiasi route non-app-portal (404 fallback).
+  const isLandingRoute =
+    path === '/' ||
+    path === '/auth' ||
+    path === '/strutture' ||
+    path === '/lavoratori' ||
+    path === '/chi-siamo' ||
+    path === '/faq' ||
+    path === '/contatti' ||
+    path === '/privacy' ||
+    path === '/termini' ||
+    path === '/cookie'
+
+  if (isLandingRoute) {
     return (
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">

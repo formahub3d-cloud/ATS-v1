@@ -9,10 +9,17 @@ import Auth from './pages/Auth'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CommandPalette from './components/admin/CommandPalette'
 
-// Le 2 landing dedicate sono lazy: il visitatore della homepage non ha
-// bisogno di scaricarle subito.
+// Le landing dedicate + pagine "completamento landing" sono lazy: il
+// visitatore della homepage non ha bisogno di scaricarle subito.
 const LandingStructures = lazy(() => import('./pages/LandingStructures'))
 const LandingWorkers    = lazy(() => import('./pages/LandingWorkers'))
+const About             = lazy(() => import('./pages/About'))
+const FAQ               = lazy(() => import('./pages/FAQ'))
+const Contacts          = lazy(() => import('./pages/Contacts'))
+const Privacy           = lazy(() => import('./pages/legal/Privacy'))
+const Terms             = lazy(() => import('./pages/legal/Terms'))
+const Cookie            = lazy(() => import('./pages/legal/Cookie'))
+const NotFound          = lazy(() => import('./pages/NotFound'))
 
 // Lazy load di tutte le pagine "interne" (post-auth) per ridurre il bundle
 // iniziale. Home + Auth restano eager perché sono i primi entry point.
@@ -22,6 +29,7 @@ const AdminEmployees   = lazy(() => import('./pages/AdminEmployees'))
 const AdminShifts      = lazy(() => import('./pages/AdminShifts'))
 const AdminCalendar    = lazy(() => import('./pages/AdminCalendar'))
 const AdminChat        = lazy(() => import('./pages/AdminChat'))
+const AdminMessages    = lazy(() => import('./pages/AdminMessages'))
 const AdminPayroll     = lazy(() => import('./pages/AdminPayroll'))
 const AdminInvoices    = lazy(() => import('./pages/AdminInvoices'))
 const AdminLeaderboard = lazy(() => import('./pages/AdminLeaderboard'))
@@ -58,6 +66,12 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/strutture" element={<LandingStructures />} />
                 <Route path="/lavoratori" element={<LandingWorkers />} />
+                <Route path="/chi-siamo" element={<About />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/contatti" element={<Contacts />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/termini" element={<Terms />} />
+                <Route path="/cookie" element={<Cookie />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/structures" element={<AdminStructures />} />
@@ -65,6 +79,7 @@ export default function App() {
                 <Route path="/admin/shifts" element={<AdminShifts />} />
                 <Route path="/admin/calendar" element={<AdminCalendar />} />
                 <Route path="/admin/chat" element={<AdminChat />} />
+                <Route path="/admin/messages" element={<AdminMessages />} />
                 <Route path="/admin/payroll" element={<AdminPayroll />} />
                 <Route path="/admin/invoices" element={<AdminInvoices />} />
                 <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />
@@ -81,6 +96,7 @@ export default function App() {
                 <Route path="/employee/chat" element={<EmployeeChat />} />
                 <Route path="/employee/documents" element={<EmployeeDocuments />} />
                 <Route path="/employee/rank" element={<EmployeeRank />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </Layout>

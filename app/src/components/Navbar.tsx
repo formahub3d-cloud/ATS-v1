@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils'
 const navLinks: Array<{ label: string; to: string; icon?: typeof Building2 }> = [
   { label: 'Strutture', to: '/strutture', icon: Building2 },
   { label: 'Lavoratori', to: '/lavoratori', icon: User },
-  { label: 'Come funziona', to: '/#how-it-works' },
+  { label: 'Chi siamo', to: '/chi-siamo' },
+  { label: 'FAQ', to: '/faq' },
+  { label: 'Contatti', to: '/contatti' },
 ]
 
 export default function Navbar() {

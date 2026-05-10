@@ -82,6 +82,8 @@ export type NotificationKind =
   | 'structure_rejected'
   | 'new_message'
 
+export type ContactStatus = 'new' | 'in_progress' | 'handled' | 'spam'
+
 export type EmployeeExperience = {
   id?: string
   ruolo?: string
@@ -759,6 +761,56 @@ export type Database = {
         }>
         Relationships: []
       }
+      contact_messages: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          subject: string
+          body: string
+          source: string | null
+          status: ContactStatus
+          handled_by: string | null
+          handled_at: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          subject: string
+          body: string
+          source?: string | null
+          status?: ContactStatus
+          handled_by?: string | null
+          handled_at?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: Partial<{
+          id?: string
+          name?: string
+          email?: string
+          subject?: string
+          body?: string
+          source?: string | null
+          status?: ContactStatus
+          handled_by?: string | null
+          handled_at?: string | null
+          notes?: string | null
+          created_at?: string
+        }>
+        Relationships: [
+          {
+            foreignKeyName: 'contact_messages_handled_by_fkey'
+            columns: ['handled_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       employee_rating_summary: {
@@ -823,6 +875,16 @@ export type Database = {
         Args: { p_year: number; p_month: number }
         Returns: number
       }
+      submit_contact_message: {
+        Args: {
+          p_name: string
+          p_email: string
+          p_subject: string
+          p_body: string
+          p_source?: string | null
+        }
+        Returns: string
+      }
     }
     Enums: {
       user_role: UserRole
@@ -837,6 +899,7 @@ export type Database = {
       points_source_type: PointsSourceType
       audit_event_type: AuditEventType
       invoice_status: InvoiceStatus
+      contact_status: ContactStatus
     }
   }
 }
