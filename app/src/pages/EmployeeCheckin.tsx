@@ -144,6 +144,14 @@ export default function EmployeeCheckin() {
   }
 
   const handleCheckOut = async (shift: ShiftRow) => {
+    // Conferma esplicita: chiudere un turno è azione finale, non si torna
+    // indietro. Un tocco accidentale qui ha conseguenze gravi (calcolo ore
+    // sbagliato per il commercialista).
+    const ok = window.confirm(
+      'Confermi la fine del turno?\n\nIl check-out registra l\'orario di uscita e calcola le ore lavorate. Non potrai modificarlo dopo.',
+    )
+    if (!ok) return
+
     setPendingAction('checkout:' + shift.id)
     try {
       const { data, error } = await supabase.rpc('shift_check_out', { p_shift_id: shift.id })
@@ -375,6 +383,22 @@ export default function EmployeeCheckin() {
   )
 }
 
+/** Timer live "Stai lavorando da Xh Ym" — aggiorna ogni 60 secondi.
+ *  Usato sui turni in_progress per dare al dipendente un riferimento
+ *  immediato di quanto ha lavorato finora. */
+function LiveDuration({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const ms = Math.max(0, now - new Date(since).getTime())
+  const totalMin = Math.floor(ms / 60_000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return <>⏱ {h > 0 ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`}</>
+}
+
 /** Card singola turno con QR + pulsante check-in/check-out. */
 function ShiftCard({
   shift,
@@ -436,11 +460,16 @@ function ShiftCard({
           </div>
         )}
 
-        {/* Check-in info (solo per in-progress) */}
+        {/* Check-in info (solo per in-progress) — orario inizio + timer live */}
         {variant === 'in-progress' && shift.check_in_at && (
-          <div className="text-xs text-[#1EC99A] flex items-center gap-1.5 font-mono">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Check-in: {new Date(shift.check_in_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+          <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-[rgba(30,201,154,0.08)] border border-[rgba(30,201,154,0.2)]">
+            <div className="text-xs text-[#1EC99A] flex items-center gap-1.5 font-mono">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Check-in: {new Date(shift.check_in_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div className="text-xs text-white font-mono font-semibold tabular-nums">
+              <LiveDuration since={shift.check_in_at} />
+            </div>
           </div>
         )}
 
