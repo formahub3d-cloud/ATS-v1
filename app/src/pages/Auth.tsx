@@ -64,6 +64,18 @@ const easeOut = [0, 0, 0.2, 1] as [number, number, number, number]
 const easeSpring = [0.34, 1.56, 0.64, 1] as [number, number, number, number]
 const easeSmooth = [0.32, 0.72, 0, 1] as [number, number, number, number]
 
+/* ─── Validatori formato (italiani) ─── */
+// Tutti tornano `true` quando vuoto: i required vengono gestiti separatamente
+// (così questi helper restano compositivi).
+const isValidEmail = (v: string) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())
+// P.IVA italiana: 11 cifre. Accettiamo prefisso "IT" opzionale per UX.
+const isValidPiva = (v: string) => !v || /^(IT)?\s*\d{11}$/i.test(v.trim().replace(/\s/g, ''))
+// IBAN IT: 27 caratteri (IT + 2 check + 1 CIN + 5 ABI + 5 CAB + 12 conto).
+// Accettiamo qualsiasi IBAN UE basico (IBAN inizia con 2 lettere + 2 cifre + 11-30 alfanum).
+const isValidIban = (v: string) => !v || /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i.test(v.trim().replace(/\s/g, ''))
+// Scadenza carta MM/AA o MM/AAAA, mese 01-12.
+const isValidCardExpiry = (v: string) => !v || /^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/.test(v.trim())
+
 /* ─── Structure Tags ─── */
 const STRUCTURE_TAGS: Tag[] = [
   { id: 'puntualita', label: 'Puntualità' },
@@ -244,10 +256,18 @@ export default function Auth() {
   }, [triggerAutoSave])
 
   /* ─── Role selection ─── */
+  // Default: dopo aver scelto il ruolo si va al wizard di registrazione.
+  // L'utente che ha già un account passa per il link "Accedi qui" o
+  // dal Navbar (?mode=login) — entrambi bypassano questa funzione.
+  // Eccezione: gli admin non si registrano da qui, vanno sempre al login.
   const handleRoleSelect = (selectedRole: UserRole) => {
     setRole(selectedRole)
     setLoginError('')
-    setView('login')
+    if (selectedRole === 'admin') {
+      setView('login')
+      return
+    }
+    setView(selectedRole === 'structure' ? 'register-structure' : 'register-employee')
   }
 
   /* handleDemo rimosso: l'accesso "diretto senza credenziali" non è più
@@ -308,22 +328,86 @@ export default function Auth() {
   }
 
   /* ─── Structure step validation ─── */
+  // Lista leggibile di "cosa manca" per lo step corrente. Mostrata sotto il
+  // bottone Avanti quando disabilitato — l'utente sa subito cosa compilare
+  // invece di guardare il bottone grigio chiedendosi perché.
+  const getStructureMissingFields = (): string[] => {
+    const missing: string[] = []
+    switch (structStep) {
+      case 1: {
+        const pwd = structData.password as string
+        const pwdConfirm = structData.passwordConfirm as string
+        const piva = structData.piva as string
+        const email = structData.referenteEmail as string
+        if (!structData.ragioneSociale) missing.push('Ragione sociale')
+        if (!piva) missing.push('P.IVA')
+        else if (!isValidPiva(piva)) missing.push('P.IVA non valida (11 cifre)')
+        if (!structData.referenteNome) missing.push('Nome referente')
+        if (!email) missing.push('Email')
+        else if (!isValidEmail(email)) missing.push('Email non valida')
+        if (!pwd) missing.push('Password')
+        else if (pwd.length < 8) missing.push('Password troppo corta (min 8)')
+        else if (pwd !== pwdConfirm) missing.push('Le password non coincidono')
+        break
+      }
+      case 2: {
+        const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+        if (!structData.tipoStruttura) missing.push('Tipo struttura')
+        if (!structData.zona) missing.push('Zona operativa')
+        if (photos.length < 5) missing.push(`Foto ambienti (${photos.length}/5)`)
+        break
+      }
+      case 3:
+        if (!structData.videoAttestazione) missing.push('Video attestazione')
+        break
+      case 4:
+        if ((structData.ruoliCercati as string[]).length === 0) missing.push('Almeno un ruolo cercato')
+        break
+      case 5:
+        if ((structData.tagValori as string[]).length === 0) missing.push('Almeno un tag valore')
+        break
+      case 7:
+        if (structData.metodoPagamento === 'carta') {
+          if (!structData.cardNumber) missing.push('Numero carta')
+          if (!structData.cardExpiry) missing.push('Scadenza')
+          else if (!isValidCardExpiry(structData.cardExpiry as string)) missing.push('Scadenza non valida (MM/AA)')
+          if (!structData.cardCvc) missing.push('CVC')
+          if (!structData.cardHolder) missing.push('Titolare carta')
+        } else {
+          if (!structData.iban) missing.push('IBAN')
+          else if (!isValidIban(structData.iban as string)) missing.push('IBAN non valido')
+          if (!structData.sepaHolder) missing.push('Intestatario conto')
+        }
+        break
+      case 8:
+        if (!structData.accettatoContratto) missing.push('Accettazione contratto')
+        break
+    }
+    return missing
+  }
+
   const canProceedStructure = (): boolean => {
     switch (structStep) {
       case 1: {
         const pwd = structData.password as string
         const pwdConfirm = structData.passwordConfirm as string
+        const piva = structData.piva as string
+        const email = structData.referenteEmail as string
         return !!(
           structData.ragioneSociale &&
-          structData.piva &&
+          piva && isValidPiva(piva) &&
           structData.referenteNome &&
-          structData.referenteEmail &&
+          email && isValidEmail(email) &&
           pwd && pwd.length >= 8 &&
           pwd === pwdConfirm
         )
       }
-      case 2:
-        return !!(structData.tipoStruttura && structData.zona)
+      case 2: {
+        // Foto ambienti: il copy promette "almeno 5", la validazione deve
+        // riflettere il copy o l'utente passa con galleria vuota.
+        const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+        return !!(structData.tipoStruttura && structData.zona && photos.length >= 5)
+      }
       case 3:
         return !!structData.videoAttestazione
       case 4:
@@ -334,9 +418,17 @@ export default function Auth() {
         return true
       case 7:
         if (structData.metodoPagamento === 'carta') {
-          return !!(structData.cardNumber && structData.cardExpiry && structData.cardCvc && structData.cardHolder)
+          return !!(
+            structData.cardNumber &&
+            structData.cardExpiry && isValidCardExpiry(structData.cardExpiry as string) &&
+            structData.cardCvc &&
+            structData.cardHolder
+          )
         }
-        return !!(structData.iban && structData.sepaHolder)
+        return !!(
+          structData.iban && isValidIban(structData.iban as string) &&
+          structData.sepaHolder
+        )
       case 8:
         return !!structData.accettatoContratto
       default:
@@ -815,6 +907,21 @@ export default function Auth() {
                 } else if (view === 'register-employee' && empStep > 1) {
                   setEmpStep((s) => s - 1)
                 } else {
+                  // Stiamo per uscire dal wizard. Se l'utente ha compilato
+                  // dei campi, chiedi conferma — il wizard non persiste e
+                  // perdere 11 campi compilati per errore è frustrante.
+                  const hasStructDraft =
+                    view === 'register-structure' &&
+                    !!(structData.ragioneSociale || structData.piva || structData.referenteEmail)
+                  const hasEmpDraft =
+                    view === 'register-employee' &&
+                    !!(empData.nome || empData.cognome || empData.email)
+                  if (hasStructDraft || hasEmpDraft) {
+                    const ok = window.confirm(
+                      'Sei sicuro di voler tornare indietro? I dati compilati andranno persi.',
+                    )
+                    if (!ok) return
+                  }
                   setView('role-select')
                   setRole(null)
                   setLoginError('')
@@ -1153,13 +1260,14 @@ export default function Auth() {
                         isFirst={true}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Dati Aziendali</h2>
                         <p className="text-sm text-text-muted mb-6">Inserisci le informazioni della tua azienda</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="sm:col-span-2 space-y-1.5">
-                            <Label>Ragione Sociale</Label>
+                            <Label>Ragione Sociale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Ristorante Bella Vita S.r.l."
                               value={structData.ragioneSociale as string}
@@ -1168,7 +1276,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>P.IVA</Label>
+                            <Label>P.IVA <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="12345678901"
                               maxLength={11}
@@ -1208,7 +1316,7 @@ export default function Auth() {
                             <p className="text-sm font-medium text-sky-primary mb-3">Referente Principale</p>
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Nome e Cognome</Label>
+                            <Label>Nome e Cognome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Mario Rossi"
                               value={structData.referenteNome as string}
@@ -1235,7 +1343,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Email Aziendale</Label>
+                            <Label>Email Aziendale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="email"
                               placeholder="info@ristorante.it"
@@ -1254,7 +1362,7 @@ export default function Auth() {
                             </p>
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Password</Label>
+                            <Label>Password <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="password"
                               placeholder="Almeno 8 caratteri"
@@ -1264,7 +1372,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Conferma password</Label>
+                            <Label>Conferma password <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="password"
                               placeholder="Ripeti la password"
@@ -1290,6 +1398,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Identit&agrave; della Struttura</h2>
                         <p className="text-sm text-text-muted mb-6">Descrivi il tuo tipo di attivit&agrave;</p>
@@ -1378,6 +1487,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Video di Attestazione</h2>
                         <p className="text-sm text-text-muted mb-6">Registra un breve video per verificare la tua identit&agrave;</p>
@@ -1398,6 +1508,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Esigenze Operative</h2>
                         <p className="text-sm text-text-muted mb-6">Indica quali figure cerchi e i tuoi fabbisogni</p>
@@ -1528,6 +1639,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Tag di Valori Richiesti</h2>
                         <p className="text-sm text-text-muted mb-6">Seleziona le qualit&agrave; che cerchi nei tuoi collaboratori</p>
@@ -1549,6 +1661,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Domande di Qualificazione</h2>
                         <p className="text-sm text-text-muted mb-6">Aiutaci a capire meglio le tue esigenze</p>
@@ -1633,6 +1746,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Metodo di Pagamento</h2>
                         <p className="text-sm text-text-muted mb-6">Configura il metodo di pagamento per i servizi</p>
