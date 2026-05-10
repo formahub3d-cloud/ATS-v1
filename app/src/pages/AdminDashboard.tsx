@@ -7,8 +7,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Building2, Users, Hourglass, ShieldCheck, Calendar, CreditCard,
-  HeartHandshake, ChevronRight, Bell, AlertCircle, FileWarning,
+  Building2, Users, Hourglass, ShieldCheck, CheckCircle,
+  ChevronRight, AlertCircle, FileWarning, Inbox, Clock, Activity,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
@@ -19,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
 type StructureRow = Database['public']['Tables']['structures']['Row']
+type AuditRow = Database['public']['Tables']['audit_log']['Row']
 
 interface DashboardStats {
   structuresTotal: number
@@ -27,7 +29,12 @@ interface DashboardStats {
   employeesTotal: number
   docsExpiring: number          // documenti che scadono entro 30 giorni
   docsExpired: number           // documenti già scaduti
+  // Operatività mese in corso
+  shiftsCompletedMonth: number
+  hoursWorkedMonth: number
+  messagesUnhandled: number     // contact_messages con status new o in_progress
   recentPending: StructureRow[]
+  recentActivity: AuditRow[]
 }
 
 const initialStats: DashboardStats = {
@@ -37,7 +44,11 @@ const initialStats: DashboardStats = {
   employeesTotal: 0,
   docsExpiring: 0,
   docsExpired: 0,
+  shiftsCompletedMonth: 0,
+  hoursWorkedMonth: 0,
+  messagesUnhandled: 0,
   recentPending: [],
+  recentActivity: [],
 }
 
 export default function AdminDashboard() {
@@ -51,8 +62,14 @@ export default function AdminDashboard() {
     try {
       const today = new Date().toISOString().slice(0, 10)
       const in30 = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
+      // Inizio mese corrente per contare turni/ore del mese.
+      const monthStart = new Date()
+      monthStart.setDate(1)
+      monthStart.setHours(0, 0, 0, 0)
+      const monthStartIso = monthStart.toISOString().slice(0, 10)
 
-      // 7 query in parallelo (5 conteggi + 1 select pending + 1 conteggio docs).
+      // 11 query in parallelo. Più del doppio di prima ma comunque sotto i 200ms
+      // su Supabase regional (single roundtrip multiplexato).
       const [
         { count: structuresTotal, error: e1 },
         { count: structuresPending, error: e2 },
@@ -61,6 +78,9 @@ export default function AdminDashboard() {
         { data: recentPending, error: e5 },
         { count: docsExpiring, error: e6 },
         { count: docsExpired, error: e7 },
+        { data: shiftsMonth, error: e8 },
+        { count: messagesUnhandled, error: e9 },
+        { data: recentActivity, error: e10 },
       ] = await Promise.all([
         supabase.from('structures').select('*', { count: 'exact', head: true }),
         supabase.from('structures').select('*', { count: 'exact', head: true }).eq('status', 'pending_review'),
@@ -71,10 +91,20 @@ export default function AdminDashboard() {
           .gte('expires_at', today).lte('expires_at', in30),
         supabase.from('documents').select('*', { count: 'exact', head: true })
           .lt('expires_at', today),
+        // Turni completati del mese: prendiamo estimated_hours per somma ore.
+        supabase.from('shifts').select('estimated_hours').eq('status', 'completed').gte('shift_date', monthStartIso),
+        supabase.from('contact_messages').select('*', { count: 'exact', head: true }).in('status', ['new', 'in_progress']),
+        supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(6),
       ])
 
-      const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7
+      const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10
       if (firstError) throw firstError
+
+      const shiftsCompletedMonth = shiftsMonth?.length ?? 0
+      const hoursWorkedMonth = (shiftsMonth ?? []).reduce(
+        (sum, s) => sum + Number(s.estimated_hours ?? 0),
+        0,
+      )
 
       setStats({
         structuresTotal: structuresTotal ?? 0,
@@ -83,7 +113,11 @@ export default function AdminDashboard() {
         employeesTotal: employeesTotal ?? 0,
         docsExpiring: docsExpiring ?? 0,
         docsExpired: docsExpired ?? 0,
+        shiftsCompletedMonth,
+        hoursWorkedMonth,
+        messagesUnhandled: messagesUnhandled ?? 0,
         recentPending: recentPending ?? [],
+        recentActivity: recentActivity ?? [],
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore caricamento dashboard'
@@ -129,6 +163,28 @@ export default function AdminDashboard() {
         color: '#3AA3E8',
         link: '/admin/employees',
       },
+      {
+        label: 'Turni completati (mese)',
+        value: stats.shiftsCompletedMonth,
+        icon: CheckCircle,
+        color: '#1EC99A',
+        link: '/admin/shifts',
+      },
+      {
+        label: 'Ore lavorate (mese)',
+        value: Math.round(stats.hoursWorkedMonth),
+        icon: Clock,
+        color: '#5BB8F5',
+        link: '/admin/payroll',
+      },
+      {
+        label: 'Messaggi non gestiti',
+        value: stats.messagesUnhandled,
+        icon: Inbox,
+        color: '#F5B800',
+        link: '/admin/messages',
+        urgent: stats.messagesUnhandled > 0,
+      },
     ],
     [stats],
   )
@@ -162,6 +218,33 @@ export default function AdminDashboard() {
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {fetchError}
         </div>
+      )}
+
+      {/* Banner messaggi non gestiti */}
+      {stats.messagesUnhandled > 0 && (
+        <Link
+          to="/admin/messages"
+          className="flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md transition-all hover:translate-y-[-1px] border-[rgba(245,184,0,0.3)] bg-[rgba(245,184,0,0.06)]"
+        >
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: 'rgba(245,184,0,0.15)',
+              border: '1px solid rgba(245,184,0,0.3)',
+            }}
+          >
+            <MessageSquare className="w-5 h-5 text-[#F5B800]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white">
+              {stats.messagesUnhandled} messagg{stats.messagesUnhandled === 1 ? 'io' : 'i'} dal sito da gestire
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Apri /admin/messages per leggere e rispondere.
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+        </Link>
       )}
 
       {/* Banner alert documenti scaduti / in scadenza */}
@@ -200,7 +283,7 @@ export default function AdminDashboard() {
         </Link>
       )}
 
-      {/* KPI grid */}
+      {/* KPI grid — 4-col su desktop wide, 7 KPI = 4 + 3 nella seconda riga */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, i) => {
           const Icon = kpi.icon
@@ -301,61 +384,88 @@ export default function AdminDashboard() {
         )}
       </GlassCard>
 
-      {/* Coming soon — sezioni future */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ComingSoonCard
-          title="Turni & matching"
-          description="Lista turni attivi, matching automatico e assegnazioni manuali."
-          icon={HeartHandshake}
-          color="#5BB8F5"
-        />
-        <ComingSoonCard
-          title="Pagamenti"
-          description="Addebiti strutture, bonifici dipendenti, fatture e penali."
-          icon={CreditCard}
-          color="#1EC99A"
-        />
-        <ComingSoonCard
-          title="Calendario"
-          description="Vista settimanale di tutti i turni pianificati per struttura e zona."
-          icon={Calendar}
-          color="#F5B800"
-        />
-      </section>
+      {/* Activity feed — ultimi eventi dall'audit_log per dare polso operativo */}
+      <GlassCard delay={0.3}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-sky-primary" />
+            <h2 className="text-lg font-semibold text-white">Attività recente</h2>
+          </div>
+          <Link
+            to="/admin/audit"
+            className="text-sm text-sky-primary hover:underline flex items-center gap-1 group"
+          >
+            Vedi tutto <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <Skeleton className="w-8 h-8 rounded-lg" />
+                <Skeleton className="h-4 w-72" />
+                <Skeleton className="h-3 w-12 ml-auto" />
+              </div>
+            ))}
+          </div>
+        ) : stats.recentActivity.length === 0 ? (
+          <div className="py-8 text-center text-sm text-text-muted">
+            <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            Nessun evento ancora.
+          </div>
+        ) : (
+          <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
+            {stats.recentActivity.map((a) => (
+              <li key={a.id} className="flex items-start gap-3 py-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[rgba(91,184,245,0.1)] border border-[rgba(91,184,245,0.2)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Activity className="w-3.5 h-3.5 text-sky-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white">
+                    {humanizeAuditEvent(a.event_type)}
+                    {a.target_type && (
+                      <span className="text-xs text-text-muted"> · {a.target_type}</span>
+                    )}
+                  </p>
+                </div>
+                <span className="text-[10px] text-text-muted font-mono flex-shrink-0 mt-1">
+                  {timeAgo(a.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </GlassCard>
     </motion.div>
   )
 }
 
-function ComingSoonCard({
-  title,
-  description,
-  icon: Icon,
-  color,
-}: {
-  title: string
-  description: string
-  icon: typeof Bell
-  color: string
-}) {
-  return (
-    <div className="rounded-2xl p-5 backdrop-blur-md bg-white/[0.025] border border-dashed border-white/10">
-      <div className="flex items-start gap-3 mb-2">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${color}12`, border: `1px solid ${color}25` }}
-        >
-          <Icon className="w-4 h-4" style={{ color }} />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-white">{title}</h3>
-            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-text-muted">
-              In arrivo
-            </span>
-          </div>
-        </div>
-      </div>
-      <p className="text-xs text-text-muted leading-relaxed">{description}</p>
-    </div>
-  )
+// Mappa event_type SQL → testo italiano leggibile.
+function humanizeAuditEvent(t: string): string {
+  const map: Record<string, string> = {
+    structure_approved:    'Struttura approvata',
+    structure_rejected:    'Struttura respinta',
+    structure_suspended:   'Struttura sospesa',
+    shift_assigned:        'Turno assegnato',
+    shift_cancelled:       'Turno annullato',
+    shift_completed:       'Turno completato',
+    shift_no_show:         'Turno no-show',
+    document_verified:     'Documento verificato',
+    document_deleted:      'Documento cancellato',
+    employee_activated:    'Dipendente attivato',
+    employee_deactivated:  'Dipendente disattivato',
+    role_changed:          'Cambio ruolo',
+    points_adjusted:       'Punti aggiustati',
+  }
+  return map[t] ?? t
+}
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60) return 'ora'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m fa`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h fa`
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}g fa`
+  return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
 }
