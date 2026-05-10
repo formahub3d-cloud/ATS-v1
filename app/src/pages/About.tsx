@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 const VALUES = [
   {
@@ -36,6 +37,11 @@ const VALUES = [
 export default function About() {
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        title="Chi siamo"
+        description="ATS è una società di catering HORECA nata a Benevento. Assumiamo direttamente i nostri lavoratori e li facciamo crescere. La nostra missione: hospitality fatta bene, partendo dal nostro territorio."
+        path="/chi-siamo"
+      />
       <Navbar />
 
       <main className="pt-24 pb-16">

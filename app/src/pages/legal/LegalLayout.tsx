@@ -6,20 +6,24 @@ import { Link } from 'react-router-dom'
 import { Scale, AlertTriangle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 export default function LegalLayout({
   title,
   subtitle,
   lastUpdated,
   sections,
+  path,
 }: {
   title: string
   subtitle: string
   lastUpdated: string
   sections: Array<{ id: string; title: string; body: React.ReactNode }>
+  path: string
 }) {
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta title={title} description={subtitle} path={path} type="article" />
       <Navbar />
 
       <main className="pt-24 pb-16">

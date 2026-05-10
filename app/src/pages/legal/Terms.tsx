@@ -8,6 +8,7 @@ export default function Terms() {
       title="Termini di servizio"
       subtitle="Le regole d'uso della piattaforma ATS."
       lastUpdated="10 maggio 2026"
+      path="/termini"
       sections={[
         {
           id: 'oggetto',

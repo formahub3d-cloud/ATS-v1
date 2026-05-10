@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { Compass, Home, Building2, User, MessageSquare } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 const SUGGESTIONS = [
   { to: '/',           icon: Home,           label: 'Homepage' },
@@ -17,6 +18,11 @@ const SUGGESTIONS = [
 export default function NotFound() {
   return (
     <div className="min-h-[100dvh] bg-navy flex flex-col">
+      <PageMeta
+        title="Pagina non trovata"
+        description="La pagina che cercavi non esiste o è stata spostata."
+        noindex
+      />
       <Navbar />
 
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-24 pb-16">

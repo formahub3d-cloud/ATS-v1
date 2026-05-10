@@ -8,6 +8,7 @@ export default function Cookie() {
       title="Cookie Policy"
       subtitle="Cookie e tecnologie simili usate da ATS."
       lastUpdated="10 maggio 2026"
+      path="/cookie"
       sections={[
         {
           id: 'cosa-sono',

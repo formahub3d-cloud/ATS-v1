@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 const PROMISES = [
   { icon: FileSignature, title: 'Sei assunto da noi', text: 'Contratto regolare con ATS — non sei un freelance, sei un dipendente. Tasse, contributi, ferie, tutto in regola.' },
@@ -41,6 +42,11 @@ export default function LandingWorkers() {
 
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        title="Cerchi lavoro nell'hospitality?"
+        description="ATS ti assume direttamente con contratto regolare, ti forma e ti fa crescere. Niente nero, niente caos su WhatsApp. Stipendio puntuale, recensioni reali, sistema rank trasparente."
+        path="/lavoratori"
+      />
       <Navbar />
 
       <main className="pt-24 pb-12">

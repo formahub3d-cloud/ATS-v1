@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 const PAIN_POINTS = [
   { title: 'WhatsApp e gruppi caotici', text: 'Trovi personale dell\'ultimo minuto su gruppi senza nessuna garanzia di risposta.' },
@@ -40,6 +41,11 @@ export default function LandingStructures() {
 
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        title="Per le strutture HORECA"
+        description="Stop al caos su WhatsApp. ATS gestisce contratti, paghe e qualità del personale. Tu pubblichi i turni, noi mandiamo professionisti formati e regolari."
+        path="/strutture"
+      />
       <Navbar />
 
       <main className="pt-24 pb-12">

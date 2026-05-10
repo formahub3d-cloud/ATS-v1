@@ -8,6 +8,7 @@ export default function Privacy() {
       title="Privacy Policy"
       subtitle="Come trattiamo i tuoi dati personali."
       lastUpdated="10 maggio 2026"
+      path="/privacy"
       sections={[
         {
           id: 'titolare',

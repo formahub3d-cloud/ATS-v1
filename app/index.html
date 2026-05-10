@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>ATS - Al TuO Servizio</title>
-    <meta name="description" content="ATS — Al TuO Servizio. Piattaforma di intermediazione hospitality per il territorio di Benevento." />
+
+    <!-- Default meta. Le pagine sovrascrivono queste via <PageMeta /> al mount. -->
+    <title>ATS — Al TuO Servizio · Hospitality fatta bene</title>
+    <meta name="description" content="ATS è una società di catering HORECA con dipendenti diretti. Strutture e lavoratori, in regola e collegati. Operiamo a Benevento e provincia." />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://ats-servizio.it/" />
 
     <!-- PWA: manifest + theme color (Chrome/Edge mobile) -->
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -16,11 +20,43 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ATS" />
 
-    <!-- Open Graph / social preview -->
-    <meta property="og:title" content="ATS — Al TuO Servizio" />
-    <meta property="og:description" content="Piattaforma di gestione personale catering HORECA." />
+    <!-- Open Graph (Facebook, LinkedIn, WhatsApp, Telegram) -->
+    <meta property="og:title" content="ATS — Al TuO Servizio · Hospitality fatta bene" />
+    <meta property="og:description" content="Catering HORECA con dipendenti diretti. Strutture e lavoratori, in regola e collegati." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="it_IT" />
+    <meta property="og:url" content="https://ats-servizio.it/" />
+    <meta property="og:image" content="https://ats-servizio.it/og-image.svg" />
+    <meta property="og:site_name" content="ATS — Al TuO Servizio" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ATS — Al TuO Servizio · Hospitality fatta bene" />
+    <meta name="twitter:description" content="Catering HORECA con dipendenti diretti. Strutture e lavoratori, in regola e collegati." />
+    <meta name="twitter:image" content="https://ats-servizio.it/og-image.svg" />
+
+    <!-- JSON-LD Organization (rich snippet base) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "ATS — Al TuO Servizio",
+      "alternateName": "ATS",
+      "url": "https://ats-servizio.it/",
+      "logo": "https://ats-servizio.it/og-image.svg",
+      "description": "Società di catering HORECA con dipendenti diretti. Strutture e lavoratori, in regola e collegati.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Benevento",
+        "addressRegion": "BN",
+        "addressCountry": "IT"
+      },
+      "areaServed": {
+        "@type": "AdministrativeArea",
+        "name": "Provincia di Benevento"
+      }
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

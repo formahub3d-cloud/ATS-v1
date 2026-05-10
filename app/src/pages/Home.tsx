@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 
 const HOW_IT_WORKS_STEPS = [
   {
@@ -59,6 +60,10 @@ export default function Home() {
 
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        description="ATS è una società di catering HORECA con dipendenti diretti. Le strutture trovano personale formato in 24h, i lavoratori firmano contratti regolari e crescono con noi. Operiamo a Benevento e provincia."
+        path="/"
+      />
       <Navbar />
 
       <main>

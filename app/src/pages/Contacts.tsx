@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { Mail, Phone, MapPin, Send, CheckCircle, Loader2 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/ToastSystem'
 
@@ -80,6 +81,11 @@ export default function Contacts() {
 
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        title="Contatti"
+        description="Scrivici per info su ATS — strutture HORECA, lavoratori, partnership o stampa. Rispondiamo entro 48h lavorative."
+        path="/contatti"
+      />
       <Navbar />
       <main className="pt-24 pb-16">
         <section className="px-4 sm:px-6 lg:px-8 max-w-[1100px] mx-auto">

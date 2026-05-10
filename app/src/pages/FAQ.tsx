@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import PageMeta from '@/components/PageMeta'
 import { cn } from '@/lib/utils'
 
 type Section = {
@@ -108,6 +109,11 @@ export default function FAQ() {
 
   return (
     <div className="min-h-[100dvh] bg-navy">
+      <PageMeta
+        title="Domande frequenti"
+        description="Tutte le risposte alle domande più frequenti su ATS. Per strutture HORECA, lavoratori dell'hospitality e gestione di contratti, paghe, fatturazione."
+        path="/faq"
+      />
       <Navbar />
 
       <main className="pt-24 pb-16">
