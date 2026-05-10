@@ -881,7 +881,7 @@ export default function Auth() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6, duration: 0.4 }}
-                  className="mt-12"
+                  className="mt-12 flex flex-col items-center gap-6"
                 >
                   <Link
                     to="/"
@@ -889,6 +889,17 @@ export default function Auth() {
                   >
                     Torna alla home
                   </Link>
+
+                  {/* Footer discreto: accesso amministrativo riservato. */}
+                  <div className="pt-6 border-t border-[rgba(255,255,255,0.04)] w-full max-w-[400px] text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setRole('admin'); setView('login') }}
+                      className="text-[11px] text-text-muted hover:text-sky-primary transition-colors uppercase tracking-wider font-medium"
+                    >
+                      Accedi come amministratore →
+                    </button>
+                  </div>
                 </motion.div>
               </motion.div>
             )}

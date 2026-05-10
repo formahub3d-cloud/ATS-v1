@@ -9,6 +9,11 @@ import Auth from './pages/Auth'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import CommandPalette from './components/admin/CommandPalette'
 
+// Le 2 landing dedicate sono lazy: il visitatore della homepage non ha
+// bisogno di scaricarle subito.
+const LandingStructures = lazy(() => import('./pages/LandingStructures'))
+const LandingWorkers    = lazy(() => import('./pages/LandingWorkers'))
+
 // Lazy load di tutte le pagine "interne" (post-auth) per ridurre il bundle
 // iniziale. Home + Auth restano eager perché sono i primi entry point.
 const AdminDashboard   = lazy(() => import('./pages/AdminDashboard'))
@@ -51,6 +56,8 @@ export default function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/strutture" element={<LandingStructures />} />
+                <Route path="/lavoratori" element={<LandingWorkers />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/structures" element={<AdminStructures />} />

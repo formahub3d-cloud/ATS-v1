@@ -1,11 +1,15 @@
 import { motion } from 'framer-motion'
-import { Shield, Building2, User, Sparkles } from 'lucide-react'
+import { Building2, User, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+// Volutamente NON includiamo 'admin' qui: l'accesso amministrativo è
+// riservato e non va proposto a chiunque atterra sulla pagina di registrazione.
+// Esiste un link discreto "Accedi come admin" in fondo alla pagina /auth per
+// chi ha già un account amministrativo.
 export type UserRole = 'admin' | 'structure' | 'employee'
 
 interface RoleOption {
-  id: UserRole
+  id: 'structure' | 'employee'
   icon: React.ElementType
   title: string
   description: string
@@ -15,27 +19,19 @@ interface RoleOption {
 
 const roles: RoleOption[] = [
   {
-    id: 'admin',
-    icon: Shield,
-    title: 'Admin ATS',
-    description: 'Gestione completa della piattaforma',
-    bottomNote: 'Accesso riservato',
-    demoLabel: 'Prova come Admin',
-  },
-  {
     id: 'structure',
     icon: Building2,
-    title: 'Struttura',
-    description: 'Ristoranti, hotel, bar, location',
-    bottomNote: 'Registrazione con approvazione',
+    title: 'Sono una Struttura',
+    description: 'Ristorante, hotel, bar, location eventi',
+    bottomNote: 'Cerco personale qualificato',
     demoLabel: 'Prova come Struttura',
   },
   {
     id: 'employee',
     icon: User,
-    title: 'Dipendente',
-    description: 'Camerieri, chef, baristi, receptionist',
-    bottomNote: '8-step onboarding',
+    title: 'Cerco Lavoro',
+    description: 'Cameriere, chef, barista, receptionist',
+    bottomNote: 'Mi candido come dipendente ATS',
     demoLabel: 'Prova come Dipendente',
   },
 ]
@@ -69,7 +65,7 @@ export default function GlassRoleSelector({ selectedRole, onSelect, onDemo }: Gl
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="flex flex-col sm:flex-row items-stretch justify-center gap-5 w-full"
+      className="flex flex-col sm:flex-row items-stretch justify-center gap-5 w-full max-w-[640px] mx-auto"
     >
       {roles.map((role) => {
         const Icon = role.icon

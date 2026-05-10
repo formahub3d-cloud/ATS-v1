@@ -156,7 +156,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const path = location.pathname
 
   // Landing/auth routes - no sidebar, use Navbar/Footer from pages
-  if (path === '/' || path === '/auth') {
+  if (path === '/' || path === '/auth' || path === '/strutture' || path === '/lavoratori') {
     return (
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">
