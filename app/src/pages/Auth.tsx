@@ -75,6 +75,12 @@ const isValidPiva = (v: string) => !v || /^(IT)?\s*\d{11}$/i.test(v.trim().repla
 const isValidIban = (v: string) => !v || /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i.test(v.trim().replace(/\s/g, ''))
 // Scadenza carta MM/AA o MM/AAAA, mese 01-12.
 const isValidCardExpiry = (v: string) => !v || /^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/.test(v.trim())
+// Codice fiscale italiano: 16 caratteri alfanumerici. Pattern strutturale
+// (6 lettere + 2 cifre + 1 lettera + 2 cifre + 1 lettera + 3 cifre + 1 lettera).
+// Non verifichiamo il check digit (Y/X variabili) per non bloccare CF estere
+// o casi limite — basta il formato corretto.
+const isValidCf = (v: string) => !v ||
+  /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i.test(v.trim().replace(/\s/g, ''))
 
 /* ─── Structure Tags ─── */
 const STRUCTURE_TAGS: Tag[] = [
@@ -437,17 +443,74 @@ export default function Auth() {
   }
 
   /* ─── Employee step validation ─── */
+  // Lista leggibile dei campi mancanti per lo step lavoratore corrente.
+  // Mostrata sotto il bottone Avanti via prop missingFields di GlassOnboardingStep.
+  const getEmployeeMissingFields = (): string[] => {
+    const missing: string[] = []
+    switch (empStep) {
+      case 1: {
+        const pwd = empData.password as string
+        const pwdConfirm = empData.passwordConfirm as string
+        const email = empData.email as string
+        const cf = empData.cf as string
+        const iban = empData.iban as string
+        if (!empData.nome) missing.push('Nome')
+        if (!empData.cognome) missing.push('Cognome')
+        if (!empData.dataNascita) missing.push('Data di nascita')
+        if (!email) missing.push('Email')
+        else if (!isValidEmail(email)) missing.push('Email non valida')
+        if (!cf) missing.push('Codice fiscale')
+        else if (!isValidCf(cf)) missing.push('Codice fiscale non valido (16 caratteri)')
+        if (iban && !isValidIban(iban)) missing.push('IBAN non valido')
+        if (!pwd) missing.push('Password')
+        else if (pwd.length < 8) missing.push('Password troppo corta (min 8)')
+        else if (pwd !== pwdConfirm) missing.push('Le password non coincidono')
+        break
+      }
+      case 2: {
+        const photos = (empData.fotoProfessionale as UploadedFile[]) || []
+        if (photos.length === 0) missing.push('Foto professionale')
+        break
+      }
+      case 3:
+        if (!empData.videoAttestazione) missing.push('Video attestazione')
+        break
+      case 5:
+        if (!empData.ruoloPrincipale) missing.push('Ruolo principale')
+        if ((empData.tagValori as string[]).length === 0) missing.push('Almeno un tag valore')
+        if (!empData.zonaLavoro) missing.push('Zona di lavoro')
+        break
+      case 6: {
+        const days = (empData.calendarioGiorni as CalendarDay[]) || []
+        const avail = days.filter((d) => d.status === 'available').length
+        if (avail === 0) missing.push('Almeno un giorno di disponibilità')
+        break
+      }
+      case 7:
+        if (!empData.slotColloquio) missing.push('Slot colloquio')
+        break
+      case 8:
+        if (!empData.otpVerified) missing.push('Verifica OTP')
+        break
+    }
+    return missing
+  }
+
   const canProceedEmployee = (): boolean => {
     switch (empStep) {
       case 1: {
         const pwd = empData.password as string
         const pwdConfirm = empData.passwordConfirm as string
+        const email = empData.email as string
+        const cf = empData.cf as string
+        const iban = empData.iban as string  // opzionale ma se compilato deve essere valido
         return !!(
           empData.nome &&
           empData.cognome &&
           empData.dataNascita &&
-          empData.email &&
-          empData.cf &&
+          email && isValidEmail(email) &&
+          cf && isValidCf(cf) &&
+          (!iban || isValidIban(iban)) &&
           pwd && pwd.length >= 8 &&
           pwd === pwdConfirm
         )
@@ -1963,13 +2026,14 @@ export default function Auth() {
                         isFirst={true}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Dati Personali</h2>
                         <p className="text-sm text-text-muted mb-6">Inserisci i tuoi dati anagrafici</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Nome</Label>
+                            <Label>Nome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Marco"
                               value={empData.nome as string}
@@ -1978,7 +2042,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Cognome</Label>
+                            <Label>Cognome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Bianchi"
                               value={empData.cognome as string}
@@ -1987,7 +2051,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Data di Nascita</Label>
+                            <Label>Data di Nascita <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="date"
                               value={empData.dataNascita as string}
@@ -1996,7 +2060,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Codice Fiscale</Label>
+                            <Label>Codice Fiscale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="BNCMRC85A01H501Z"
                               value={empData.cf as string}
@@ -2032,7 +2096,7 @@ export default function Auth() {
                           <div className="space-y-1.5">
                             <Label className="flex items-center gap-2">
                               <Mail className="w-4 h-4 text-sky-primary" />
-                              Email
+                              Email <span className="text-[#F04545]">*</span>
                             </Label>
                             <Input
                               type="email"
@@ -2050,7 +2114,7 @@ export default function Auth() {
                             </p>
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Password</Label>
+                            <Label>Password <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="password"
                               placeholder="Almeno 8 caratteri"
@@ -2060,7 +2124,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Conferma password</Label>
+                            <Label>Conferma password <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="password"
                               placeholder="Ripeti la password"
@@ -2107,6 +2171,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Foto Professionale</h2>
                         <p className="text-sm text-text-muted mb-6">Carica una foto in contesto lavorativo</p>
@@ -2151,6 +2216,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Video di Attestazione</h2>
                         <p className="text-sm text-text-muted mb-6">Registra un breve video per il contratto</p>
@@ -2171,6 +2237,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Storico Lavorativo</h2>
                         <p className="text-sm text-text-muted mb-6">Aggiungi le tue esperienze e certificazioni</p>
@@ -2379,6 +2446,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Preferenze e Disponibilit&agrave;</h2>
                         <p className="text-sm text-text-muted mb-6">Configura le tue preferenze di lavoro</p>
@@ -2550,6 +2618,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Calendario Disponibilit&agrave;</h2>
                         <p className="text-sm text-text-muted mb-6">
@@ -2576,6 +2645,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Colloquio Video</h2>
                         <p className="text-sm text-text-muted mb-6">Prenota il tuo colloquio di benvenuto</p>
