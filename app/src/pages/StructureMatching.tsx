@@ -35,6 +35,14 @@ interface Candidate {
   skills: string[]
   min_hourly_rate: number | null
   liked_at: string
+  // Reputation enrichment (sblocca conferma informata da parte della struttura)
+  avg_rating: number | null
+  total_reviews: number
+  completed_shifts: number
+  has_haccp: boolean
+  has_health_cert: boolean
+  has_id_card: boolean
+  recent_review: { rating: number; comment: string | null } | null
 }
 
 interface ShiftCard extends ShiftRow {
@@ -137,22 +145,80 @@ export default function StructureMatching() {
 
       const likedEmpIds = Array.from(new Set((likes ?? []).map((l) => l.employee_id)))
 
-      // 4) Profili + employee row per i candidati.
-      const [{ data: profs, error: pErr }, { data: emps, error: eErr }] = await Promise.all([
+      // 4) Profili + employee row per i candidati + dati reputazione.
+      //    Una query per ogni dataset, poi aggrego client-side.
+      const [
+        { data: profs, error: pErr },
+        { data: emps, error: eErr },
+        { data: ratingRows },
+        { data: completedRows },
+        { data: docRows },
+        { data: reviewRows },
+      ] = await Promise.all([
         likedEmpIds.length === 0
           ? Promise.resolve({ data: [] as Pick<ProfileRow, 'id' | 'full_name' | 'avatar_url'>[], error: null })
           : supabase.from('profiles').select('id, full_name, avatar_url').in('id', likedEmpIds),
         likedEmpIds.length === 0
           ? Promise.resolve({ data: [] as Pick<EmployeeRow, 'id' | 'preferred_zone' | 'skills' | 'min_hourly_rate'>[], error: null })
           : supabase.from('employees').select('id, preferred_zone, skills, min_hourly_rate').in('id', likedEmpIds),
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Array<{ employee_id: string; avg_rating: number | null; total_reviews: number }> })
+          : supabase.from('employee_rating_summary').select('employee_id, avg_rating, total_reviews').in('employee_id', likedEmpIds),
+        // Conta turni completati per employee — fetch lista, count client-side.
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Array<{ employee_id: string }> })
+          : supabase.from('shifts').select('employee_id').eq('status', 'completed').in('employee_id', likedEmpIds),
+        // Documenti verificati per badge HACCP/health/ID.
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Array<{ employee_id: string; type: string; verified: boolean }> })
+          : supabase.from('documents').select('employee_id, type, verified').in('employee_id', likedEmpIds).eq('verified', true),
+        // Ultima recensione testuale (struttura → employee) per ogni candidato.
+        // Fetch tutte le review struttura sui loro turni e poi prendiamo la più recente.
+        likedEmpIds.length === 0
+          ? Promise.resolve({ data: [] as Array<{ shift_id: string; rating: number; comment: string | null; created_at: string }> })
+          : supabase.from('reviews').select('shift_id, rating, comment, created_at').eq('reviewer_role', 'structure')
+              .order('created_at', { ascending: false }).limit(50),
       ])
       if (pErr) throw pErr
       if (eErr) throw eErr
 
       const profById = new Map((profs ?? []).map((p) => [p.id, p]))
       const empById = new Map((emps ?? []).map((e) => [e.id, e]))
+      const ratingByEmp = new Map((ratingRows ?? []).map((r) => [r.employee_id, r]))
 
-      // 5) Compongo le shift card con i candidati.
+      // Conta turni completati per employee.
+      const completedByEmp = new Map<string, number>()
+      for (const r of completedRows ?? []) {
+        if (!r.employee_id) continue
+        completedByEmp.set(r.employee_id, (completedByEmp.get(r.employee_id) ?? 0) + 1)
+      }
+
+      // Documenti verificati: per ogni employee, set di tipi.
+      const verifiedDocsByEmp = new Map<string, Set<string>>()
+      for (const d of docRows ?? []) {
+        if (!verifiedDocsByEmp.has(d.employee_id)) verifiedDocsByEmp.set(d.employee_id, new Set())
+        verifiedDocsByEmp.get(d.employee_id)!.add(d.type)
+      }
+
+      // Ultima review per employee: serve mappa shift_id → employee_id.
+      // Useremo i turni completed_shifts per la lookup.
+      const reviewShiftIds = new Set((reviewRows ?? []).map((r) => r.shift_id))
+      let shiftToEmp = new Map<string, string>()
+      if (reviewShiftIds.size > 0) {
+        const { data: revShifts } = await supabase
+          .from('shifts').select('id, employee_id').in('id', Array.from(reviewShiftIds))
+        shiftToEmp = new Map((revShifts ?? [])
+          .filter((s): s is { id: string; employee_id: string } => !!s.employee_id)
+          .map((s) => [s.id, s.employee_id]))
+      }
+      const lastReviewByEmp = new Map<string, { rating: number; comment: string | null }>()
+      for (const r of reviewRows ?? []) {
+        const empId = shiftToEmp.get(r.shift_id)
+        if (!empId || lastReviewByEmp.has(empId)) continue  // ordered desc, prendi la prima
+        lastReviewByEmp.set(empId, { rating: r.rating, comment: r.comment })
+      }
+
+      // 5) Compongo le shift card con i candidati arricchiti.
       const cards: ShiftCard[] = (myShifts ?? []).map((s) => ({
         ...s,
         candidates: (likes ?? [])
@@ -160,6 +226,8 @@ export default function StructureMatching() {
           .map((l) => {
             const p = profById.get(l.employee_id)
             const e = empById.get(l.employee_id)
+            const r = ratingByEmp.get(l.employee_id)
+            const docs = verifiedDocsByEmp.get(l.employee_id) ?? new Set<string>()
             return {
               employee_id: l.employee_id,
               full_name: p?.full_name ?? null,
@@ -168,6 +236,13 @@ export default function StructureMatching() {
               skills: ((e?.skills as string[] | undefined) ?? []),
               min_hourly_rate: e?.min_hourly_rate ?? null,
               liked_at: l.created_at,
+              avg_rating: r?.avg_rating != null ? Number(r.avg_rating) : null,
+              total_reviews: r?.total_reviews ?? 0,
+              completed_shifts: completedByEmp.get(l.employee_id) ?? 0,
+              has_haccp: docs.has('haccp'),
+              has_health_cert: docs.has('health_cert'),
+              has_id_card: docs.has('id_card'),
+              recent_review: lastReviewByEmp.get(l.employee_id) ?? null,
             }
           }),
       }))
@@ -416,50 +491,89 @@ export default function StructureMatching() {
                       <Heart className="w-3 h-3" />
                       {shift.candidates.length} candidat{shift.candidates.length === 1 ? 'o' : 'i'}
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {shift.candidates.map((c) => {
                         const isPending = pendingAssign === shift.id + ':' + c.employee_id
                         return (
                           <div
                             key={c.employee_id}
-                            className="flex items-center gap-3 p-3 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(13,30,52,0.5)] hover:bg-[rgba(91,184,245,0.05)] transition-colors"
+                            className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(13,30,52,0.5)] hover:bg-[rgba(91,184,245,0.05)] transition-colors p-4"
                           >
-                            <Avatar
-                              src={c.avatar_url ?? undefined}
-                              alt={c.full_name ?? 'Candidato'}
-                              size="md"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-white truncate">{c.full_name ?? '—'}</p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
-                                {c.skills.length > 0 && (
-                                  <span className="flex items-center gap-1">
-                                    <Briefcase className="w-3 h-3" />
-                                    {c.skills.slice(0, 2).join(', ')}
+                            {/* Header: avatar + nome + rating + bottone conferma */}
+                            <div className="flex items-start gap-3 mb-3">
+                              <Avatar
+                                src={c.avatar_url ?? undefined}
+                                alt={c.full_name ?? 'Candidato'}
+                                size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-white truncate">{c.full_name ?? '—'}</p>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs">
+                                  {c.avg_rating != null ? (
+                                    <span className="flex items-center gap-1 text-[#F5B800]">
+                                      <Star className="w-3 h-3 fill-current" />
+                                      <span className="font-semibold">{c.avg_rating.toFixed(1)}</span>
+                                      <span className="text-text-muted">({c.total_reviews})</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-text-muted italic">Nessuna recensione</span>
+                                  )}
+                                  <span className="text-text-muted">·</span>
+                                  <span className="text-text-muted">
+                                    {c.completed_shifts} turn{c.completed_shifts === 1 ? 'o' : 'i'} completat{c.completed_shifts === 1 ? 'o' : 'i'}
                                   </span>
-                                )}
-                                {c.preferred_zone && (
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {c.preferred_zone}
-                                  </span>
-                                )}
-                                {c.min_hourly_rate && (
-                                  <span className="text-[#1EC99A] font-mono">
-                                    min €{Number(c.min_hourly_rate).toFixed(2)}/h
-                                  </span>
-                                )}
+                                </div>
                               </div>
+                              <motion.button
+                                whileTap={{ scale: 0.96 }}
+                                onClick={() => void handleAssign(shift, c)}
+                                disabled={!!pendingAssign}
+                                className="px-4 py-2 text-sm font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                {isPending ? 'Conferma…' : 'Conferma'}
+                              </motion.button>
                             </div>
-                            <motion.button
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => void handleAssign(shift, c)}
-                              disabled={!!pendingAssign}
-                              className="px-4 py-2 text-sm font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              {isPending ? 'Conferma…' : 'Conferma'}
-                            </motion.button>
+
+                            {/* Meta: skills + zona + min rate */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted mb-3">
+                              {c.skills.length > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Briefcase className="w-3 h-3" />
+                                  {c.skills.slice(0, 3).join(', ')}
+                                </span>
+                              )}
+                              {c.preferred_zone && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {c.preferred_zone}
+                                </span>
+                              )}
+                              {c.min_hourly_rate && (
+                                <span className="text-[#1EC99A] font-mono">
+                                  min €{Number(c.min_hourly_rate).toFixed(2)}/h
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Badge certificazioni verificate */}
+                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                              <CertBadge label="HACCP" present={c.has_haccp} />
+                              <CertBadge label="Idoneità" present={c.has_health_cert} />
+                              <CertBadge label="ID" present={c.has_id_card} />
+                            </div>
+
+                            {/* Ultima recensione testuale (se presente) */}
+                            {c.recent_review && c.recent_review.comment && (
+                              <div className="mt-2 pt-3 border-t border-[rgba(255,255,255,0.04)] flex items-start gap-2">
+                                <Star className="w-3.5 h-3.5 text-[#F5B800] fill-current flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-text-secondary italic leading-relaxed">
+                                  "{c.recent_review.comment.length > 140
+                                    ? c.recent_review.comment.slice(0, 140) + '…'
+                                    : c.recent_review.comment}"
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -489,5 +603,23 @@ export default function StructureMatching() {
         onSubmitted={() => void load()}
       />
     </div>
+  )
+}
+
+/** Pill che mostra lo stato di una certificazione del candidato.
+ *  Verde se presente e verificata, grigio tenue se mancante. */
+function CertBadge({ label, present }: { label: string; present: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border',
+        present
+          ? 'bg-[rgba(30,201,154,0.10)] text-[#1EC99A] border-[rgba(30,201,154,0.30)]'
+          : 'bg-[rgba(255,255,255,0.03)] text-text-muted border-white/10 line-through opacity-60',
+      )}
+      title={present ? `${label} verificato dall'admin` : `${label} non caricato/verificato`}
+    >
+      {present ? '✓' : '×'} {label}
+    </span>
   )
 }
