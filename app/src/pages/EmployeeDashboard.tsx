@@ -15,7 +15,6 @@ import NotificationsBell from '@/components/notifications/NotificationsBell';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Database } from '@/lib/database.types';
-import { dashboardData } from '@/components/employee/mockData';
 import { cn } from '@/lib/utils';
 
 type EmployeeRow = Database['public']['Tables']['employees']['Row'];

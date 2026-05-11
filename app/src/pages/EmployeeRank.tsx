@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight, Star, Award, TrendingUp, TrendingDown, BookOpen, Clock, CheckCircle, HelpCircle } from 'lucide-react';
+import { ChevronRight, Star, Award, TrendingUp, TrendingDown, FileText, Clock, CheckCircle, HelpCircle, AlertCircle, Upload } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import GlassTooltip from '@/components/ui/GlassTooltip';
@@ -27,14 +28,6 @@ interface PointsEntry {
   type: 'earned' | 'spent' | 'bonus';
 }
 
-interface Course {
-  name: string;
-  progress: number;
-  totalHours: number;
-  status: 'completed' | 'in-progress' | 'not-started';
-  certificate?: string;
-}
-
 // ---- Data ----
 const rankLevels: RankLevel[] = [
   { name: 'Rookie', color: '#94A3B8', glow: 'rgba(148,163,184,0.2)', minPoints: 0, benefits: ['Accesso base', 'Tariffa standard'] },
@@ -47,13 +40,16 @@ const rankLevels: RankLevel[] = [
 // Mock pointsHistory rimosso: ora popolato da `employee_points` reali
 // dentro il componente (vedi useEffect → setRealHistory).
 
-const courses: Course[] = [
-  { name: 'HACCP - Sicurezza alimentare', progress: 100, totalHours: 8, status: 'completed', certificate: 'HACCP-2025-0012' },
-  { name: 'Crisi e conflitti in sala', progress: 65, totalHours: 6, status: 'in-progress' },
-  { name: 'Sommelier base - Vini italiani', progress: 0, totalHours: 12, status: 'not-started' },
-  { name: 'Inglese per hospitality B2', progress: 30, totalHours: 20, status: 'in-progress' },
-  { name: 'Gestione delle emergenze', progress: 100, totalHours: 4, status: 'completed', certificate: 'EMRG-2025-0047' },
-];
+// Etichetta italiana per i tipi di documento (sezione "I tuoi documenti").
+const DOC_TYPE_LABEL: Record<string, string> = {
+  haccp:       'Attestato HACCP',
+  health_cert: 'Idoneità sanitaria',
+  id_card:     "Carta d'identità",
+  tax_code:    'Codice fiscale',
+  iban_proof:  'Prova IBAN',
+  contract:    'Contratto firmato',
+  other:       'Altro',
+}
 
 const payBreakdown = [
   { zone: 'Centro', base: '€15,00/h', rankBonus: '+€1,00/h', total: '€16,00/h', premiumDays: 'Festivi +50%' },
@@ -73,6 +69,7 @@ function levelIdxFromPoints(points: number): number {
 }
 
 export default function EmployeeRank() {
+  const navigate = useNavigate();
   const [showPayTable, setShowPayTable] = useState(true);
   const { user, profile } = useAuth();
   const [realStats, setRealStats] = useState<{
@@ -83,6 +80,10 @@ export default function EmployeeRank() {
     totalPoints: number;
   } | null>(null);
   const [realHistory, setRealHistory] = useState<{ id: string; label: string; points: number; date: string; type: 'earned' | 'spent' | 'bonus' }[]>([]);
+  // Documenti reali del dipendente (sostituisce la lista 'Corsi' mock).
+  const [realDocs, setRealDocs] = useState<Array<{
+    id: string; type: string; verified: boolean; expires_at: string | null; uploaded_at: string
+  }>>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -95,12 +96,14 @@ export default function EmployeeRank() {
         { data: monthCompleted },
         { data: pointsRow },
         { data: ptsHistory },
+        { data: docs },
       ] = await Promise.all([
         supabase.from('employee_rating_summary').select('avg_rating, total_reviews').eq('employee_id', user.id).maybeSingle(),
         supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end')
           .eq('employee_id', user.id).eq('status', 'completed').gte('shift_date', monthStartStr),
         supabase.from('employee_total_points').select('total_points, level').eq('employee_id', user.id).maybeSingle(),
         supabase.from('employee_points').select('id, source_type, points, reason, created_at').eq('employee_id', user.id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('documents').select('id, type, verified, expires_at, uploaded_at').eq('employee_id', user.id).order('uploaded_at', { ascending: false }),
       ]);
       if (cancelled) return;
       let earnings = 0;
@@ -133,6 +136,7 @@ export default function EmployeeRank() {
         date: new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
         type: p.points > 0 ? (['review_5stars','review_4stars'].includes(p.source_type) ? 'bonus' : 'earned') : 'spent',
       })));
+      setRealDocs(docs ?? []);
     })();
     return () => { cancelled = true; };
   }, [user]);
@@ -582,74 +586,87 @@ export default function EmployeeRank() {
           </div>
         </motion.div>
 
-        {/* Courses */}
+        {/* Documenti & certificazioni — dati reali da public.documents */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.5 }}
           className="px-4 mt-6 mb-8"
         >
-          <h3 className="text-base font-semibold text-white mb-3">Corsi e certificazioni</h3>
-          <div className="space-y-3">
-            {courses.map((course, i) => (
-              <motion.div
-                key={course.name}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + i * 0.06, duration: 0.35 }}
-                className={cn(
-                  'rounded-xl p-4 border backdrop-blur-sm',
-                  'bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)]',
-                  'hover:border-[rgba(91,184,245,0.2)] transition-colors'
-                )}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-white">I tuoi documenti</h3>
+            <button
+              onClick={() => navigate('/employee/documents')}
+              className="text-xs text-[#5BB8F5] hover:underline flex items-center gap-1"
+            >
+              Gestisci <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {realDocs.length === 0 ? (
+            <div className="rounded-xl p-5 border border-dashed border-[rgba(245,184,0,0.25)] bg-[rgba(245,184,0,0.04)] text-center">
+              <Upload className="w-8 h-8 mx-auto mb-2 text-[#F5B800] opacity-70" />
+              <p className="text-sm text-white mb-1">Nessun documento caricato</p>
+              <p className="text-xs text-[#94A3B8] mb-3">
+                HACCP, idoneità sanitaria e altri documenti ti aiutano a ricevere più turni.
+              </p>
+              <button
+                onClick={() => navigate('/employee/documents')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#06101E] gradient-sky rounded-lg hover:brightness-110 transition-all"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                <Upload className="w-3.5 h-3.5" />
+                Carica documenti
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {realDocs.map((doc, i) => {
+                const expDays = doc.expires_at
+                  ? Math.floor((new Date(doc.expires_at).getTime() - Date.now()) / 86400000)
+                  : null
+                const expired = expDays !== null && expDays < 0
+                const expiringSoon = expDays !== null && expDays >= 0 && expDays < 30
+                const statusColor = expired ? '#F04545' : doc.verified ? '#1EC99A' : expiringSoon ? '#F5B800' : '#5BB8F5'
+                const statusIcon = expired ? AlertCircle : doc.verified ? CheckCircle : expiringSoon ? Clock : FileText
+                const Icon = statusIcon
+                return (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + i * 0.04, duration: 0.3 }}
+                    className="rounded-xl p-3 border bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)] flex items-center gap-3"
+                  >
                     <div
-                      className={cn(
-                        'w-9 h-9 rounded-lg flex items-center justify-center',
-                        course.status === 'completed' && 'bg-[rgba(30,201,154,0.1)]',
-                        course.status === 'in-progress' && 'bg-[rgba(91,184,245,0.1)]',
-                        course.status === 'not-started' && 'bg-[rgba(255,255,255,0.04)]'
-                      )}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${statusColor}18`, border: `1px solid ${statusColor}30` }}
                     >
-                      {course.status === 'completed' && <CheckCircle className="w-4 h-4 text-[#1EC99A]" />}
-                      {course.status === 'in-progress' && <BookOpen className="w-4 h-4 text-[#5BB8F5]" />}
-                      {course.status === 'not-started' && <Clock className="w-4 h-4 text-[#5E7A95]" />}
+                      <Icon className="w-4 h-4" style={{ color: statusColor }} />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{course.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {DOC_TYPE_LABEL[doc.type] ?? doc.type}
+                      </p>
                       <p className="text-[11px] text-[#94A3B8]">
-                        {course.totalHours} ore · {course.certificate ? `Cert. ${course.certificate}` : 'In corso'}
+                        {expired
+                          ? `Scaduto ${Math.abs(expDays!)}g fa — rinnova`
+                          : expiringSoon
+                          ? `Scade tra ${expDays}g`
+                          : doc.verified
+                          ? 'Verificato dall\'admin'
+                          : 'In attesa di verifica'}
                       </p>
                     </div>
-                  </div>
-                  <span
-                    className="text-xs font-semibold"
-                    style={{
-                      color: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
-                    }}
-                  >
-                    {course.progress}%
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="h-1.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
-                      boxShadow: `0 0 8px ${course.status === 'completed' ? '#1EC99A30' : course.status === 'in-progress' ? '#5BB8F530' : 'transparent'}`,
-                    }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${course.progress}%` }}
-                    transition={{ duration: 0.8, delay: 0.7 + i * 0.1, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                    {doc.expires_at && (
+                      <span className="text-[10px] text-[#5E7A95] font-mono flex-shrink-0">
+                        {new Date(doc.expires_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
         </motion.div>
       </div>
 
