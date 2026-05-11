@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Auth from './pages/Auth'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
+import PWAInstallPrompt from './components/PWAInstallPrompt'
 import CommandPalette from './components/admin/CommandPalette'
 import { useNotificationsToast } from './hooks/useNotificationsToast'
 
@@ -110,6 +111,7 @@ export default function App() {
           </Layout>
           <CommandPalette />
           <PWAUpdatePrompt />
+          <PWAInstallPrompt />
           <GlobalRealtimeListeners />
         </ToastProvider>
       </RoleProvider>
