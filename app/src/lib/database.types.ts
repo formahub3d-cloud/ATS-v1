@@ -885,6 +885,10 @@ export type Database = {
         }
         Returns: string
       }
+      cancel_shift: {
+        Args: { p_shift_id: string; p_reason?: string | null }
+        Returns: void
+      }
     }
     Enums: {
       user_role: UserRole

@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ScanLine, MapPin, Clock, Calendar, Building2, ShieldCheck,
-  AlertCircle, RefreshCw, LogOut, QrCode, Star,
+  AlertCircle, RefreshCw, LogOut, QrCode, Star, Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GlassBottomNav from '@/components/employee/GlassBottomNav'
@@ -18,6 +18,7 @@ import QrScanner from '@/components/employee/QrScanner'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import StatusScreen from '@/components/structure/StatusScreen'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
+import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
@@ -57,6 +58,8 @@ export default function EmployeeCheckin() {
   // Recensioni: turni completati senza una mia recensione, e dialog state.
   const [toReview, setToReview] = useState<ShiftWithStructure[]>([])
   const [reviewTarget, setReviewTarget] = useState<ShiftWithStructure | null>(null)
+  // Cancellazione turno (caso "non posso presentarmi") — dialog id-based.
+  const [cancelShiftId, setCancelShiftId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -311,6 +314,7 @@ export default function EmployeeCheckin() {
                   variant="assigned"
                   pending={pendingAction === 'checkin:' + (s.qr_token ?? '')}
                   onAction={() => s.qr_token && void performCheckIn(s.qr_token)}
+                  onCancel={() => setCancelShiftId(s.id)}
                 />
               ))}
             </div>
@@ -378,6 +382,17 @@ export default function EmployeeCheckin() {
         onSubmitted={() => void load()}
       />
 
+      <CancelShiftDialog
+        open={cancelShiftId !== null}
+        shiftId={cancelShiftId ?? ''}
+        title="Non posso presentarmi"
+        description="La struttura riceverà subito una notifica. Cancellazioni ripetute possono ridurre i tuoi punti rank."
+        reasonPlaceholder="Motivo (es. malattia, emergenza familiare)…"
+        confirmLabel="Conferma cancellazione"
+        onClose={() => setCancelShiftId(null)}
+        onCancelled={() => void load()}
+      />
+
       <GlassBottomNav />
     </div>
   )
@@ -405,11 +420,15 @@ function ShiftCard({
   variant,
   pending,
   onAction,
+  onCancel,
 }: {
   shift: ShiftWithStructure
   variant: 'assigned' | 'in-progress'
   pending: boolean
   onAction: () => void
+  // onCancel passato solo per i turni assigned: il dipendente non può
+  // più cancellare quando è in_progress (ha già fatto check-in).
+  onCancel?: () => void
 }) {
   return (
     <div
@@ -498,6 +517,21 @@ function ShiftCard({
             </>
           )}
         </motion.button>
+
+        {/* Cancellazione: solo per turni assigned (non in_progress).
+            Link discreto secondario, perché non è un'azione da incoraggiare
+            ma deve esistere per casi reali (malattia, emergenza). */}
+        {variant === 'assigned' && onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="w-full text-center text-xs text-text-muted hover:text-[#F04545] transition-colors py-1 inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            <Ban className="w-3 h-3" />
+            Non posso presentarmi
+          </button>
+        )}
       </div>
     </div>
   )

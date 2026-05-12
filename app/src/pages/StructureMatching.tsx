@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart, X, Calendar, Clock, MapPin, Briefcase, AlertCircle,
-  Sparkles, RefreshCw, CheckCircle, UserPlus, Star,
+  Sparkles, RefreshCw, CheckCircle, UserPlus, Star, Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
@@ -17,6 +17,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog from '@/components/structure/NewShiftDialog'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
+import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -61,6 +62,8 @@ export default function StructureMatching() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [pendingAssign, setPendingAssign] = useState<string | null>(null)
   const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+  // ID del turno per cui mostrare il dialog di cancellazione (null = chiuso).
+  const [cancelShiftId, setCancelShiftId] = useState<string | null>(null)
   // Recensioni: turni completed dell'employee senza una mia recensione.
   const [toReview, setToReview] = useState<Array<ShiftRow & { employee_name?: string }>>([])
   const [reviewTarget, setReviewTarget] = useState<{ shiftId: string; recipient: string } | null>(null)
@@ -466,6 +469,17 @@ export default function StructureMatching() {
                       </span>
                     </div>
                   </div>
+                  {/* Bottone "Annulla turno": disponibile su open + assigned.
+                      Notifica automatica al dipendente assegnato (se c'è). */}
+                  <button
+                    type="button"
+                    onClick={() => setCancelShiftId(shift.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-[#F04545] hover:bg-[rgba(240,69,69,0.06)] border border-transparent hover:border-[rgba(240,69,69,0.25)] rounded-lg transition-all flex-shrink-0"
+                    title="Annulla questo turno"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    Annulla
+                  </button>
                 </div>
 
                 {/* Candidati */}
@@ -601,6 +615,17 @@ export default function StructureMatching() {
         recipientName={reviewTarget?.recipient ?? '—'}
         onClose={() => setReviewTarget(null)}
         onSubmitted={() => void load()}
+      />
+
+      <CancelShiftDialog
+        open={cancelShiftId !== null}
+        shiftId={cancelShiftId ?? ''}
+        title="Annulla turno"
+        description="Il turno verrà rimosso dal feed. Se hai già assegnato un dipendente, riceverà una notifica."
+        reasonPlaceholder="Motivo (es. evento posticipato, opzionale)…"
+        confirmLabel="Conferma annullamento"
+        onClose={() => setCancelShiftId(null)}
+        onCancelled={() => void load()}
       />
     </div>
   )
