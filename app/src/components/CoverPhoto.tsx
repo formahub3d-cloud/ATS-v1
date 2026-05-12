@@ -18,6 +18,8 @@ export default function CoverPhoto({ src, alt = '', className, overlay = false, 
         <img
           src={src}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover"
           onError={() => setError(true)}
         />

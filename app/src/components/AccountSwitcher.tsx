@@ -93,6 +93,8 @@ export default function AccountSwitcher() {
           <img
             src={activeAccount.avatar}
             alt={activeAccount.name}
+            loading="lazy"
+            decoding="async"
             className="w-9 h-9 rounded-full object-cover border-2 border-[rgba(91,184,245,0.3)]"
           />
         </div>
@@ -143,6 +145,8 @@ export default function AccountSwitcher() {
                     <img
                       src={account.avatar}
                       alt={account.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-9 h-9 rounded-full object-cover border border-[rgba(255,255,255,0.1)]"
                     />
                     <div className="flex-1 text-left">
