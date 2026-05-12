@@ -9,12 +9,13 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Calendar, Clock, Star, Euro, CheckCircle, AlertCircle, RefreshCw,
-  FileText, CreditCard, MessageSquare, Briefcase, User as UserIcon,
+  FileText, CreditCard, MessageSquare, Briefcase, User as UserIcon, Copy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import StatusScreen from '@/components/structure/StatusScreen'
+import NewShiftDialog, { type ShiftTemplateValues } from '@/components/structure/NewShiftDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -71,6 +72,9 @@ export default function StructureHistory() {
   const navigate = useNavigate()
   const { user, status: authStatus } = useAuth()
   const [structureId, setStructureId] = useState<string | null>(null)
+  // Duplica turno: aprire NewShiftDialog precompilato con template di un
+  // turno passato. Caso d'uso: 'sabato scorso ha funzionato bene, ripeto'.
+  const [duplicateTemplate, setDuplicateTemplate] = useState<ShiftTemplateValues | null>(null)
   const [shifts, setShifts] = useState<ShiftWithEmp[]>([])
   const [reviews, setReviews] = useState<ReviewWithEmp[]>([])
   const [invoices, setInvoices] = useState<InvoiceRow[]>([])
@@ -271,6 +275,7 @@ export default function StructureHistory() {
                   <th className="text-left px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Orario</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Compenso</th>
                   <th className="text-left px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider">Stato</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-text-muted uppercase tracking-wider"></th>
                 </tr>
               </thead>
               <tbody>
@@ -301,6 +306,23 @@ export default function StructureHistory() {
                       <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', STATUS_BADGE[s.status].cls)}>
                         {STATUS_BADGE[s.status].label}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setDuplicateTemplate({
+                          time_start: s.time_start,
+                          time_end: s.time_end,
+                          role: s.role,
+                          hourly_rate: Number(s.hourly_rate),
+                          notes: s.notes,
+                        })}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-sky-primary hover:bg-[rgba(91,184,245,0.06)] rounded-md transition-colors"
+                        title="Pubblica un nuovo turno con gli stessi parametri"
+                      >
+                        <Copy className="w-3 h-3" />
+                        Duplica
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -415,6 +437,18 @@ export default function StructureHistory() {
           </div>
         )}
       </GlassCard>
+
+      {/* Dialog 'Duplica turno': reso visibile solo quando duplicateTemplate
+          è valorizzato (click su un bottone Duplica nella tabella). */}
+      {structureId && (
+        <NewShiftDialog
+          open={duplicateTemplate !== null}
+          structureId={structureId}
+          template={duplicateTemplate}
+          onClose={() => setDuplicateTemplate(null)}
+          onCreated={() => void load()}
+        />
+      )}
     </motion.div>
   )
 }

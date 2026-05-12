@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Calendar, Clock, Briefcase, Euro, FileText } from 'lucide-react'
+import { X, Calendar, Clock, Briefcase, Euro, FileText, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,11 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
 
+/** Valori iniziali per duplicare un turno esistente. shift_date NON è incluso
+ *  di proposito: pubblicare un duplicato sulla stessa data sarebbe un errore,
+ *  l'utente deve scegliere esplicitamente la nuova data. */
+export interface ShiftTemplateValues {
+  time_start: string
+  time_end: string
+  role: string
+  hourly_rate: number
+  notes?: string | null
+}
+
 interface NewShiftDialogProps {
   open: boolean
   structureId: string
   /** Ruoli suggeriti dalla struttura (pre-selezionabili dal dropdown). */
   suggestedRoles?: string[]
+  /** Se passato, pre-compila il dialog con questi valori (modalità duplica). */
+  template?: ShiftTemplateValues | null
   onClose: () => void
   onCreated: () => void
 }
@@ -31,6 +44,7 @@ export default function NewShiftDialog({
   open,
   structureId,
   suggestedRoles,
+  template,
   onClose,
   onCreated,
 }: NewShiftDialogProps) {
@@ -44,6 +58,22 @@ export default function NewShiftDialog({
   const [submitting, setSubmitting] = useState(false)
 
   const roles = suggestedRoles && suggestedRoles.length > 0 ? suggestedRoles : FALLBACK_ROLES
+  const isDuplicate = !!template
+
+  // Quando il dialog viene aperto con un template, pre-compila i campi
+  // (data esclusa: l'utente deve scegliere esplicitamente la nuova data).
+  useEffect(() => {
+    if (!open) return
+    if (template) {
+      // Time dal DB arriva come HH:MM:SS, in Input type=time vogliamo HH:MM.
+      setTimeStart(template.time_start.slice(0, 5))
+      setTimeEnd(template.time_end.slice(0, 5))
+      setRole(template.role)
+      setHourlyRate(Number(template.hourly_rate).toFixed(2))
+      setNotes(template.notes ?? '')
+      setShiftDate('')  // l'utente deve scegliere la nuova data
+    }
+  }, [open, template])
 
   const reset = () => {
     setShiftDate('')
@@ -137,7 +167,10 @@ export default function NewShiftDialog({
           >
             <div className="w-full max-w-[520px] max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-2xl border border-[rgba(91,184,245,0.15)] bg-[#0D1E34] shadow-[0_24px_80px_rgba(0,0,0,0.5)] pointer-events-auto">
               <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-[#0D1E34]/95 backdrop-blur-md border-b border-[rgba(255,255,255,0.06)]">
-                <h2 className="text-lg font-semibold text-white">Nuovo turno</h2>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  {isDuplicate && <Copy className="w-4 h-4 text-sky-primary" />}
+                  {isDuplicate ? 'Duplica turno' : 'Nuovo turno'}
+                </h2>
                 <button
                   type="button"
                   onClick={handleClose}
@@ -267,7 +300,9 @@ export default function NewShiftDialog({
                       'gradient-sky text-text-inverse hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed',
                     )}
                   >
-                    {submitting ? 'Pubblicazione…' : 'Pubblica turno'}
+                    {submitting
+                      ? 'Pubblicazione…'
+                      : isDuplicate ? 'Duplica e pubblica' : 'Pubblica turno'}
                   </motion.button>
                 </div>
               </form>

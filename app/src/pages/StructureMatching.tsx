@@ -7,14 +7,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart, X, Calendar, Clock, MapPin, Briefcase, AlertCircle,
-  Sparkles, RefreshCw, CheckCircle, UserPlus, Star, Ban,
+  Sparkles, RefreshCw, CheckCircle, UserPlus, Star, Ban, Copy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import StatusScreen from '@/components/structure/StatusScreen'
-import NewShiftDialog from '@/components/structure/NewShiftDialog'
+import NewShiftDialog, { type ShiftTemplateValues } from '@/components/structure/NewShiftDialog'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
 import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
@@ -64,6 +64,8 @@ export default function StructureMatching() {
   const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
   // ID del turno per cui mostrare il dialog di cancellazione (null = chiuso).
   const [cancelShiftId, setCancelShiftId] = useState<string | null>(null)
+  // Template per duplicazione (null = dialog "nuovo turno", set = "duplica").
+  const [duplicateTemplate, setDuplicateTemplate] = useState<ShiftTemplateValues | null>(null)
   // Recensioni: turni completed dell'employee senza una mia recensione.
   const [toReview, setToReview] = useState<Array<ShiftRow & { employee_name?: string }>>([])
   const [reviewTarget, setReviewTarget] = useState<{ shiftId: string; recipient: string } | null>(null)
@@ -469,17 +471,38 @@ export default function StructureMatching() {
                       </span>
                     </div>
                   </div>
-                  {/* Bottone "Annulla turno": disponibile su open + assigned.
-                      Notifica automatica al dipendente assegnato (se c'è). */}
-                  <button
-                    type="button"
-                    onClick={() => setCancelShiftId(shift.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-[#F04545] hover:bg-[rgba(240,69,69,0.06)] border border-transparent hover:border-[rgba(240,69,69,0.25)] rounded-lg transition-all flex-shrink-0"
-                    title="Annulla questo turno"
-                  >
-                    <Ban className="w-3.5 h-3.5" />
-                    Annulla
-                  </button>
+                  {/* Azioni rapide: Duplica + Annulla. Sempre disponibili
+                      sia su open che assigned (per ripubblicare un turno
+                      analogo o annullare quello corrente). */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDuplicateTemplate({
+                          time_start: shift.time_start,
+                          time_end: shift.time_end,
+                          role: shift.role,
+                          hourly_rate: Number(shift.hourly_rate),
+                          notes: shift.notes,
+                        })
+                        setShowNewShiftDialog(true)
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-sky-primary hover:bg-[rgba(91,184,245,0.06)] border border-transparent hover:border-[rgba(91,184,245,0.25)] rounded-lg transition-all"
+                      title="Duplica questo turno con altra data"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Duplica
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCancelShiftId(shift.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted hover:text-[#F04545] hover:bg-[rgba(240,69,69,0.06)] border border-transparent hover:border-[rgba(240,69,69,0.25)] rounded-lg transition-all"
+                      title="Annulla questo turno"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      Annulla
+                    </button>
+                  </div>
                 </div>
 
                 {/* Candidati */}
@@ -604,7 +627,13 @@ export default function StructureMatching() {
         open={showNewShiftDialog}
         structureId={structure.id}
         suggestedRoles={structure.ruoli_cercati}
-        onClose={() => setShowNewShiftDialog(false)}
+        template={duplicateTemplate}
+        onClose={() => {
+          setShowNewShiftDialog(false)
+          // Reset template alla chiusura: il prossimo open senza duplicateTemplate
+          // riparte come "Nuovo turno" pulito.
+          setDuplicateTemplate(null)
+        }}
         onCreated={() => void load()}
       />
 
