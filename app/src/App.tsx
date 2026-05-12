@@ -5,7 +5,6 @@ import { RoleProvider } from './context/RoleContext'
 import { ToastProvider } from './components/ui/ToastSystem'
 import Layout from './components/Layout'
 import Home from './pages/Home'
-import Auth from './pages/Auth'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import PWAInstallPrompt from './components/PWAInstallPrompt'
 import CommandPalette from './components/admin/CommandPalette'
@@ -22,9 +21,13 @@ const Privacy           = lazy(() => import('./pages/legal/Privacy'))
 const Terms             = lazy(() => import('./pages/legal/Terms'))
 const Cookie            = lazy(() => import('./pages/legal/Cookie'))
 const NotFound          = lazy(() => import('./pages/NotFound'))
+// Auth (wizard onboarding struttura/dipendente) lazy: 2700+ righe pesanti
+// con video recorder, QR display, multi-step. Solo chi clicca 'Accedi' o
+// 'Registrati' lo scarica — la Home resta eager.
+const Auth              = lazy(() => import('./pages/Auth'))
 
 // Lazy load di tutte le pagine "interne" (post-auth) per ridurre il bundle
-// iniziale. Home + Auth restano eager perché sono i primi entry point.
+// iniziale. Home resta eager perché è il primo entry point.
 const AdminDashboard   = lazy(() => import('./pages/AdminDashboard'))
 const AdminStructures  = lazy(() => import('./pages/AdminStructures'))
 const AdminEmployees   = lazy(() => import('./pages/AdminEmployees'))
