@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   Heart, X, MapPin, Clock, Calendar, Building2, Briefcase,
-  AlertCircle, Sparkles, RefreshCw,
+  AlertCircle, Sparkles, RefreshCw, SlidersHorizontal, RotateCcw, Euro,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GlassBottomNav from '@/components/employee/GlassBottomNav'
@@ -28,6 +28,33 @@ interface ShiftWithStructure extends ShiftRow {
 
 const MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
+type PeriodFilter = 'all' | 'today' | 'week' | 'month'
+const PERIOD_LABEL: Record<PeriodFilter, string> = {
+  all: 'Tutti', today: 'Oggi', week: '7 giorni', month: '30 giorni',
+}
+const FILTERS_STORAGE_KEY = 'ats_emp_matching_filters'
+
+interface FilterState {
+  period: PeriodFilter
+  zone: string | null
+  minRate: number  // 0 = nessun minimo
+}
+
+const DEFAULT_FILTERS: FilterState = { period: 'all', zone: null, minRate: 0 }
+
+function loadStoredFilters(): FilterState {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) return DEFAULT_FILTERS
+    const parsed = JSON.parse(raw) as Partial<FilterState>
+    return {
+      period: parsed.period ?? DEFAULT_FILTERS.period,
+      zone: parsed.zone ?? null,
+      minRate: typeof parsed.minRate === 'number' ? parsed.minRate : 0,
+    }
+  } catch { return DEFAULT_FILTERS }
+}
+
 export default function EmployeeMatching() {
   const navigate = useNavigate()
   const { addToast } = useToast()
@@ -36,6 +63,14 @@ export default function EmployeeMatching() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
+  // Filtri client-side. Volume turni nel feed è basso (max ~50), filtrare
+  // dopo fetch è la scelta più semplice. Persist in localStorage per non
+  // costringere il dipendente a re-impostare ogni volta.
+  const [filters, setFilters] = useState<FilterState>(() => loadStoredFilters())
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  useEffect(() => {
+    try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters)) } catch { /* ignore */ }
+  }, [filters])
 
   const load = useCallback(async () => {
     if (!user) return
@@ -118,7 +153,45 @@ export default function EmployeeMatching() {
     }
   }
 
-  const stats = useMemo(() => ({ available: feed.length }), [feed])
+  // Zone uniche estratte dal feed (per i chip filtro). Ordine alfabetico.
+  const availableZones = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of feed) {
+      if (s.structure?.zona) set.add(s.structure.zona)
+    }
+    return Array.from(set).sort()
+  }, [feed])
+
+  // Feed filtrato applicando tutti i criteri attivi.
+  const filteredFeed = useMemo(() => {
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
+    const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7)
+    const monthEnd = new Date(now); monthEnd.setDate(monthEnd.getDate() + 30)
+    const weekEndStr = weekEnd.toISOString().slice(0, 10)
+    const monthEndStr = monthEnd.toISOString().slice(0, 10)
+
+    return feed.filter((s) => {
+      if (filters.minRate > 0 && Number(s.hourly_rate) < filters.minRate) return false
+      if (filters.zone && s.structure?.zona !== filters.zone) return false
+      if (filters.period === 'today' && s.shift_date !== todayStr) return false
+      if (filters.period === 'week' && s.shift_date > weekEndStr) return false
+      if (filters.period === 'month' && s.shift_date > monthEndStr) return false
+      return true
+    })
+  }, [feed, filters])
+
+  const activeFiltersCount =
+    (filters.period !== 'all' ? 1 : 0) +
+    (filters.zone ? 1 : 0) +
+    (filters.minRate > 0 ? 1 : 0)
+
+  const resetFilters = () => setFilters(DEFAULT_FILTERS)
+
+  const stats = useMemo(
+    () => ({ available: feed.length, filtered: filteredFeed.length }),
+    [feed.length, filteredFeed.length],
+  )
 
   if (loading) {
     return (
@@ -160,32 +233,183 @@ export default function EmployeeMatching() {
         <div className="max-w-[640px] mx-auto px-4 h-16 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-white">Scopri turni</h1>
-            <p className="text-xs text-text-muted">{stats.available} disponibili</p>
+            <p className="text-xs text-text-muted">
+              {activeFiltersCount > 0
+                ? `${stats.filtered} di ${stats.available} (filtri attivi)`
+                : `${stats.available} disponibili`}
+            </p>
           </div>
-          <button
-            onClick={() => void load()}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-            aria-label="Aggiorna"
-          >
-            <RefreshCw className="w-5 h-5 text-text-muted" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={cn(
+                'relative p-2 rounded-lg transition-colors',
+                filtersOpen || activeFiltersCount > 0
+                  ? 'bg-[rgba(91,184,245,0.15)] text-sky-primary'
+                  : 'hover:bg-white/5 text-text-muted',
+              )}
+              aria-label="Filtri"
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-sky-primary text-[10px] font-bold text-text-inverse flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => void load()}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Aggiorna"
+            >
+              <RefreshCw className="w-5 h-5 text-text-muted" />
+            </button>
+          </div>
         </div>
+
+        {/* Pannello filtri espandibile */}
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden border-t border-[rgba(255,255,255,0.06)]"
+            >
+              <div className="max-w-[640px] mx-auto px-4 py-3 space-y-3">
+                {/* Periodo */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">Quando</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['all', 'today', 'week', 'month'] as PeriodFilter[]).map((p) => {
+                      const active = filters.period === p
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setFilters({ ...filters, period: p })}
+                          className={cn(
+                            'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                            active
+                              ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                              : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                          )}
+                        >
+                          {PERIOD_LABEL[p]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Zona (mostrato solo se ci sono zone nel feed) */}
+                {availableZones.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">Zona</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => setFilters({ ...filters, zone: null })}
+                        className={cn(
+                          'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                          filters.zone === null
+                            ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                            : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                        )}
+                      >
+                        Tutte
+                      </button>
+                      {availableZones.map((z) => {
+                        const active = filters.zone === z
+                        return (
+                          <button
+                            key={z}
+                            onClick={() => setFilters({ ...filters, zone: z })}
+                            className={cn(
+                              'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                              active
+                                ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                                : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                            )}
+                          >
+                            {z}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Paga minima */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5 flex items-center gap-1.5">
+                    <Euro className="w-3 h-3" />
+                    Paga minima oraria
+                    {filters.minRate > 0 && (
+                      <span className="ml-auto text-sky-primary font-mono">€ {filters.minRate}/h</span>
+                    )}
+                  </p>
+                  <input
+                    type="range"
+                    min={0}
+                    max={25}
+                    step={1}
+                    value={filters.minRate}
+                    onChange={(e) => setFilters({ ...filters, minRate: Number(e.target.value) })}
+                    className="w-full accent-sky-primary"
+                    aria-label="Paga minima oraria"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted mt-0.5 font-mono">
+                    <span>€0</span><span>€25</span>
+                  </div>
+                </div>
+
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-white transition-colors py-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Azzera filtri
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Feed */}
       <div className="max-w-[640px] mx-auto px-4 py-6 space-y-3">
-        {feed.length === 0 ? (
+        {filteredFeed.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-12">
             <Sparkles className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
-            <h2 className="text-lg font-semibold text-white mb-2">Nessun turno disponibile</h2>
-            <p className="text-sm text-text-muted">
-              Non ci sono turni open compatibili in questo momento.
-              <br />Torna più tardi: nuove richieste arrivano spesso.
-            </p>
+            {feed.length === 0 ? (
+              <>
+                <h2 className="text-lg font-semibold text-white mb-2">Nessun turno disponibile</h2>
+                <p className="text-sm text-text-muted">
+                  Non ci sono turni open compatibili in questo momento.
+                  <br />Torna più tardi: nuove richieste arrivano spesso.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-white mb-2">Nessun turno con questi filtri</h2>
+                <p className="text-sm text-text-muted mb-4">
+                  Ci sono {feed.length} turni disponibili ma nessuno corrisponde ai filtri attivi.
+                </p>
+                <button
+                  onClick={resetFilters}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Azzera filtri
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <AnimatePresence>
-            {feed.map((shift, i) => (
+            {filteredFeed.map((shift, i) => (
               <motion.div
                 key={shift.id}
                 layout
