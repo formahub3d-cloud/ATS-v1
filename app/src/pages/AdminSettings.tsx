@@ -197,17 +197,25 @@ export default function AdminSettings() {
 function SettingsBlock({
   icon: Icon, color, title, subtitle, children,
 }: {
-  icon: typeof Euro; color: string; title: string; subtitle: string; children: React.ReactNode
+  // icon e color opzionali: la sezione 'Privacy e GDPR' non ha icona perché
+  // PrivacySettings include già il proprio header.
+  icon?: typeof Euro
+  color?: string
+  title: string
+  subtitle: string
+  children: React.ReactNode
 }) {
   return (
     <GlassCard>
       <div className="flex items-start gap-3 mb-4">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${color}18`, border: `1px solid ${color}30` }}
-        >
-          <Icon className="w-5 h-5" style={{ color }} />
-        </div>
+        {Icon && color && (
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${color}18`, border: `1px solid ${color}30` }}
+          >
+            <Icon className="w-5 h-5" style={{ color }} />
+          </div>
+        )}
         <div>
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <p className="text-xs text-text-muted mt-0.5">{subtitle}</p>

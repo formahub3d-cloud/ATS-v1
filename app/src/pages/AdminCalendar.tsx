@@ -3,8 +3,9 @@
 // Click su turno → drawer dettaglio (riusato il pattern di AdminShifts).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, AlertCircle, RefreshCw, Building2, MapPin, Clock, Calendar, User as UserIcon } from 'lucide-react'
+import { X, AlertCircle, RefreshCw, Building2, Clock, Calendar, User as UserIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
@@ -163,7 +164,11 @@ export default function AdminCalendar() {
                   {selected.check_out_at && <DetailRow label="Check-out" value={new Date(selected.check_out_at).toLocaleString('it-IT')} />}
                 </div>
                 <p className="text-xs text-text-muted">
-                  Per modificare/annullare il turno, vai su <span className="text-sky-primary">/admin/shifts</span>.
+                  Per modificare/annullare il turno, vai su{' '}
+                  <Link to="/admin/shifts" className="text-sky-primary hover:underline">
+                    /admin/shifts
+                  </Link>
+                  .
                 </p>
               </div>
             </motion.aside>
