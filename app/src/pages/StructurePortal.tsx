@@ -20,6 +20,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog from '@/components/structure/NewShiftDialog'
 import NotificationsBell from '@/components/notifications/NotificationsBell'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
+import PrivacySettings from '@/components/PrivacySettings'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
@@ -975,6 +976,14 @@ export default function StructurePortal() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sezione privacy GDPR — visibile in fondo a tutto il portale.
+          Riusa lo stesso componente di /admin/settings ed /employee. */}
+      <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="rounded-2xl p-6 backdrop-blur-md bg-white/[0.03] border border-white/10">
+          <PrivacySettings />
+        </div>
+      </section>
 
       <NewShiftDialog
         open={showNewShiftDialog}

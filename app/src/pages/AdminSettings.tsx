@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import { Save, AlertCircle, Check, Euro, Trophy, Building2, RefreshCw } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
+import PrivacySettings from '@/components/PrivacySettings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -183,6 +184,12 @@ export default function AdminSettings() {
       <p className="text-xs text-text-muted text-center pt-4">
         Altre impostazioni (penali, navette, referral) verranno aggiunte progressivamente.
       </p>
+
+      {/* GDPR self-service: l'admin può scaricare i propri dati / eliminare
+          account come qualunque utente. */}
+      <SettingsBlock title="Privacy e GDPR" subtitle="Diritti previsti dal Regolamento UE 2016/679.">
+        <PrivacySettings />
+      </SettingsBlock>
     </motion.div>
   )
 }

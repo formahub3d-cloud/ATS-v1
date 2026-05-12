@@ -12,6 +12,7 @@ import GlassTooltip from '@/components/ui/GlassTooltip';
 import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
 import StatusScreen from '@/components/structure/StatusScreen';
 import NotificationsBell from '@/components/notifications/NotificationsBell';
+import PrivacySettings from '@/components/PrivacySettings';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Database } from '@/lib/database.types';
@@ -502,6 +503,18 @@ export default function EmployeeDashboard() {
           </div>
         </motion.div>
       </motion.div>
+
+      {/* Sezione privacy GDPR — in fondo alla dashboard, sopra il bottom nav. */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4, duration: 0.4 }}
+        className="px-4 mt-8 mb-8"
+      >
+        <div className="rounded-2xl p-5 backdrop-blur-md bg-[rgba(13,30,52,0.6)] border border-[rgba(255,255,255,0.06)]">
+          <PrivacySettings />
+        </div>
+      </motion.section>
 
       <GlassBottomNav />
     </div>

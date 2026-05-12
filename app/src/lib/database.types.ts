@@ -889,6 +889,14 @@ export type Database = {
         Args: { p_shift_id: string; p_reason?: string | null }
         Returns: void
       }
+      export_my_data: {
+        Args: Record<string, never>
+        Returns: Record<string, unknown>
+      }
+      delete_my_account: {
+        Args: { p_email_confirm: string }
+        Returns: void
+      }
     }
     Enums: {
       user_role: UserRole
