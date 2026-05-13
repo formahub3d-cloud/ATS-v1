@@ -11,6 +11,7 @@ import Avatar from '@/components/Avatar'
 import ChatPanel from '@/components/chat/ChatPanel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ConversationKind } from '@/lib/database.types'
 
@@ -29,6 +30,7 @@ interface ConversationDisplay {
 }
 
 export default function AdminChat() {
+  usePageTitle('Chat admin')
   const { user } = useAuth()
   const [conversations, setConversations] = useState<ConversationDisplay[]>([])
   const [loading, setLoading] = useState(true)

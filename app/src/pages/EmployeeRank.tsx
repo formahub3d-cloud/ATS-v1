@@ -9,6 +9,7 @@ import GlassTooltip from '@/components/ui/GlassTooltip';
 import PayCounter from '@/components/employee/PayCounter';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext';
 
 // ---- Types ----
@@ -69,6 +70,7 @@ function levelIdxFromPoints(points: number): number {
 }
 
 export default function EmployeeRank() {
+  usePageTitle('Il tuo rank')
   const navigate = useNavigate();
   const [showPayTable, setShowPayTable] = useState(true);
   const { user, profile } = useAuth();

@@ -22,6 +22,7 @@ import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database } from '@/lib/database.types'
 
@@ -47,6 +48,7 @@ function getGeoLocation(): Promise<{ lat: number; lng: number } | null> {
 }
 
 export default function EmployeeCheckin() {
+  usePageTitle('Check-in')
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { user, status: authStatus } = useAuth()

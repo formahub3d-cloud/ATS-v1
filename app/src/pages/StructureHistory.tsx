@@ -18,6 +18,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import NewShiftDialog, { type ShiftTemplateValues } from '@/components/structure/NewShiftDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ShiftStatus, InvoiceStatus } from '@/lib/database.types'
 
@@ -69,6 +70,7 @@ function computeHours(s: ShiftRow): number {
 }
 
 export default function StructureHistory() {
+  usePageTitle('Storico')
   const navigate = useNavigate()
   const { user, status: authStatus } = useAuth()
   const [structureId, setStructureId] = useState<string | null>(null)

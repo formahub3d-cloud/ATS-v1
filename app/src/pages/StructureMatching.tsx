@@ -20,6 +20,7 @@ import ReviewDialog from '@/components/reviews/ReviewDialog'
 import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database } from '@/lib/database.types'
 
@@ -53,6 +54,7 @@ interface ShiftCard extends ShiftRow {
 const MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
 export default function StructureMatching() {
+  usePageTitle('Candidature')
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { user, status: authStatus } = useAuth()

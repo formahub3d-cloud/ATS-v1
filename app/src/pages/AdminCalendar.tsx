@@ -11,6 +11,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import WeeklyCalendar, { getMondayOfWeek, type CalendarShift } from '@/components/calendar/WeeklyCalendar'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Database, ShiftStatus } from '@/lib/database.types'
 
 type StructureRow = Database['public']['Tables']['structures']['Row']
@@ -26,6 +27,7 @@ function ymd(d: Date): string {
 }
 
 export default function AdminCalendar() {
+  usePageTitle('Calendario')
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [shifts, setShifts] = useState<CalendarShift[]>([])
   const [loading, setLoading] = useState(true)

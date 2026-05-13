@@ -11,6 +11,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import WeeklyCalendar, { getMondayOfWeek, type CalendarShift } from '@/components/calendar/WeeklyCalendar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 
 function ymd(d: Date): string {
@@ -18,6 +19,7 @@ function ymd(d: Date): string {
 }
 
 export default function EmployeeCalendar() {
+  usePageTitle('Calendario')
   const navigate = useNavigate()
   const { user, status: authStatus } = useAuth()
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))

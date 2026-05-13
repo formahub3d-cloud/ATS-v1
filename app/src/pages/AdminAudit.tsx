@@ -12,6 +12,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Database, AuditEventType } from '@/lib/database.types'
 
 type AuditRow = Database['public']['Tables']['audit_log']['Row']
@@ -56,6 +57,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function AdminAudit() {
+  usePageTitle('Audit log')
   const [logs, setLogs] = useState<AuditWithActor[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)

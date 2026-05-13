@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 
 interface HourlyRates { [zone: string]: number }
@@ -29,6 +30,7 @@ const DEFAULT_FEE: StructureFee = { annual: 900, currency: 'EUR', discount_thres
 const DEFAULT_RANK: RankThresholds = { rookie: 0, affidabile: 500, senior: 1200, elite: 2000, ambassador: 3500 }
 
 export default function AdminSettings() {
+  usePageTitle('Impostazioni')
   const { user } = useAuth()
   const { addToast } = useToast()
   const [loading, setLoading] = useState(true)

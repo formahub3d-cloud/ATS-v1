@@ -16,6 +16,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Database, InvoiceStatus } from '@/lib/database.types'
 
 type InvoiceRow = Database['public']['Tables']['invoices']['Row']
@@ -47,6 +48,7 @@ function csvField(val: unknown): string {
 }
 
 export default function AdminInvoices() {
+  usePageTitle('Fatture')
   const { addToast } = useToast()
   const [month, setMonth] = useState(currentMonthValue())
   const [invoices, setInvoices] = useState<InvoiceWithStruct[]>([])

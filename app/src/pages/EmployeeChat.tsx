@@ -10,9 +10,11 @@ import ChatPanel from '@/components/chat/ChatPanel'
 import StatusScreen from '@/components/structure/StatusScreen'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 
 export default function EmployeeChat() {
+  usePageTitle('Chat')
   const navigate = useNavigate()
   const { user, status: authStatus } = useAuth()
   const [conversationId, setConversationId] = useState<string | null>(null)

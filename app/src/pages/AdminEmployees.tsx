@@ -15,6 +15,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { ContractType, EmployeeRankLevel } from '@/lib/database.types'
 
 const LEVEL_COLOR: Record<EmployeeRankLevel, string> = {
@@ -49,6 +50,7 @@ interface EmployeeRow {
 }
 
 export default function AdminEmployees() {
+  usePageTitle('Dipendenti')
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)

@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, DocumentType } from '@/lib/database.types'
 
@@ -47,6 +48,7 @@ function expiryStatus(expiresAt: string | null): 'expired' | 'soon' | 'ok' | 'no
 }
 
 export default function EmployeeDocuments() {
+  usePageTitle('Documenti')
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { user, status: authStatus } = useAuth()

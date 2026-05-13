@@ -19,6 +19,7 @@ import BulkActionsBar from '@/components/admin/BulkActionsBar'
 import Avatar from '@/components/Avatar'
 import ShiftQRDisplay from '@/components/employee/ShiftQRDisplay'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ShiftStatus } from '@/lib/database.types'
 
@@ -66,6 +67,7 @@ function StatusBadge({ status }: { status: ShiftStatus }) {
 }
 
 export default function AdminShifts() {
+  usePageTitle('Turni')
   const { addToast } = useToast()
   const { user } = useAuth()
   const [shifts, setShifts] = useState<ShiftWithJoins[]>([])

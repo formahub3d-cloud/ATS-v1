@@ -16,6 +16,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import { useToast } from '@/components/ui/ToastSystem'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database } from '@/lib/database.types'
 
@@ -56,6 +57,7 @@ function loadStoredFilters(): FilterState {
 }
 
 export default function EmployeeMatching() {
+  usePageTitle('Scopri turni')
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { user, status: authStatus } = useAuth()

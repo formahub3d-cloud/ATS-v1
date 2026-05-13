@@ -10,6 +10,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { EmployeeRankLevel } from '@/lib/database.types'
 
 interface Entry {
@@ -34,6 +35,7 @@ const PODIUM_COLORS = ['#F5B800', '#94A3B8', '#CD7F32']
 const PODIUM_ICONS = [Crown, Medal, Trophy]
 
 export default function AdminLeaderboard() {
+  usePageTitle('Leaderboard')
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
