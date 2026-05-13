@@ -13,6 +13,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
 import type { Database, AuditEventType } from '@/lib/database.types'
 
 type AuditRow = Database['public']['Tables']['audit_log']['Row']
@@ -62,6 +63,7 @@ export default function AdminAudit() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [filter, setFilter] = useState<AuditEventType | 'all'>('all')
+  const { label: updatedLabel } = useLastUpdated(loading)
   const [searchQuery, setSearchQuery] = useState('')
 
   const load = useCallback(async () => {
@@ -118,13 +120,20 @@ export default function AdminAudit() {
         title="Audit log"
         subtitle={`${logs.length} event${logs.length === 1 ? 'o' : 'i'} (ultimi 200) — solo admin.`}
         actions={
-          <button
-            onClick={load}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-            aria-label="Aggiorna"
-          >
-            <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
-          </button>
+          <>
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
+              </span>
+            )}
+            <button
+              onClick={load}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Aggiorna"
+            >
+              <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
+            </button>
+          </>
         }
       />
 

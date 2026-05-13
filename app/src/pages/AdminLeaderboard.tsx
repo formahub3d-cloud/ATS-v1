@@ -11,6 +11,7 @@ import Avatar from '@/components/Avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
 import type { EmployeeRankLevel } from '@/lib/database.types'
 
 interface Entry {
@@ -39,6 +40,7 @@ export default function AdminLeaderboard() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const { label: updatedLabel } = useLastUpdated(loading)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -102,13 +104,20 @@ export default function AdminLeaderboard() {
         title="Leaderboard"
         subtitle="Hall of fame dei migliori dipendenti per punti accumulati."
         actions={
-          <button
-            onClick={load}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-            aria-label="Aggiorna"
-          >
-            <RefreshCw className="w-5 h-5 text-text-muted" />
-          </button>
+          <>
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
+              </span>
+            )}
+            <button
+              onClick={load}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Aggiorna"
+            >
+              <RefreshCw className="w-5 h-5 text-text-muted" />
+            </button>
+          </>
         }
       />
 

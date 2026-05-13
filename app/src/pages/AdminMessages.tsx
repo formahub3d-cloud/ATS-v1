@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ContactStatus } from '@/lib/database.types'
 
@@ -52,6 +53,7 @@ export default function AdminMessages() {
   const [messages, setMessages] = useState<ContactRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const { label: updatedLabel } = useLastUpdated(loading)
   const [filter, setFilter] = useState<ContactStatus | 'all'>('new')
   const [searchQuery, setSearchQuery] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -148,13 +150,20 @@ export default function AdminMessages() {
         title="Messaggi contatto"
         subtitle={`${counts.new} nuov${counts.new === 1 ? 'o' : 'i'}, ${counts.in_progress} in corso, ${counts.handled} gestit${counts.handled === 1 ? 'o' : 'i'}`}
         actions={
-          <button
-            onClick={load}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-            aria-label="Aggiorna"
-          >
-            <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
-          </button>
+          <>
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
+              </span>
+            )}
+            <button
+              onClick={load}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Aggiorna"
+            >
+              <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
+            </button>
+          </>
         }
       />
 

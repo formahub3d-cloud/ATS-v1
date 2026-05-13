@@ -22,6 +22,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
@@ -65,6 +66,7 @@ export default function AdminStructures() {
   const [structures, setStructures] = useState<StructureRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const { label: updatedLabel } = useLastUpdated(loading)
   const [selected, setSelected] = useState<StructureRow | null>(null)
   const [pendingAction, setPendingAction] = useState<{ id: string; type: 'approve' | 'reject' } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -309,13 +311,20 @@ export default function AdminStructures() {
         title="Gestione Strutture"
         subtitle={`${structures.length} struttur${structures.length === 1 ? 'a' : 'e'} totali`}
         actions={
-          <button
-            onClick={fetchStructures}
-            disabled={loading}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm text-text-secondary border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Aggiornamento...' : 'Aggiorna'}
-          </button>
+          <>
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
+              </span>
+            )}
+            <button
+              onClick={fetchStructures}
+              disabled={loading}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm text-text-secondary border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Aggiornamento...' : 'Aggiorna'}
+            </button>
+          </>
         }
       />
 

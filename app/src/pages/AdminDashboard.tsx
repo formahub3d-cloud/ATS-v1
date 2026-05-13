@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import NotificationsBell from '@/components/notifications/NotificationsBell'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
 type StructureRow = Database['public']['Tables']['structures']['Row']
@@ -57,6 +58,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>(initialStats)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const { label: updatedLabel } = useLastUpdated(loading)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -204,6 +206,11 @@ export default function AdminDashboard() {
         actions={
           <>
             <NotificationsBell />
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
+              </span>
+            )}
             <button
               onClick={load}
               disabled={loading}
