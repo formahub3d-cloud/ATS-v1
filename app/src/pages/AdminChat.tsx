@@ -10,6 +10,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
 import ChatPanel from '@/components/chat/ChatPanel'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
@@ -213,12 +214,16 @@ export default function AdminChat() {
                 ))}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="p-8 text-center text-sm text-text-muted">
-                <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                {conversations.length === 0
-                  ? 'Nessuna conversazione ancora.'
-                  : 'Nessuna conversazione corrisponde alla ricerca.'}
-              </div>
+              <EmptyState
+                icon={MessageCircle}
+                variant="compact"
+                title={conversations.length === 0
+                  ? 'Nessuna conversazione ancora'
+                  : 'Nessun risultato'}
+                description={conversations.length === 0
+                  ? 'Le chat con strutture e dipendenti compariranno qui.'
+                  : 'Modifica la ricerca o azzerala.'}
+              />
             ) : (
               <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
                 {filtered.map((c) => {

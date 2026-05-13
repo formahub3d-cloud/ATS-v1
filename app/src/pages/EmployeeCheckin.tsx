@@ -20,6 +20,7 @@ import StatusScreen from '@/components/structure/StatusScreen'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
 import CancelShiftDialog from '@/components/shifts/CancelShiftDialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -365,12 +366,12 @@ export default function EmployeeCheckin() {
 
         {/* Empty state */}
         {assignedShifts.length === 0 && inProgressShifts.length === 0 && toReview.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-12">
-            <Calendar className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
-            <h2 className="text-lg font-semibold text-white mb-2">Nessun turno attivo</h2>
-            <p className="text-sm text-text-muted">
-              Quando una struttura ti assegna un turno, il QR per il check-in apparirà qui.
-            </p>
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] mt-12">
+            <EmptyState
+              icon={Calendar}
+              title="Nessun turno attivo"
+              description="Quando una struttura ti assegna un turno, il QR per il check-in apparirà qui."
+            />
           </div>
         )}
       </div>

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useLastUpdated } from '@/hooks/useLastUpdated'
@@ -187,14 +188,15 @@ export default function AdminAudit() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center text-text-muted">
-            <Activity className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">
-              {logs.length === 0
-                ? 'Nessun evento registrato.'
-                : 'Nessun evento corrisponde ai filtri.'}
-            </p>
-          </div>
+          <EmptyState
+            icon={Activity}
+            title={logs.length === 0 ? 'Nessun evento registrato' : 'Nessun evento corrisponde ai filtri'}
+            description={
+              logs.length === 0
+                ? 'L\'audit log si popola automaticamente quando avvengono azioni amministrative (approvazioni, assegnazioni, rifiuti, ecc).'
+                : 'Modifica i filtri o la ricerca per vedere altri eventi.'
+            }
+          />
         ) : (
           <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
             {filtered.map((l) => {

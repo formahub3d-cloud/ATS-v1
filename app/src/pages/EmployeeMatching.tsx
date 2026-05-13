@@ -15,6 +15,7 @@ import GlassBottomNav from '@/components/employee/GlassBottomNav'
 import StatusScreen from '@/components/structure/StatusScreen'
 import { useToast } from '@/components/ui/ToastSystem'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
@@ -383,30 +384,20 @@ export default function EmployeeMatching() {
       {/* Feed */}
       <div className="max-w-[640px] mx-auto px-4 py-6 space-y-3">
         {filteredFeed.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center mt-12">
-            <Sparkles className="w-12 h-12 mx-auto mb-3 text-sky-primary opacity-60" />
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] mt-12">
             {feed.length === 0 ? (
-              <>
-                <h2 className="text-lg font-semibold text-white mb-2">Nessun turno disponibile</h2>
-                <p className="text-sm text-text-muted">
-                  Non ci sono turni open compatibili in questo momento.
-                  <br />Torna più tardi: nuove richieste arrivano spesso.
-                </p>
-              </>
+              <EmptyState
+                icon={Sparkles}
+                title="Nessun turno disponibile"
+                description="Non ci sono turni open compatibili in questo momento. Torna più tardi: nuove richieste arrivano spesso."
+              />
             ) : (
-              <>
-                <h2 className="text-lg font-semibold text-white mb-2">Nessun turno con questi filtri</h2>
-                <p className="text-sm text-text-muted mb-4">
-                  Ci sono {feed.length} turni disponibili ma nessuno corrisponde ai filtri attivi.
-                </p>
-                <button
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Azzera filtri
-                </button>
-              </>
+              <EmptyState
+                icon={Sparkles}
+                title="Nessun turno con questi filtri"
+                description={`Ci sono ${feed.length} turni disponibili ma nessuno corrisponde ai filtri attivi.`}
+                action={{ label: 'Azzera filtri', onClick: resetFilters }}
+              />
             )}
           </div>
         ) : (
