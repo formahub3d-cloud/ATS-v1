@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -250,13 +251,11 @@ export default function AdminInvoices() {
             ))}
           </div>
         ) : invoices.length === 0 ? (
-          <div className="py-12 text-center text-text-muted">
-            <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">
-              Nessuna fattura per {MONTHS_IT[monthN - 1]} {year}.
-              <br /><span className="text-xs opacity-70">Premi "Genera fatture mese" per crearle dai turni completati.</span>
-            </p>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title={`Nessuna fattura per ${MONTHS_IT[monthN - 1]} ${year}`}
+            description={'Premi "Genera fatture mese" in alto per crearle automaticamente dai turni completati.'}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

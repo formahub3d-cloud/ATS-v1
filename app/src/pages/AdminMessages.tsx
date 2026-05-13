@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -221,14 +222,15 @@ export default function AdminMessages() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-12 text-center text-text-muted">
-            <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">
-              {messages.length === 0
-                ? 'Nessun messaggio ricevuto.'
-                : 'Nessun messaggio corrisponde ai filtri.'}
-            </p>
-          </div>
+          <EmptyState
+            icon={MessageSquare}
+            title={messages.length === 0 ? 'Nessun messaggio ricevuto' : 'Nessun risultato'}
+            description={
+              messages.length === 0
+                ? 'I messaggi inviati dal form pubblico /contatti compariranno qui in tempo reale.'
+                : 'Modifica i filtri stato o la ricerca per vedere altri messaggi.'
+            }
+          />
         ) : (
           <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
             {filtered.map((m) => {

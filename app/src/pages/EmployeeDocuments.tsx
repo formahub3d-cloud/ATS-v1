@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import GlassBottomNav from '@/components/employee/GlassBottomNav'
 import StatusScreen from '@/components/structure/StatusScreen'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -259,10 +260,12 @@ export default function EmployeeDocuments() {
 
         {/* Lista documenti raggruppati per tipo */}
         {docs.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-text-muted opacity-50" />
-            <h2 className="text-lg font-semibold text-white mb-2">Nessun documento ancora</h2>
-            <p className="text-sm text-text-muted">Carica i tuoi documenti per essere abilitato a tutti i tipi di turno.</p>
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+            <EmptyState
+              icon={FileText}
+              title="Nessun documento ancora"
+              description="Carica i tuoi documenti (HACCP, idoneità, ID) per essere abilitato a tutti i tipi di turno."
+            />
           </div>
         ) : (
           <div className="space-y-4">

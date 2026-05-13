@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import Avatar from '@/components/Avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
 import { supabase } from '@/lib/supabase'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useLastUpdated } from '@/hooks/useLastUpdated'
@@ -130,11 +131,11 @@ export default function AdminLeaderboard() {
 
       {entries.length === 0 ? (
         <GlassCard>
-          <div className="py-12 text-center text-text-muted">
-            <Sparkles className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">Nessun dipendente ancora con punti.</p>
-            <p className="text-xs mt-1 opacity-70">I punti vengono assegnati automaticamente per turni completati, recensioni 4-5★, documenti verificati.</p>
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title="Nessun dipendente ancora con punti"
+            description="I punti vengono assegnati automaticamente per turni completati, recensioni 4-5★, documenti verificati."
+          />
         </GlassCard>
       ) : (
         <>
