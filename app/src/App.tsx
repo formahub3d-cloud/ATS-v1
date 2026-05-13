@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import PWAUpdatePrompt from './components/PWAUpdatePrompt'
 import PWAInstallPrompt from './components/PWAInstallPrompt'
+import SkipLink from './components/SkipLink'
 import CommandPalette from './components/admin/CommandPalette'
 import { useNotificationsToast } from './hooks/useNotificationsToast'
 
@@ -72,6 +73,7 @@ export default function App() {
     <AuthProvider>
       <RoleProvider>
         <ToastProvider>
+          <SkipLink />
           <Layout>
             <Suspense fallback={<PageLoader />}>
               <Routes>

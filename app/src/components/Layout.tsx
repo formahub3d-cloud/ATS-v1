@@ -333,6 +333,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -354,6 +355,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <MobileTopBarAndDrawer items={adminNavItems} title="Admin" />
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -376,6 +378,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <MobileTopBarAndDrawer items={structureNavItems} title="Struttura" />
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -396,6 +399,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
