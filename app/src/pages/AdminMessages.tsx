@@ -14,6 +14,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, ContactStatus } from '@/lib/database.types'
 
@@ -44,6 +45,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function AdminMessages() {
+  usePageTitle('Messaggi')
   const { user } = useAuth()
   const { addToast } = useToast()
 

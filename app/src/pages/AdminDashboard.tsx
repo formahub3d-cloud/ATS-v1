@@ -17,6 +17,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import NotificationsBell from '@/components/notifications/NotificationsBell'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
 type StructureRow = Database['public']['Tables']['structures']['Row']
@@ -52,6 +53,7 @@ const initialStats: DashboardStats = {
 }
 
 export default function AdminDashboard() {
+  usePageTitle('Dashboard')
   const [stats, setStats] = useState<DashboardStats>(initialStats)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)

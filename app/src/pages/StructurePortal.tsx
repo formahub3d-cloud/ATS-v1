@@ -21,6 +21,7 @@ import NewShiftDialog from '@/components/structure/NewShiftDialog'
 import NotificationsBell from '@/components/notifications/NotificationsBell'
 import ReviewDialog from '@/components/reviews/ReviewDialog'
 import PrivacySettings from '@/components/PrivacySettings'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
@@ -72,6 +73,7 @@ function shiftRowToCard(s: ShiftRow, structureCode: string, zone: string | null)
 /* ─────────────── component ─────────────── */
 
 export default function StructurePortal() {
+  usePageTitle('Portale Struttura')
   const navigate = useNavigate()
   const { addToast } = useToast()
   const { user, status: authStatus } = useAuth()

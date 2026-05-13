@@ -15,6 +15,7 @@ import GlassCard from '@/components/admin/GlassCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/ToastSystem'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import type { Database } from '@/lib/database.types'
 
 type ShiftRow = Database['public']['Tables']['shifts']['Row']
@@ -71,6 +72,7 @@ function csvField(val: unknown): string {
 }
 
 export default function AdminPayroll() {
+  usePageTitle('Payroll')
   const { addToast } = useToast()
   const [month, setMonth] = useState(currentMonthValue())
   const [rows, setRows] = useState<PayrollRow[]>([])

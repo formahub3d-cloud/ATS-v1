@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
 import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useAuth } from '@/context/AuthContext'
 import type { Database, StructureStatus } from '@/lib/database.types'
 
@@ -56,6 +57,7 @@ function StatusBadge({ status }: { status: StructureStatus }) {
 }
 
 export default function AdminStructures() {
+  usePageTitle('Strutture')
   const { addToast } = useToast()
   const { user } = useAuth()
   const [statusFilter, setStatusFilter] = useState<StructureStatus | 'all'>('all')

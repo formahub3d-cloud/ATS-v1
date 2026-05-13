@@ -13,6 +13,7 @@ import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
 import StatusScreen from '@/components/structure/StatusScreen';
 import NotificationsBell from '@/components/notifications/NotificationsBell';
 import PrivacySettings from '@/components/PrivacySettings';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Database } from '@/lib/database.types';
@@ -34,6 +35,7 @@ const itemVariants = {
 // dropdown reale alimentato da Supabase Realtime.)
 
 export default function EmployeeDashboard() {
+  usePageTitle('Home');
   const navigate = useNavigate();
   const { user, profile, status: authStatus } = useAuth();
   const [greeting, setGreeting] = useState('');
