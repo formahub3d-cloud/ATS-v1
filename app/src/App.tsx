@@ -18,6 +18,7 @@ import EmployeeCalendar from './pages/EmployeeCalendar'
 import EmployeeMatching from './pages/EmployeeMatching'
 import EmployeeCheckin from './pages/EmployeeCheckin'
 import EmployeeRank from './pages/EmployeeRank'
+import StructuresLive from './pages/admin/StructuresLive'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/structures" element={<AdminStructures />} />
+              <Route path="/admin/structures-live" element={<StructuresLive />} />
               <Route path="/admin/employees" element={<AdminEmployees />} />
               <Route path="/admin/shifts" element={<AdminShifts />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
