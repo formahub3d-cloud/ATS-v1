@@ -5,8 +5,13 @@ import AccountSwitcher from './AccountSwitcher'
 
 const adminNavItems = [
   { label: 'Dashboard', path: '/admin', icon: 'LayoutDashboard' },
-  { label: 'Strutture', path: '/admin/structures', icon: 'Building2' },
-  { label: 'Dipendenti', path: '/admin/employees', icon: 'Users' },
+  // Pagine "Live" agganciate a Supabase (Sprint 2A/2B).
+  { label: 'Strutture (live)', path: '/admin/structures-live', icon: 'Building2' },
+  { label: 'Dipendenti (live)', path: '/admin/employees-live', icon: 'Users' },
+  // Pagine mock storiche di Kimi — utili come riferimento visivo, da
+  // sostituire nello sprint Visual Polish.
+  { label: 'Strutture (demo)', path: '/admin/structures', icon: 'Building2' },
+  { label: 'Dipendenti (demo)', path: '/admin/employees', icon: 'Users' },
   { label: 'Turni', path: '/admin/shifts', icon: 'Calendar' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
 ]

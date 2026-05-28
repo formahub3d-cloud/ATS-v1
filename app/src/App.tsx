@@ -19,6 +19,7 @@ import EmployeeMatching from './pages/EmployeeMatching'
 import EmployeeCheckin from './pages/EmployeeCheckin'
 import EmployeeRank from './pages/EmployeeRank'
 import StructuresLive from './pages/admin/StructuresLive'
+import EmployeesLive from './pages/admin/EmployeesLive'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/admin/structures" element={<AdminStructures />} />
               <Route path="/admin/structures-live" element={<StructuresLive />} />
               <Route path="/admin/employees" element={<AdminEmployees />} />
+              <Route path="/admin/employees-live" element={<EmployeesLive />} />
               <Route path="/admin/shifts" element={<AdminShifts />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/structure" element={<StructurePortal />} />
