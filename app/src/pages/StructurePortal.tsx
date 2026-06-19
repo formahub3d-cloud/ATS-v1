@@ -6,7 +6,7 @@ import {
   CheckCircle, UserCheck, CreditCard, MessageSquare,
   Star, ChevronRight, Calendar, Users, Clock,
   X, Info, Bell, BellRing, LayoutDashboard, HeartHandshake,
-  Settings
+  Settings, Hourglass, AlertCircle, Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
@@ -16,92 +16,291 @@ import Avatar from '@/components/Avatar'
 import CoverPhoto from '@/components/CoverPhoto'
 import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShiftCard'
 import MatchStatus, { type MatchState } from '@/components/structure/MatchStatus'
+import StatusScreen from '@/components/structure/StatusScreen'
+import NewShiftDialog from '@/components/structure/NewShiftDialog'
+import NotificationsBell from '@/components/notifications/NotificationsBell'
+import ReviewDialog from '@/components/reviews/ReviewDialog'
+import PrivacySettings from '@/components/PrivacySettings'
+import { usePageTitle } from '@/hooks/usePageTitle'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
+import type { Database, StructureStatus } from '@/lib/database.types'
 
-/* ─────────────── helpers ─────────────── */
+type StructureRow = Database['public']['Tables']['structures']['Row']
+type ShiftRow = Database['public']['Tables']['shifts']['Row']
 
-const avatarMap: Record<string, string> = {
-  'ATS-D-0047': '/avatar-employee-1.jpg',
-  'ATS-D-0012': '/avatar-employee-2.jpg',
-  'ATS-D-0089': '/avatar-employee-3.jpg',
-  'ATS-D-0156': '/avatar-employee-4.jpg',
-  'ATS-D-0023': '/avatar-employee-5.jpg',
-  'ATS-D-0078': '/avatar-employee-6.jpg',
-  'ATS-D-0091': '/avatar-employee-7.jpg',
-  'ATS-D-0034': '/avatar-employee-8.jpg',
+const MONTHS_IT = ['GEN', 'FEB', 'MAR', 'APR', 'MAG', 'GIU', 'LUG', 'AGO', 'SET', 'OTT', 'NOV', 'DIC']
+const SHIFT_STATUS_TO_CARD: Record<string, GlassShift['status']> = {
+  open: 'pending',
+  assigned: 'confirmed',
+  in_progress: 'confirmed',
+  completed: 'completed',
+  cancelled: 'noshow',  // GlassShiftCard non ha 'cancelled' tra gli status, uso 'noshow' come visivo simile (grigio)
+  no_show: 'noshow',
 }
 
-/* ─────────────── mock data ─────────────── */
+function timeAgoShort(iso: string): string {
+  const d = (Date.now() - new Date(iso).getTime()) / 1000
+  if (d < 60) return 'ora'
+  if (d < 3600) return `${Math.floor(d / 60)}m`
+  if (d < 86400) return `${Math.floor(d / 3600)}h`
+  if (d < 86400 * 7) return `${Math.floor(d / 86400)}g`
+  return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
+}
 
-const shifts: GlassShift[] = [
-  { id: '1', date: '2026-05-13', dayNum: '13', month: 'MAG', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', employeeAvatar: avatarMap['ATS-D-0047'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro', note: 'Servizio sala principale, 80 coperti' },
-  { id: '2', date: '2026-05-14', dayNum: '14', month: 'MAG', role: 'Chef de Partie', timeStart: '10:00', timeEnd: '18:00', status: 'pending', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-  { id: '3', date: '2026-05-15', dayNum: '15', month: 'MAG', role: 'Barman', timeStart: '18:00', timeEnd: '02:00', employeeCode: 'ATS-D-0023', employeeAvatar: avatarMap['ATS-D-0023'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-]
+function shiftRowToCard(s: ShiftRow, structureCode: string, zone: string | null): GlassShift {
+  const d = new Date(s.shift_date)
+  return {
+    id: s.id,
+    date: s.shift_date,
+    dayNum: String(d.getDate()).padStart(2, '0'),
+    month: MONTHS_IT[d.getMonth()] ?? '—',
+    role: s.role,
+    timeStart: s.time_start.slice(0, 5),
+    timeEnd: s.time_end.slice(0, 5),
+    status: SHIFT_STATUS_TO_CARD[s.status] ?? 'pending',
+    structureCode,
+    zone: zone ?? '—',
+    note: s.notes ?? undefined,
+  }
+}
 
-const matches: MatchState[] = [
-  { id: 'm1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', matchScore: 94, phase: 'mutual' },
-  { id: 'm2', employeeCode: 'ATS-D-0089', employeeName: 'Sofia', role: 'Barman', matchScore: 91, phase: 'assigned', shiftDate: '15/05' },
-  { id: 'm3', employeeCode: 'ATS-D-0012', employeeName: 'Luca', role: 'Chef de Partie', matchScore: 88, phase: 'mutual' },
-]
-
-const notifications = [
-  { id: 'n1', icon: CheckCircle, color: '#1EC99A', title: 'Check-in confermato', desc: 'ATS-D-0047 — 08:03', time: 'Ieri', unread: false },
-  { id: 'n2', icon: UserCheck, color: '#5BB8F5', title: 'Nuovo match', desc: 'ATS-D-0156 — Cameriere, 91% compatibilita', time: '2 giorni fa', unread: true },
-  { id: 'n3', icon: CreditCard, color: '#1EC99A', title: 'Pagamento addebitato', desc: '€120,00 — Turno 10/05', time: '3 giorni fa', unread: false },
-  { id: 'n4', icon: MessageSquare, color: '#3AA3E8', title: 'Messaggio da ATS', desc: 'Confermato turno del 14/05', time: '4 giorni fa', unread: true },
-]
-
-const pendingRatings = [
-  { id: 'r1', employeeCode: 'ATS-D-0047', employeeAvatar: avatarMap['ATS-D-0047'], date: '10/05/2026', role: 'Cameriere' },
-  { id: 'r2', employeeCode: 'ATS-D-0012', employeeAvatar: avatarMap['ATS-D-0012'], date: '08/05/2026', role: 'Chef de Partie' },
-]
-
-const ratingTags = ['Puntualita', 'Professionalita', 'Pulizia', 'Velocita', 'Attitudine']
-
-const kpiData = [
-  { label: 'Turni mese', value: '24', delta: '+3 vs mese scorso', icon: Calendar, positive: true },
-  { label: 'Spesa totale', value: '€3.456', delta: '-12% vs mese scorso', icon: CreditCard, positive: true },
-  { label: 'Rating medio', value: '4.2', delta: 'su 5.0 stelle', icon: Star, positive: true },
-  { label: 'Match attivi', value: '7', delta: '2 in attesa', icon: HeartHandshake, positive: true },
-]
+// Tutti i mock data della pagina (matches, notifications, pendingRatings,
+// kpiData, avatarMap) sono stati rimossi: ora le sezioni "Candidature
+// ricevute", "Valutazioni in attesa" e "Attività recente" leggono da DB
+// (shift_likes / shifts / notifications) tramite il useEffect del componente.
 
 /* ─────────────── component ─────────────── */
 
 export default function StructurePortal() {
+  usePageTitle('Portale Struttura')
   const navigate = useNavigate()
   const { addToast } = useToast()
+  const { user, status: authStatus } = useAuth()
   const [showQRModal, setShowQRModal] = useState(false)
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
-  const [ratings, setRatings] = useState<Record<string, number[]>>({})
   const [dismissedRatings, setDismissedRatings] = useState<string[]>([])
+  // Target dialog recensione (id turno + nome dipendente).
+  const [reviewTarget, setReviewTarget] = useState<{ shiftId: string; employeeName: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const progressDemo = 78
 
+  // Stato della struttura reale dell'utente loggato.
+  const [structure, setStructure] = useState<StructureRow | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [myShifts, setMyShifts] = useState<ShiftRow[]>([])
+  const [showNewShiftDialog, setShowNewShiftDialog] = useState(false)
+  const [realKpi, setRealKpi] = useState<{
+    monthShifts: number; monthSpend: number; avgRating: number | null; activeMatches: number;
+  } | null>(null)
+
+  // Dati reali per le 3 sezioni che prima erano mock:
+  // - realMatches: top 3 like ricevuti sui turni open della struttura
+  // - realPendingReviews: turni completed senza una mia review
+  // - realActivity: ultime 5 notifiche per l'utente
+  const [realMatches, setRealMatches] = useState<Array<{
+    id: string; employee_id: string; employee_name: string; role: string; shift_date: string
+  }>>([])
+  const [realPendingReviews, setRealPendingReviews] = useState<Array<{
+    id: string; employee_id: string | null; employee_name: string; role: string; shift_date: string
+  }>>([])
+  const [realActivity, setRealActivity] = useState<Array<{
+    id: string; kind: string; title: string; body: string | null; created_at: string
+  }>>([])
+
+  const loadMyShifts = useCallback(async (structureId: string) => {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('structure_id', structureId)
+      .gte('shift_date', today)
+      .order('shift_date', { ascending: true })
+      .order('time_start', { ascending: true })
+      .limit(5)
+    setMyShifts(data ?? [])
+  }, [])
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(t)
-  }, [])
+    if (authStatus === 'loading') return
+    if (authStatus === 'anonymous' || !user) {
+      // Non autenticato: torna al login.
+      navigate('/auth')
+      return
+    }
 
-  const handleRate = useCallback((id: string, tagIndex: number, value: number) => {
-    setRatings(prev => {
-      const current = prev[id] ? [...prev[id]] : new Array(5).fill(0)
-      current[tagIndex] = value
-      return { ...prev, [id]: current }
-    })
-  }, [])
+    let cancelled = false
+    ;(async () => {
+      try {
+        // 1) Fetch della struttura dell'utente corrente (1:1 con user_id).
+        const { data: row, error } = await supabase
+          .from('structures')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
 
-  const handleSaveRating = useCallback((id: string) => {
-    setDismissedRatings(prev => [...prev, id])
-    addToast({ type: 'success', title: 'Valutazione salvata', message: 'Grazie per il tuo feedback' })
-  }, [addToast])
+        if (cancelled) return
+        if (error) throw error
+        setStructure(row)
+
+        // 2) Se ha foto, prendi la prima e genera signed URL per visualizzazione.
+        if (row) {
+          const { data: photos } = await supabase
+            .from('structure_photos')
+            .select('storage_path, sort_order')
+            .eq('structure_id', row.id)
+            .order('sort_order', { ascending: true })
+            .limit(1)
+
+          if (cancelled) return
+          if (photos && photos.length > 0) {
+            const { data: signed } = await supabase.storage
+              .from('structure-media')
+              .createSignedUrl(photos[0].storage_path, 60 * 60) // 1h
+            if (signed?.signedUrl) setCoverUrl(signed.signedUrl)
+          }
+
+          // 3) Fetch turni della struttura: i prossimi 5 in ordine cronologico.
+          const today = new Date().toISOString().slice(0, 10)
+          const monthStart = new Date()
+          monthStart.setDate(1)
+          const monthStartStr = monthStart.toISOString().slice(0, 10)
+
+          const [
+            { data: shiftsData },
+            { data: monthCompleted, count: monthShiftsCount },
+            { count: openShifts },
+            { data: ratingRow },
+          ] = await Promise.all([
+            supabase.from('shifts').select('*')
+              .eq('structure_id', row.id).gte('shift_date', today)
+              .order('shift_date', { ascending: true }).order('time_start', { ascending: true })
+              .limit(5),
+            supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end', { count: 'exact' })
+              .eq('structure_id', row.id).eq('status', 'completed')
+              .gte('shift_date', monthStartStr),
+            supabase.from('shifts').select('id', { count: 'exact', head: true })
+              .eq('structure_id', row.id).eq('status', 'open').gte('shift_date', today),
+            supabase.from('structure_rating_summary').select('avg_rating, total_reviews')
+              .eq('structure_id', row.id).maybeSingle(),
+          ])
+
+          if (cancelled) return
+          setMyShifts(shiftsData ?? [])
+
+          // Calcola spesa del mese.
+          let spend = 0
+          for (const s of (monthCompleted ?? [])) {
+            const rate = Number(s.hourly_rate)
+            let hours = Number(s.estimated_hours ?? 0)
+            if (!hours && s.check_in_at && s.check_out_at) {
+              hours = (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) / 3_600_000
+            }
+            if (!hours) {
+              const [h1, m1] = s.time_start.split(':').map(Number)
+              const [h2, m2] = s.time_end.split(':').map(Number)
+              let mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+              if (mins < 0) mins += 24 * 60
+              hours = mins / 60
+            }
+            spend += rate * hours
+          }
+
+          setRealKpi({
+            monthShifts: monthShiftsCount ?? 0,
+            monthSpend: Math.round(spend * 100) / 100,
+            avgRating: ratingRow?.avg_rating ? Number(ratingRow.avg_rating) : null,
+            activeMatches: openShifts ?? 0,
+          })
+
+          // ───────── Sezioni live (sostituiscono i vecchi mock) ─────────
+          // 1) Matches: ultimi 3 "like" ricevuti su turni open della struttura.
+          //    Subquery: prendi gli id dei turni open di questa struttura, poi
+          //    JOIN shift_likes + profile per il nome.
+          const { data: openShiftRows } = await supabase
+            .from('shifts').select('id, role, shift_date')
+            .eq('structure_id', row.id).eq('status', 'open').limit(50)
+          const openIds = (openShiftRows ?? []).map((s) => s.id)
+          if (openIds.length > 0) {
+            const { data: likes } = await supabase
+              .from('shift_likes').select('id, employee_id, shift_id, action, created_at')
+              .in('shift_id', openIds).eq('action', 'like')
+              .order('created_at', { ascending: false }).limit(3)
+            const empIds = Array.from(new Set((likes ?? []).map((l) => l.employee_id)))
+            const { data: empProfiles } = empIds.length > 0
+              ? await supabase.from('profiles').select('id, full_name').in('id', empIds)
+              : { data: [] as Array<{ id: string; full_name: string | null }> }
+            const nameById = new Map((empProfiles ?? []).map((p) => [p.id, p.full_name ?? '—']))
+            const shiftById = new Map((openShiftRows ?? []).map((s) => [s.id, s]))
+            if (!cancelled) setRealMatches(
+              (likes ?? []).map((l) => {
+                const sh = shiftById.get(l.shift_id)
+                return {
+                  id: l.id,
+                  employee_id: l.employee_id,
+                  employee_name: nameById.get(l.employee_id) ?? '—',
+                  role: sh?.role ?? '—',
+                  shift_date: sh?.shift_date ?? '',
+                }
+              }),
+            )
+          }
+
+          // 2) Pending reviews: turni completed senza una review della struttura.
+          const { data: completedShifts } = await supabase
+            .from('shifts').select('id, employee_id, role, shift_date, check_out_at')
+            .eq('structure_id', row.id).eq('status', 'completed')
+            .order('shift_date', { ascending: false }).limit(20)
+          const completedIds = (completedShifts ?? []).map((s) => s.id)
+          if (completedIds.length > 0) {
+            const { data: existingReviews } = await supabase
+              .from('reviews').select('shift_id')
+              .eq('reviewer_id', user.id).in('shift_id', completedIds)
+            const reviewedIds = new Set((existingReviews ?? []).map((r) => r.shift_id))
+            const pending = (completedShifts ?? []).filter((s) => !reviewedIds.has(s.id)).slice(0, 3)
+            const empIds2 = Array.from(new Set(pending.map((s) => s.employee_id).filter((x): x is string => !!x)))
+            const { data: empProfiles2 } = empIds2.length > 0
+              ? await supabase.from('profiles').select('id, full_name').in('id', empIds2)
+              : { data: [] as Array<{ id: string; full_name: string | null }> }
+            const nameById2 = new Map((empProfiles2 ?? []).map((p) => [p.id, p.full_name ?? '—']))
+            if (!cancelled) setRealPendingReviews(pending.map((s) => ({
+              id: s.id,
+              employee_id: s.employee_id,
+              employee_name: s.employee_id ? (nameById2.get(s.employee_id) ?? '—') : '—',
+              role: s.role,
+              shift_date: s.shift_date,
+            })))
+          }
+
+          // 3) Activity: ultime 5 notifications dell'utente.
+          const { data: notifs } = await supabase
+            .from('notifications').select('id, kind, title, body, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }).limit(5)
+          if (!cancelled) setRealActivity(notifs ?? [])
+        }
+      } catch (err) {
+        if (cancelled) return
+        const message = err instanceof Error ? err.message : 'Errore caricamento struttura'
+        console.error('[StructurePortal] fetch error', err)
+        setFetchError(message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authStatus, user, navigate])
 
   const handleSkipRating = useCallback((id: string) => {
     setDismissedRatings(prev => [...prev, id])
   }, [])
 
-  const visibleRatings = pendingRatings.filter(r => !dismissedRatings.includes(r.id))
-  const unreadCount = notifications.filter(n => n.unread).length
+  const visibleRatings = realPendingReviews.filter(r => !dismissedRatings.includes(r.id))
 
   if (loading) {
     return (
@@ -118,6 +317,75 @@ export default function StructurePortal() {
     )
   }
 
+  // Errore di fetch — mostra schermata neutra con messaggio.
+  if (fetchError) {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#F04545"
+        title="Impossibile caricare la struttura"
+        description={fetchError}
+        primaryAction={{ label: 'Riprova', onClick: () => window.location.reload() }}
+      />
+    )
+  }
+
+  // Nessuna struttura associata all'account — invita alla registrazione.
+  if (!structure) {
+    return (
+      <StatusScreen
+        icon={Building2}
+        iconColor="#5BB8F5"
+        title="Nessuna struttura collegata"
+        description="Non c'è ancora una struttura associata a questo account. Completa la registrazione per accedere al portale."
+        primaryAction={{ label: 'Registra ora', onClick: () => navigate('/auth') }}
+      />
+    )
+  }
+
+  // Stato pending_review — la candidatura è in attesa di approvazione admin.
+  if (structure.status === 'pending_review') {
+    return (
+      <StatusScreen
+        icon={Hourglass}
+        iconColor="#F5B800"
+        title={`Candidatura in revisione`}
+        description={`Stiamo verificando i dati di "${structure.ragione_sociale}". Ti contatteremo entro 48 ore lavorative all'email ${structure.referente_email ?? '(email registrata)'}.`}
+        meta={[
+          { label: 'Inviata il', value: new Date(structure.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }) },
+          { label: 'Tipo struttura', value: structure.tipo_struttura ?? '—' },
+          { label: 'Zona', value: structure.zona ?? '—' },
+        ]}
+      />
+    )
+  }
+
+  if (structure.status === 'rejected') {
+    return (
+      <StatusScreen
+        icon={X}
+        iconColor="#F04545"
+        title="Candidatura non approvata"
+        description={
+          structure.rejection_reason ??
+          'Purtroppo la candidatura non è stata approvata. Contatta il supporto per maggiori informazioni.'
+        }
+      />
+    )
+  }
+
+  if (structure.status === 'suspended') {
+    return (
+      <StatusScreen
+        icon={AlertCircle}
+        iconColor="#F5B800"
+        title="Account sospeso"
+        description="Il tuo account è temporaneamente sospeso. Contatta il supporto ATS per riattivarlo."
+      />
+    )
+  }
+
+  // Da qui in giù: structure.status === 'approved' → dashboard piena.
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
       <div className="max-w-[1200px] mx-auto px-6 py-8">
@@ -130,46 +398,53 @@ export default function StructurePortal() {
           className="relative rounded-[20px] overflow-hidden mb-8"
         >
           <div className="absolute inset-0">
-            <CoverPhoto src="/structure-1.jpg" alt="Ristorante Il Torchio" className="w-full h-full rounded-none" />
+            <CoverPhoto src={coverUrl ?? '/structure-1.jpg'} alt={structure.ragione_sociale} className="w-full h-full rounded-none" />
             <div className="absolute inset-0 bg-gradient-to-r from-[rgba(13,30,52,0.95)] via-[rgba(13,30,52,0.8)] to-transparent" />
           </div>
 
           <div className="relative p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <h1 className="font-playfair text-[28px] font-bold text-white mb-2">
-                Benvenuto, Ristorante Il Torchio
+                Benvenuto, {structure.ragione_sociale}
               </h1>
               <p className="text-sm text-[#94A3B8] mb-3">
-                Fee annuale: €900/anno · Sconto: -10% (128 turni pianificati)
+                {structure.tipo_struttura ?? 'Struttura'} · Zona {structure.zona ?? '—'}
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(30,201,154,0.15)] text-[#1EC99A] border border-[rgba(30,201,154,0.3)]">
                   <CheckCircle className="w-3 h-3" />
-                  Turni completati: 24
+                  Account approvato
                 </span>
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)]">
                   <Star className="w-3 h-3" />
-                  Rating medio personale: 4.2/5
+                  Rating medio personale: —
                 </span>
                 <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-[rgba(245,184,0,0.15)] text-[#F5B800] border border-[rgba(245,184,0,0.3)]">
                   <Clock className="w-3 h-3" />
-                  Prossimo turno: domani 08:00
+                  Nessun turno programmato
                 </span>
               </div>
             </div>
-            <div className="hidden lg:block flex-shrink-0">
-              <CoverPhoto
-                src="/structure-1.jpg"
-                alt="Ristorante"
-                className="w-[200px] h-[150px] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
-              />
-            </div>
+            {coverUrl && (
+              <div className="hidden lg:block flex-shrink-0">
+                <CoverPhoto
+                  src={coverUrl}
+                  alt={structure.ragione_sociale}
+                  className="w-[200px] h-[150px] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
+                />
+              </div>
+            )}
           </div>
         </motion.section>
 
-        {/* ── KPI Stat Cards ── */}
+        {/* ── KPI Stat Cards (dati reali) ── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          {kpiData.map((kpi, i) => (
+          {([
+            { label: 'Turni mese', value: realKpi ? String(realKpi.monthShifts) : '—', delta: 'Completati', icon: Calendar },
+            { label: 'Spesa mese', value: realKpi ? `€${realKpi.monthSpend.toFixed(2)}` : '—', delta: 'Compenso erogato', icon: CreditCard },
+            { label: 'Rating medio', value: realKpi?.avgRating != null ? realKpi.avgRating.toFixed(1) : '—', delta: realKpi?.avgRating != null ? 'su 5.0 stelle' : 'Nessuna recensione', icon: Star },
+            { label: 'Turni aperti', value: realKpi ? String(realKpi.activeMatches) : '—', delta: 'In attesa di match', icon: HeartHandshake },
+          ]).map((kpi, i) => (
             <motion.div
               key={kpi.label}
               initial={{ opacity: 0, y: 20 }}
@@ -186,7 +461,7 @@ export default function StructurePortal() {
                 <kpi.icon className="w-4 h-4 text-[#5BB8F5] opacity-60 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="font-playfair text-[32px] font-bold text-white leading-tight mb-1">{kpi.value}</p>
-              <p className={cn('text-xs', kpi.positive ? 'text-[#1EC99A]' : 'text-[#F04545]')}>{kpi.delta}</p>
+              <p className="text-xs text-[#94A3B8]">{kpi.delta}</p>
             </motion.div>
           ))}
         </section>
@@ -227,31 +502,51 @@ export default function StructurePortal() {
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-playfair text-2xl font-bold text-white">Turni in programma</h2>
-            <button
-              onClick={() => navigate('/structure/history')}
-              className="flex items-center gap-1 text-sm text-[#5BB8F5] hover:text-[#3AA3E8] transition-colors"
-            >
-              Vedi tutti <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNewShiftDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Nuovo turno
+              </button>
+              <button
+                onClick={() => navigate('/structure/history')}
+                className="flex items-center gap-1 text-sm text-[#5BB8F5] hover:text-[#3AA3E8] transition-colors"
+              >
+                Vedi tutti <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {shifts.map((shift, i) => (
-              <GlassShiftCard
-                key={shift.id}
-                shift={shift}
-                index={i}
-                featured={i === 0}
-                onViewDetails={(s) => {
-                  if (s.status === 'pending') {
-                    navigate('/structure/matching')
-                  } else {
-                    addToast({ type: 'info', title: 'Dettaglio turno', message: `Turno ${s.role} del ${s.dayNum} ${s.month}` })
-                  }
-                }}
-              />
-            ))}
-          </div>
+          {myShifts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+              <Calendar className="w-10 h-10 mx-auto mb-3 text-text-muted opacity-50" />
+              <p className="text-sm text-text-muted mb-3">Nessun turno in programma.</p>
+              <button
+                onClick={() => setShowNewShiftDialog(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-text-inverse rounded-lg gradient-sky hover:brightness-110 transition-all"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Pubblica il primo turno
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myShifts.map((shift, i) => {
+                const card = shiftRowToCard(shift, structure.id.slice(0, 8).toUpperCase(), structure.zona)
+                return (
+                  <GlassShiftCard
+                    key={shift.id}
+                    shift={card}
+                    index={i}
+                    featured={i === 0}
+                    onViewDetails={() => navigate('/structure/matching')}
+                  />
+                )
+              })}
+            </div>
+          )}
         </motion.section>
 
         {/* ── Two Column: Match Status + Quick Actions ── */}
@@ -267,44 +562,55 @@ export default function StructurePortal() {
             )}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-playfair text-2xl font-bold text-white">I tuoi match</h2>
+              <h2 className="font-playfair text-2xl font-bold text-white">Candidature ricevute</h2>
               <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-[#5BB8F5] border border-[rgba(91,184,245,0.25)]">
-                {matches.length}
+                {realMatches.length}
               </span>
             </div>
 
-            <div className="space-y-3 mb-4">
-              {matches.map((m, i) => (
-                <div key={m.id} className="flex items-center gap-3">
-                  <Avatar
-                    src={avatarMap[m.employeeCode]}
-                    alt={m.employeeName}
-                    size={48}
-                    borderColor="#1A56A0"
-                    className="hidden sm:flex"
-                  />
-                  <div className="flex-1">
-                    <MatchStatus match={m} index={i} />
+            {realMatches.length === 0 ? (
+              <div className="py-6 text-center text-sm text-[#94A3B8]">
+                <HeartHandshake className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                Nessuna candidatura ancora.
+                <br />
+                <span className="text-xs opacity-70">Pubblica un turno per ricevere proposte.</span>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {realMatches.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(91,184,245,0.04)] transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[rgba(91,184,245,0.12)] border border-[rgba(91,184,245,0.25)] flex items-center justify-center flex-shrink-0">
+                      <UserCheck className="w-5 h-5 text-[#5BB8F5]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">{m.employee_name}</p>
+                      <p className="text-xs text-[#94A3B8] truncate">
+                        {m.role}
+                        {m.shift_date && (
+                          <> · {new Date(m.shift_date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}</>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-start gap-2 p-3 rounded-xl bg-[rgba(91,184,245,0.05)] border border-[rgba(91,184,245,0.1)]">
               <Info className="w-4 h-4 text-[#5BB8F5] flex-shrink-0 mt-0.5" />
               <p className="text-xs text-[#94A3B8]">
-                Ricorda: il match reciproco non genera un turno. ATS gestisce l&apos;assegnazione finale.
+                Ogni candidatura va valutata in /matching: vedrai profilo, recensioni e potrai confermare.
               </p>
             </div>
 
             <button
-              onClick={() => {
-                navigate('/structure/matching')
-                addToast({ type: 'info', title: 'Cerca personale', message: 'Navigazione alla pagina di matching' })
-              }}
+              onClick={() => navigate('/structure/matching')}
               className="w-full mt-4 py-3 text-sm font-medium text-[#06101E] gradient-sky rounded-xl hover:brightness-110 hover:shadow-[0_0_30px_rgba(91,184,245,0.3)] transition-all"
             >
-              Cerca nuovi profili
+              Vai al matching
             </button>
           </motion.div>
 
@@ -320,19 +626,7 @@ export default function StructurePortal() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-playfair text-2xl font-bold text-white">Azioni rapide</h2>
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 rounded-xl hover:bg-[rgba(255,255,255,0.05)] transition-colors relative"
-                >
-                  {unreadCount > 0 ? <BellRing className="w-5 h-5 text-[#F5B800]" /> : <Bell className="w-5 h-5 text-[#5E7A95]" />}
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F04545] text-[10px] font-bold text-white flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-              </div>
+              <NotificationsBell />
             </div>
 
             <div className="space-y-2">
@@ -342,7 +636,7 @@ export default function StructurePortal() {
                 { icon: HeartHandshake, label: 'I miei match', variant: 'secondary', action: () => navigate('/structure/matching'), tooltip: 'Vedi i tuoi match attivi' },
                 { icon: Calendar, label: 'Calendario turni', variant: 'ghost', action: () => navigate('/structure/history'), tooltip: 'Vedi tutti i turni' },
                 { icon: FileText, label: 'Fatture', variant: 'ghost', action: () => navigate('/structure/history'), tooltip: 'Gestisci le fatture' },
-                { icon: MessageSquare, label: 'Chat con ATS', variant: 'ghost', action: () => addToast({ type: 'info', title: 'Chat', message: 'Funzionalita in arrivo' }), tooltip: 'Contatta il supporto ATS' },
+                { icon: MessageSquare, label: 'Chat con ATS', variant: 'ghost', action: () => navigate('/structure/chat'), tooltip: 'Contatta il supporto ATS' },
               ].map((btn, i) => (
                 <motion.div
                   key={btn.label}
@@ -410,7 +704,7 @@ export default function StructurePortal() {
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {visibleRatings.map((rating) => (
                     <motion.div
                       key={rating.id}
@@ -422,47 +716,23 @@ export default function StructurePortal() {
                       className="p-4 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <Avatar src={rating.employeeAvatar} alt={rating.employeeCode} size={40} borderColor="#1A56A0" />
-                        <p className="text-sm text-[#94A3B8]">
-                          Valuta <span className="font-mono text-[#5BB8F5]">{rating.employeeCode}</span> — Turno del {rating.date} ({rating.role})
-                        </p>
+                        <div className="w-10 h-10 rounded-full bg-[rgba(91,184,245,0.12)] border border-[rgba(91,184,245,0.25)] flex items-center justify-center flex-shrink-0">
+                          <Star className="w-5 h-5 text-[#5BB8F5]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{rating.employee_name}</p>
+                          <p className="text-xs text-[#94A3B8]">
+                            {rating.role} · Turno del {new Date(rating.shift_date).toLocaleDateString('it-IT')}
+                          </p>
+                        </div>
                       </div>
-
-                      <div className="space-y-2">
-                        {ratingTags.map((tag, tagIndex) => {
-                          const currentVal = ratings[rating.id]?.[tagIndex] || 0
-                          return (
-                            <div key={tag} className="flex items-center gap-3">
-                              <span className="w-28 text-xs text-[#5E7A95] text-right">{tag}</span>
-                              <div className="flex gap-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <motion.button
-                                    key={star}
-                                    whileHover={{ scale: 1.2 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => handleRate(rating.id, tagIndex, star)}
-                                    className="focus:outline-none"
-                                  >
-                                    <Star
-                                      className={cn(
-                                        'w-4 h-4 transition-colors',
-                                        star <= currentVal ? 'text-[#F5B800] fill-[#F5B800]' : 'text-[#5E7A95]'
-                                      )}
-                                    />
-                                  </motion.button>
-                                ))}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-
-                      <div className="flex items-center gap-3 mt-4">
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => handleSaveRating(rating.id)}
-                          className="px-4 py-2 text-sm font-medium text-[#06101E] gradient-sky rounded-xl hover:brightness-110 transition-all"
+                          onClick={() => setReviewTarget({ shiftId: rating.id, employeeName: rating.employee_name })}
+                          className="px-4 py-2 text-sm font-medium text-[#06101E] gradient-sky rounded-xl hover:brightness-110 transition-all flex items-center gap-1.5"
                         >
-                          Salva valutazione
+                          <Star className="w-4 h-4" />
+                          Lascia recensione
                         </button>
                         <button
                           onClick={() => handleSkipRating(rating.id)}
@@ -490,34 +760,37 @@ export default function StructurePortal() {
             'rounded-2xl p-6 backdrop-blur-md bg-white/5 border border-white/10',
             'hover:border-[rgba(91,184,245,0.2)] transition-all duration-300'
           )}>
-            <h2 className="font-playfair text-2xl font-bold text-white mb-4">Attivita recente</h2>
+            <h2 className="font-playfair text-2xl font-bold text-white mb-4">Attività recente</h2>
 
-            <div className="space-y-3">
-              {notifications.map((n, i) => (
-                <motion.div
-                  key={n.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.55 + i * 0.06, duration: 0.4 }}
-                  className={cn(
-                    'flex items-start gap-3 p-3 rounded-xl transition-colors',
-                    n.unread ? 'bg-[rgba(91,184,245,0.04)] border-l-2 border-l-[#5BB8F5]' : 'hover:bg-[rgba(255,255,255,0.02)]'
-                  )}
-                >
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: `${n.color}15` }}
+            {realActivity.length === 0 ? (
+              <div className="py-6 text-center text-sm text-[#94A3B8]">
+                <Bell className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                Nessuna notifica ancora.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {realActivity.map((n, i) => (
+                  <motion.div
+                    key={n.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.55 + i * 0.06, duration: 0.4 }}
+                    className="flex items-start gap-3 p-3 rounded-xl hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                   >
-                    <n.icon className="w-4 h-4" style={{ color: n.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{n.title}</p>
-                    <p className="text-xs text-[#94A3B8]">{n.desc}</p>
-                  </div>
-                  <span className="text-xs text-[#5E7A95] flex-shrink-0">{n.time}</span>
-                </motion.div>
-              ))}
-            </div>
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[rgba(91,184,245,0.12)] border border-[rgba(91,184,245,0.2)] flex items-center justify-center">
+                      <Bell className="w-4 h-4 text-[#5BB8F5]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{n.title}</p>
+                      {n.body && <p className="text-xs text-[#94A3B8] truncate">{n.body}</p>}
+                    </div>
+                    <span className="text-xs text-[#5E7A95] flex-shrink-0 font-mono">
+                      {timeAgoShort(n.created_at)}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </motion.section>
       </div>
@@ -705,6 +978,37 @@ export default function StructurePortal() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sezione privacy GDPR — visibile in fondo a tutto il portale.
+          Riusa lo stesso componente di /admin/settings ed /employee. */}
+      <section className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="rounded-2xl p-6 backdrop-blur-md bg-white/[0.03] border border-white/10">
+          <PrivacySettings />
+        </div>
+      </section>
+
+      <NewShiftDialog
+        open={showNewShiftDialog}
+        structureId={structure.id}
+        suggestedRoles={structure.ruoli_cercati}
+        onClose={() => setShowNewShiftDialog(false)}
+        onCreated={() => void loadMyShifts(structure.id)}
+      />
+
+      <ReviewDialog
+        open={reviewTarget !== null}
+        shiftId={reviewTarget?.shiftId ?? ''}
+        reviewerRole="structure"
+        recipientName={reviewTarget?.employeeName ?? 'Dipendente'}
+        onClose={() => setReviewTarget(null)}
+        onSubmitted={() => {
+          // Dopo invio: rimuovi la riga dalla lista in attesa.
+          if (reviewTarget) {
+            setRealPendingReviews((prev) => prev.filter((p) => p.id !== reviewTarget.shiftId))
+          }
+          setReviewTarget(null)
+        }}
+      />
     </div>
   )
 }

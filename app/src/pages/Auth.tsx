@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -44,12 +44,14 @@ import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
 import Avatar from '@/components/Avatar'
 
+import { supabase } from '@/lib/supabase'
 import GlassRoleSelector, { type UserRole } from '@/components/auth/GlassRoleSelector'
 import GlassStepIndicator from '@/components/auth/GlassStepIndicator'
 import GlassOnboardingStep from '@/components/auth/GlassOnboardingStep'
 import GlassVideoRecorder from '@/components/auth/GlassVideoRecorder'
 import GlassDocumentUploader from '@/components/auth/GlassDocumentUploader'
 import type { UploadedFile } from '@/components/auth/GlassDocumentUploader'
+import type { EmployeeExperience, EmployeeCertification } from '@/lib/database.types'
 import GlassCalendarPicker from '@/components/auth/GlassCalendarPicker'
 import type { CalendarDay } from '@/components/auth/GlassCalendarPicker'
 import GlassOTPInput from '@/components/auth/GlassOTPInput'
@@ -62,13 +64,31 @@ const easeOut = [0, 0, 0.2, 1] as [number, number, number, number]
 const easeSpring = [0.34, 1.56, 0.64, 1] as [number, number, number, number]
 const easeSmooth = [0.32, 0.72, 0, 1] as [number, number, number, number]
 
+/* ─── Validatori formato (italiani) ─── */
+// Tutti tornano `true` quando vuoto: i required vengono gestiti separatamente
+// (così questi helper restano compositivi).
+const isValidEmail = (v: string) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim())
+// P.IVA italiana: 11 cifre. Accettiamo prefisso "IT" opzionale per UX.
+const isValidPiva = (v: string) => !v || /^(IT)?\s*\d{11}$/i.test(v.trim().replace(/\s/g, ''))
+// IBAN IT: 27 caratteri (IT + 2 check + 1 CIN + 5 ABI + 5 CAB + 12 conto).
+// Accettiamo qualsiasi IBAN UE basico (IBAN inizia con 2 lettere + 2 cifre + 11-30 alfanum).
+const isValidIban = (v: string) => !v || /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i.test(v.trim().replace(/\s/g, ''))
+// Scadenza carta MM/AA o MM/AAAA, mese 01-12.
+const isValidCardExpiry = (v: string) => !v || /^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/.test(v.trim())
+// Codice fiscale italiano: 16 caratteri alfanumerici. Pattern strutturale
+// (6 lettere + 2 cifre + 1 lettera + 2 cifre + 1 lettera + 3 cifre + 1 lettera).
+// Non verifichiamo il check digit (Y/X variabili) per non bloccare CF estere
+// o casi limite — basta il formato corretto.
+const isValidCf = (v: string) => !v ||
+  /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i.test(v.trim().replace(/\s/g, ''))
+
 /* ─── Structure Tags ─── */
 const STRUCTURE_TAGS: Tag[] = [
-  { id: 'puntualita', label: 'Puntualit\u00E0' },
-  { id: 'professionalita', label: 'Professionalit\u00E0' },
+  { id: 'puntualita', label: 'Puntualità' },
+  { id: 'professionalita', label: 'Professionalità' },
   { id: 'pulizia', label: 'Pulizia personale' },
   { id: 'abbigliamento', label: 'Abbigliamento adeguato' },
-  { id: 'velocita', label: 'Velocit\u00E0' },
+  { id: 'velocita', label: 'Velocità' },
   { id: 'pressione', label: 'Lavoro sotto pressione' },
   { id: 'lingue', label: 'Lingue straniere' },
   { id: 'sorriso', label: 'Sorriso' },
@@ -76,12 +96,12 @@ const STRUCTURE_TAGS: Tag[] = [
 ]
 
 const EMPLOYEE_TAGS: Tag[] = [
-  { id: 'flessibilita', label: 'Flessibilit\u00E0 orari' },
+  { id: 'flessibilita', label: 'Flessibilità orari' },
   { id: 'paga_equa', label: 'Paga equa' },
   { id: 'ambiente', label: 'Ambiente sereno' },
   { id: 'crescita', label: 'Crescita professionale' },
   { id: 'team', label: 'Lavoro di squadra' },
-  { id: 'stabilita', label: 'Stabilit\u00E0' },
+  { id: 'stabilita', label: 'Stabilità' },
   { id: 'vicinanza', label: 'Vicinanza casa' },
   { id: 'mensa', label: 'Mensa inclusa' },
   { id: 'trasporto', label: 'Navetta/Trasporto' },
@@ -109,14 +129,18 @@ type AuthView = 'role-select' | 'login' | 'register-admin' | 'register-structure
 export default function Auth() {
   const navigate = useNavigate()
   const { addToast } = useToast()
-  const [view, setView] = useState<AuthView>('role-select')
+  const [searchParams] = useSearchParams()
+  // ?mode=login da Navbar "Accedi" → salta direttamente al form login
+  // invece di passare per la scelta ruolo (che ha senso solo per registrati nuovi).
+  const initialView: AuthView = searchParams.get('mode') === 'login' ? 'login' : 'role-select'
+  const [view, setView] = useState<AuthView>(initialView)
   const [role, setRole] = useState<UserRole | null>(null)
 
   /* Login state */
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem('ats_remembered_email') || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('ats_remembered_email'))
   const [loginError, setLoginError] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
 
@@ -132,6 +156,8 @@ export default function Auth() {
     referenteRuolo: '',
     referenteTelefono: '',
     referenteEmail: '',
+    password: '',
+    passwordConfirm: '',
     tipoStruttura: '',
     zona: '',
     descrizione: '',
@@ -169,6 +195,8 @@ export default function Auth() {
     indirizzo: '',
     telefono: '',
     email: '',
+    password: '',
+    passwordConfirm: '',
     cf: '',
     documentoFiles: [] as UploadedFile[],
     iban: '',
@@ -234,23 +262,22 @@ export default function Auth() {
   }, [triggerAutoSave])
 
   /* ─── Role selection ─── */
+  // Default: dopo aver scelto il ruolo si va al wizard di registrazione.
+  // L'utente che ha già un account passa per il link "Accedi qui" o
+  // dal Navbar (?mode=login) — entrambi bypassano questa funzione.
+  // Eccezione: gli admin non si registrano da qui, vanno sempre al login.
   const handleRoleSelect = (selectedRole: UserRole) => {
     setRole(selectedRole)
     setLoginError('')
-    setView('login')
+    if (selectedRole === 'admin') {
+      setView('login')
+      return
+    }
+    setView(selectedRole === 'structure' ? 'register-structure' : 'register-employee')
   }
 
-  const handleDemo = (demoRole: UserRole) => {
-    localStorage.setItem('ats_active_role', demoRole)
-    addToast({
-      type: 'success',
-      title: 'Modalità demo attivata',
-      message: `Navigazione come ${demoRole === 'admin' ? 'Admin' : demoRole === 'structure' ? 'Struttura' : 'Dipendente'}`,
-    })
-    if (demoRole === 'admin') navigate('/admin')
-    else if (demoRole === 'structure') navigate('/structure')
-    else navigate('/employee')
-  }
+  /* handleDemo rimosso: l'accesso "diretto senza credenziali" non è più
+     supportato. Ora si entra solo con un vero login Supabase via handleLogin. */
 
   /* ─── Login handler ─── */
   const handleLogin = async () => {
@@ -261,22 +288,132 @@ export default function Auth() {
       return
     }
     setIsLoggingIn(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setIsLoggingIn(false)
-    localStorage.setItem('ats_active_role', role || 'employee')
-    addToast({ type: 'success', title: 'Accesso effettuato', message: 'Bentornato!' })
-    if (role === 'admin') navigate('/admin')
-    else if (role === 'structure') navigate('/structure')
-    else navigate('/employee')
+    try {
+      // Login REALE su Supabase (era un setTimeout finto).
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      })
+      if (error) throw error
+
+      // Recupera il ruolo reale dal profilo (la signUp ha già scritto profiles.role).
+      const userId = data.user?.id
+      let realRole: 'admin' | 'structure' | 'employee' = role || 'employee'
+      if (userId) {
+        const { data: profile, error: profErr } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle()
+        if (!profErr && profile?.role) {
+          realRole = profile.role
+        }
+      }
+
+      // Mantiene allineato anche il "demo role" UI (RoleContext) per coerenza.
+      localStorage.setItem('ats_active_role', realRole)
+
+      // Ricorda email su questo dispositivo (solo l'email, MAI la password).
+      if (rememberMe) {
+        localStorage.setItem('ats_remembered_email', email.trim().toLowerCase())
+      } else {
+        localStorage.removeItem('ats_remembered_email')
+      }
+
+      addToast({ type: 'success', title: 'Accesso effettuato', message: 'Bentornato!' })
+      if (realRole === 'admin') navigate('/admin')
+      else if (realRole === 'structure') navigate('/structure')
+      else navigate('/employee')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login fallito'
+      setLoginError(message)
+      addToast({ type: 'error', title: 'Errore login', message })
+    } finally {
+      setIsLoggingIn(false)
+    }
   }
 
   /* ─── Structure step validation ─── */
+  // Lista leggibile di "cosa manca" per lo step corrente. Mostrata sotto il
+  // bottone Avanti quando disabilitato — l'utente sa subito cosa compilare
+  // invece di guardare il bottone grigio chiedendosi perché.
+  const getStructureMissingFields = (): string[] => {
+    const missing: string[] = []
+    switch (structStep) {
+      case 1: {
+        const pwd = structData.password as string
+        const pwdConfirm = structData.passwordConfirm as string
+        const piva = structData.piva as string
+        const email = structData.referenteEmail as string
+        if (!structData.ragioneSociale) missing.push('Ragione sociale')
+        if (!piva) missing.push('P.IVA')
+        else if (!isValidPiva(piva)) missing.push('P.IVA non valida (11 cifre)')
+        if (!structData.referenteNome) missing.push('Nome referente')
+        if (!email) missing.push('Email')
+        else if (!isValidEmail(email)) missing.push('Email non valida')
+        if (!pwd) missing.push('Password')
+        else if (pwd.length < 8) missing.push('Password troppo corta (min 8)')
+        else if (pwd !== pwdConfirm) missing.push('Le password non coincidono')
+        break
+      }
+      case 2: {
+        const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+        if (!structData.tipoStruttura) missing.push('Tipo struttura')
+        if (!structData.zona) missing.push('Zona operativa')
+        if (photos.length < 5) missing.push(`Foto ambienti (${photos.length}/5)`)
+        break
+      }
+      case 3:
+        if (!structData.videoAttestazione) missing.push('Video attestazione')
+        break
+      case 4:
+        if ((structData.ruoliCercati as string[]).length === 0) missing.push('Almeno un ruolo cercato')
+        break
+      case 5:
+        if ((structData.tagValori as string[]).length === 0) missing.push('Almeno un tag valore')
+        break
+      case 7:
+        if (structData.metodoPagamento === 'carta') {
+          if (!structData.cardNumber) missing.push('Numero carta')
+          if (!structData.cardExpiry) missing.push('Scadenza')
+          else if (!isValidCardExpiry(structData.cardExpiry as string)) missing.push('Scadenza non valida (MM/AA)')
+          if (!structData.cardCvc) missing.push('CVC')
+          if (!structData.cardHolder) missing.push('Titolare carta')
+        } else {
+          if (!structData.iban) missing.push('IBAN')
+          else if (!isValidIban(structData.iban as string)) missing.push('IBAN non valido')
+          if (!structData.sepaHolder) missing.push('Intestatario conto')
+        }
+        break
+      case 8:
+        if (!structData.accettatoContratto) missing.push('Accettazione contratto')
+        break
+    }
+    return missing
+  }
+
   const canProceedStructure = (): boolean => {
     switch (structStep) {
-      case 1:
-        return !!(structData.ragioneSociale && structData.piva && structData.referenteNome && structData.referenteEmail)
-      case 2:
-        return !!(structData.tipoStruttura && structData.zona)
+      case 1: {
+        const pwd = structData.password as string
+        const pwdConfirm = structData.passwordConfirm as string
+        const piva = structData.piva as string
+        const email = structData.referenteEmail as string
+        return !!(
+          structData.ragioneSociale &&
+          piva && isValidPiva(piva) &&
+          structData.referenteNome &&
+          email && isValidEmail(email) &&
+          pwd && pwd.length >= 8 &&
+          pwd === pwdConfirm
+        )
+      }
+      case 2: {
+        // Foto ambienti: il copy promette "almeno 5", la validazione deve
+        // riflettere il copy o l'utente passa con galleria vuota.
+        const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+        return !!(structData.tipoStruttura && structData.zona && photos.length >= 5)
+      }
       case 3:
         return !!structData.videoAttestazione
       case 4:
@@ -287,9 +424,17 @@ export default function Auth() {
         return true
       case 7:
         if (structData.metodoPagamento === 'carta') {
-          return !!(structData.cardNumber && structData.cardExpiry && structData.cardCvc && structData.cardHolder)
+          return !!(
+            structData.cardNumber &&
+            structData.cardExpiry && isValidCardExpiry(structData.cardExpiry as string) &&
+            structData.cardCvc &&
+            structData.cardHolder
+          )
         }
-        return !!(structData.iban && structData.sepaHolder)
+        return !!(
+          structData.iban && isValidIban(structData.iban as string) &&
+          structData.sepaHolder
+        )
       case 8:
         return !!structData.accettatoContratto
       default:
@@ -298,10 +443,78 @@ export default function Auth() {
   }
 
   /* ─── Employee step validation ─── */
+  // Lista leggibile dei campi mancanti per lo step lavoratore corrente.
+  // Mostrata sotto il bottone Avanti via prop missingFields di GlassOnboardingStep.
+  const getEmployeeMissingFields = (): string[] => {
+    const missing: string[] = []
+    switch (empStep) {
+      case 1: {
+        const pwd = empData.password as string
+        const pwdConfirm = empData.passwordConfirm as string
+        const email = empData.email as string
+        const cf = empData.cf as string
+        const iban = empData.iban as string
+        if (!empData.nome) missing.push('Nome')
+        if (!empData.cognome) missing.push('Cognome')
+        if (!empData.dataNascita) missing.push('Data di nascita')
+        if (!email) missing.push('Email')
+        else if (!isValidEmail(email)) missing.push('Email non valida')
+        if (!cf) missing.push('Codice fiscale')
+        else if (!isValidCf(cf)) missing.push('Codice fiscale non valido (16 caratteri)')
+        if (iban && !isValidIban(iban)) missing.push('IBAN non valido')
+        if (!pwd) missing.push('Password')
+        else if (pwd.length < 8) missing.push('Password troppo corta (min 8)')
+        else if (pwd !== pwdConfirm) missing.push('Le password non coincidono')
+        break
+      }
+      case 2: {
+        const photos = (empData.fotoProfessionale as UploadedFile[]) || []
+        if (photos.length === 0) missing.push('Foto professionale')
+        break
+      }
+      case 3:
+        if (!empData.videoAttestazione) missing.push('Video attestazione')
+        break
+      case 5:
+        if (!empData.ruoloPrincipale) missing.push('Ruolo principale')
+        if ((empData.tagValori as string[]).length === 0) missing.push('Almeno un tag valore')
+        if (!empData.zonaLavoro) missing.push('Zona di lavoro')
+        break
+      case 6: {
+        const days = (empData.calendarioGiorni as CalendarDay[]) || []
+        const avail = days.filter((d) => d.status === 'available').length
+        if (avail === 0) missing.push('Almeno un giorno di disponibilità')
+        break
+      }
+      case 7:
+        if (!empData.slotColloquio) missing.push('Slot colloquio')
+        break
+      case 8:
+        if (!empData.otpVerified) missing.push('Verifica OTP')
+        break
+    }
+    return missing
+  }
+
   const canProceedEmployee = (): boolean => {
     switch (empStep) {
-      case 1:
-        return !!(empData.nome && empData.cognome && empData.dataNascita && empData.email && empData.cf)
+      case 1: {
+        const pwd = empData.password as string
+        const pwdConfirm = empData.passwordConfirm as string
+        const email = empData.email as string
+        const cf = empData.cf as string
+        const iban = empData.iban as string  // opzionale ma se compilato deve essere valido
+        return !!(
+          empData.nome &&
+          empData.cognome &&
+          empData.dataNascita &&
+          email && isValidEmail(email) &&
+          cf && isValidCf(cf) &&
+          (!iban || isValidIban(iban)) &&
+          pwd && pwd.length >= 8 &&
+          pwd === pwdConfirm
+        )
+      }
       case 2:
         return (empData.fotoProfessionale as UploadedFile[]).length > 0
       case 3:
@@ -368,30 +581,285 @@ export default function Auth() {
   /* ─── Submit handlers ─── */
   const handleStructureSubmit = async () => {
     setIsSubmitting(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSubmitting(false)
-    addToast({ type: 'success', title: 'Candidatura inviata!', message: 'Ti contatteremo entro 48 ore per la verifica.' })
-    setTimeout(() => {
-      setView('login')
-      setStructStep(1)
-    }, 2500)
+    try {
+      // 1. Crea l'account auth con role='structure' (il trigger handle_new_user
+      //    crea automaticamente la riga in `profiles`).
+      const email = (structData.referenteEmail as string).trim().toLowerCase()
+      const password = structData.password as string
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: structData.referenteNome as string,
+            role: 'structure',
+          },
+        },
+      })
+
+      if (signUpError) throw signUpError
+      const userId = signUpData.user?.id
+      if (!userId) throw new Error('SignUp riuscito ma user.id mancante.')
+
+      // Se Supabase richiede email confirmation, signUp NON apre una sessione.
+      // Senza sessione non possiamo soddisfare la RLS `auth.uid() = user_id`,
+      // quindi non possiamo proseguire con insert/upload qui.
+      if (!signUpData.session) {
+        addToast({
+          type: 'info',
+          title: 'Conferma la tua email',
+          message: `Ti abbiamo inviato un link a ${email}. Confermala e poi accedi per completare l'invio.`,
+        })
+        setView('login')
+        return
+      }
+
+      // 2. Upload video di attestazione (Blob → Storage).
+      let videoPath: string | null = null
+      const videoBlob = structData.videoAttestazione as Blob | null
+      if (videoBlob) {
+        const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm'
+        videoPath = `${userId}/video-attestazione/${crypto.randomUUID()}.${ext}`
+        const { error: videoErr } = await supabase.storage
+          .from('structure-media')
+          .upload(videoPath, videoBlob, {
+            contentType: videoBlob.type || 'video/webm',
+            upsert: false,
+          })
+        if (videoErr) throw videoErr
+      }
+
+      // 3. INSERT della struttura (status = 'pending_review' di default).
+      const { data: structureRow, error: insertErr } = await supabase
+        .from('structures')
+        .insert({
+          user_id: userId,
+          ragione_sociale: structData.ragioneSociale as string,
+          piva: structData.piva as string,
+          codice_fiscale: (structData.cf as string) || null,
+          sede_legale: (structData.sedeLegale as string) || null,
+          sede_operativa: (structData.sedeOperativa as string) || null,
+          referente_nome: (structData.referenteNome as string) || null,
+          referente_ruolo: (structData.referenteRuolo as string) || null,
+          referente_telefono: (structData.referenteTelefono as string) || null,
+          referente_email: email,
+          tipo_struttura: (structData.tipoStruttura as string) || null,
+          zona: (structData.zona as string) || null,
+          descrizione: (structData.descrizione as string) || null,
+          ruoli_cercati: structData.ruoliCercati as string[],
+          fasce_orarie: structData.fasceOrarie as Record<string, string>,
+          persone_per_turno: structData.personePerTurno
+            ? Number(structData.personePerTurno)
+            : null,
+          servizi_aggiuntivi: structData.serviziAggiuntivi as string[],
+          tag_valori: structData.tagValori as string[],
+          eventi_settimana: structData.eventiSettimana
+            ? Number(structData.eventiSettimana)
+            : null,
+          dipendenti_interni: structData.dipendentiInterni
+            ? Number(structData.dipendentiInterni)
+            : null,
+          esperienze_esterne: (structData.esperienzeEsterne as string) || null,
+          fatturato: (structData.fatturato as string) || null,
+          ore_esterno_mensili: structData.oreEsternoMensili
+            ? Number(structData.oreEsternoMensili)
+            : null,
+          metodo_pagamento: structData.metodoPagamento as 'carta' | 'sepa',
+          video_attestazione_path: videoPath,
+          accettato_contratto: !!structData.accettatoContratto,
+          accettato_contratto_at: structData.accettatoContratto ? new Date().toISOString() : null,
+        })
+        .select('id')
+        .single()
+
+      if (insertErr) throw insertErr
+
+      // 4. Upload foto ambienti + insert in structure_photos.
+      const photos = (structData.fotoAmbienti as UploadedFile[]) || []
+      for (let i = 0; i < photos.length; i++) {
+        const p = photos[i]
+        if (!p.file) continue
+        const ext = p.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/photos/${crypto.randomUUID()}.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('structure-media')
+          .upload(path, p.file, { contentType: p.file.type, upsert: false })
+        if (upErr) throw upErr
+
+        const { error: photoErr } = await supabase
+          .from('structure_photos')
+          .insert({ structure_id: structureRow.id, storage_path: path, sort_order: i })
+        if (photoErr) throw photoErr
+      }
+
+      // 5. Pulizia bozza locale + redirect.
+      localStorage.removeItem('ats_draft_structure')
+      addToast({
+        type: 'success',
+        title: 'Candidatura inviata!',
+        message: 'Ti contatteremo entro 48 ore per la verifica.',
+      })
+      setTimeout(() => {
+        setView('login')
+        setStructStep(1)
+      }, 1800)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      console.error('[register-structure] submit error', err)
+      addToast({ type: 'error', title: 'Errore durante l\u2019invio', message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleEmployeeSubmit = async () => {
     setIsSubmitting(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSubmitting(false)
-    addToast({ type: 'success', title: 'Benvenuto nel network ATS!', message: "Scarica l'app e inizia a ricevere turni." })
-    setTimeout(() => {
-      setView('login')
-      setEmpStep(1)
-    }, 2500)
+    try {
+      const email = (empData.email as string).trim().toLowerCase()
+      const password = empData.password as string
+      const fullName = `${(empData.nome as string).trim()} ${(empData.cognome as string).trim()}`.trim()
+
+      // 1) signUp Supabase con role='employee'.
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName, role: 'employee' },
+        },
+      })
+      if (signUpError) throw signUpError
+      const userId = signUpData.user?.id
+      if (!userId) throw new Error('SignUp riuscito ma user.id mancante.')
+
+      if (!signUpData.session) {
+        addToast({
+          type: 'info',
+          title: 'Conferma la tua email',
+          message: `Ti abbiamo inviato un link a ${email}. Confermala e poi accedi per completare l'invio.`,
+        })
+        setView('login')
+        return
+      }
+
+      // 2) Upload video di attestazione (se presente).
+      let videoPath: string | null = null
+      const videoBlob = empData.videoAttestazione as Blob | null
+      if (videoBlob) {
+        const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm'
+        videoPath = `${userId}/${crypto.randomUUID()}-attestation.${ext}`
+        const { error: vErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(videoPath, videoBlob, {
+            contentType: videoBlob.type || 'video/webm',
+            upsert: false,
+          })
+        if (vErr) throw vErr
+      }
+
+      // 3) Aggiorna profile con phone (full_name è già settato dal trigger).
+      const phone = (empData.telefono as string).trim()
+      if (phone) {
+        const { error: pErr } = await supabase
+          .from('profiles')
+          .update({ phone })
+          .eq('id', userId)
+        if (pErr) console.warn('[register-employee] profile phone update warn', pErr)
+      }
+
+      // 4) INSERT employees: anagrafica + preferenze + esperienze + certificazioni.
+      const skills: string[] = [
+        empData.ruoloPrincipale as string,
+        ...(empData.ruoliSecondari as string[]),
+      ].filter(Boolean)
+
+      const { error: eErr } = await supabase.from('employees').insert({
+        id: userId,
+        cf: (empData.cf as string).trim() || null,
+        iban: (empData.iban as string).trim() || null,
+        birth_date: (empData.dataNascita as string) || null,
+        home_address: (empData.indirizzo as string) || null,
+        skills,
+        video_attestation_path: videoPath,
+        experiences: (empData.esperienze as EmployeeExperience[]) || [],
+        certifications: (empData.certificazioni as EmployeeCertification[]) || [],
+        preferred_zone: (empData.zonaLavoro as string) || null,
+        min_hourly_rate: empData.pagaMinima ? Number(empData.pagaMinima) : null,
+        tag_valori: (empData.tagValori as string[]) || [],
+        navetta_driver: !!empData.navettaDriver,
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      if (eErr) throw eErr
+
+      // 5) Upload documenti d'identità (1+ files), insert in `documents`.
+      const docFiles = (empData.documentoFiles as UploadedFile[]) || []
+      for (const d of docFiles) {
+        if (!d.file) continue
+        const ext = d.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/${crypto.randomUUID()}-id_card.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(path, d.file, { contentType: d.file.type, upsert: false })
+        if (upErr) throw upErr
+        const { error: docErr } = await supabase.from('documents').insert({
+          employee_id: userId,
+          type: 'id_card',
+          file_path: path,
+          file_name: d.file.name,
+          mime_type: d.file.type,
+          size_bytes: d.file.size,
+          uploaded_by: userId,
+        })
+        if (docErr) throw docErr
+      }
+
+      // 6) Foto professionali → caricate come documenti type='other'; la prima
+      //    diventa avatar_url del profilo (signed URL del bucket).
+      const photoFiles = (empData.fotoProfessionale as UploadedFile[]) || []
+      for (let i = 0; i < photoFiles.length; i++) {
+        const p = photoFiles[i]
+        if (!p.file) continue
+        const ext = p.file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${userId}/${crypto.randomUUID()}-photo.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('employee-docs')
+          .upload(path, p.file, { contentType: p.file.type, upsert: false })
+        if (upErr) throw upErr
+        const { error: docErr } = await supabase.from('documents').insert({
+          employee_id: userId,
+          type: 'other',
+          file_path: path,
+          file_name: p.file.name,
+          mime_type: p.file.type,
+          size_bytes: p.file.size,
+          uploaded_by: userId,
+        })
+        if (docErr) throw docErr
+      }
+
+      // 7) Pulizia bozza locale + redirect.
+      localStorage.removeItem('ats_draft_employee')
+      addToast({
+        type: 'success',
+        title: 'Benvenuto nel network ATS!',
+        message: 'Profilo creato. Accedi per iniziare a ricevere turni.',
+      })
+      setTimeout(() => {
+        setView('login')
+        setEmpStep(1)
+      }, 1800)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto'
+      console.error('[register-employee] submit error', err)
+      addToast({ type: 'error', title: 'Errore durante l’invio', message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   /* ─── Step labels ─── */
   const structureSteps = [
     'Dati aziendali',
-    'Identit\u00E0 struttura',
+    'Identità struttura',
     'Video attestazione',
     'Esigenze operative',
     'Tag valori',
@@ -427,10 +895,10 @@ export default function Auth() {
 
   /* ─── Interview slots ─── */
   const interviewSlots = [
-    { day: 'Luned\u00EC 16', slots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'] },
-    { day: 'Marted\u00EC 17', slots: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
-    { day: 'Mercoled\u00EC 18', slots: ['10:00', '11:00', '14:00', '16:00'] },
-    { day: 'Gioved\u00EC 19', slots: ['09:00', '11:00', '14:00', '15:00'] },
+    { day: 'Lunedì 16', slots: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'] },
+    { day: 'Martedì 17', slots: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
+    { day: 'Mercoledì 18', slots: ['10:00', '11:00', '14:00', '16:00'] },
+    { day: 'Giovedì 19', slots: ['09:00', '11:00', '14:00', '15:00'] },
   ]
 
   /* ─── Glass Input wrapper ─── */
@@ -502,6 +970,21 @@ export default function Auth() {
                 } else if (view === 'register-employee' && empStep > 1) {
                   setEmpStep((s) => s - 1)
                 } else {
+                  // Stiamo per uscire dal wizard. Se l'utente ha compilato
+                  // dei campi, chiedi conferma — il wizard non persiste e
+                  // perdere 11 campi compilati per errore è frustrante.
+                  const hasStructDraft =
+                    view === 'register-structure' &&
+                    !!(structData.ragioneSociale || structData.piva || structData.referenteEmail)
+                  const hasEmpDraft =
+                    view === 'register-employee' &&
+                    !!(empData.nome || empData.cognome || empData.email)
+                  if (hasStructDraft || hasEmpDraft) {
+                    const ok = window.confirm(
+                      'Sei sicuro di voler tornare indietro? I dati compilati andranno persi.',
+                    )
+                    if (!ok) return
+                  }
                   setView('role-select')
                   setRole(null)
                   setLoginError('')
@@ -551,35 +1034,70 @@ export default function Auth() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-                  className="text-[40px] sm:text-[48px] font-playfair font-bold text-text-primary mb-2 text-center"
+                  className="text-[28px] sm:text-[36px] font-playfair font-bold text-text-primary mb-3 text-center"
                   style={{ textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
                 >
-                  Accedi ad ATS
+                  Iniziamo. Da che parte sei?
                 </motion.h1>
 
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.15, ease: easeOut }}
-                  className="text-base text-text-secondary mb-12 text-center"
+                  className="text-base text-text-secondary mb-3 text-center max-w-[460px] mx-auto"
                 >
-                  Seleziona il tuo profilo per continuare
+                  Scegli il tuo profilo: ti porteremo subito a un onboarding rapido,
+                  poi il nostro team verifica i dati e ti attiva entro 48h.
                 </motion.p>
 
-                <GlassRoleSelector selectedRole={role} onSelect={handleRoleSelect} onDemo={handleDemo} />
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 0.2, ease: easeOut }}
+                  className="flex items-center justify-center gap-2 mb-10 text-[11px] text-text-muted"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-success animate-status-pulse" />
+                  Già attivi a Benevento e provincia
+                  <span className="mx-1.5 opacity-50">·</span>
+                  Risposta entro 48h lavorative
+                </motion.div>
+
+                <GlassRoleSelector selectedRole={role} onSelect={handleRoleSelect} />
 
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.6, duration: 0.4 }}
-                  className="mt-12"
+                  className="mt-12 flex flex-col items-center gap-6"
                 >
+                  <p className="text-xs text-text-muted text-center max-w-[380px]">
+                    Hai già un account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setView('login')}
+                      className="text-sky-primary hover:underline font-medium"
+                    >
+                      Accedi qui
+                    </button>
+                  </p>
+
                   <Link
                     to="/"
-                    className="text-sm text-sky-primary hover:text-sky-blue transition-colors"
+                    className="text-sm text-text-muted hover:text-sky-primary transition-colors"
                   >
-                    Torna alla home
+                    ← Torna alla home
                   </Link>
+
+                  {/* Footer discreto: accesso amministrativo riservato. */}
+                  <div className="pt-6 border-t border-[rgba(255,255,255,0.04)] w-full max-w-[400px] text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setRole('admin'); setView('login') }}
+                      className="text-[11px] text-text-muted hover:text-sky-primary transition-colors uppercase tracking-wider font-medium"
+                    >
+                      Accedi come amministratore →
+                    </button>
+                  </div>
                 </motion.div>
               </motion.div>
             )}
@@ -600,22 +1118,102 @@ export default function Auth() {
                   Bentornato
                 </h1>
                 <p className="text-base text-text-secondary mb-8">
-                  Accedi direttamente senza credenziali
+                  Inserisci email e password per accedere
                 </p>
 
-                <div className="w-full space-y-4">
-                  {/* Accesso diretto */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (!isLoggingIn) handleLogin()
+                  }}
+                  className="w-full space-y-4"
+                >
+                  {/* Email */}
+                  <div className="space-y-1.5 text-left">
+                    <Label htmlFor="login-email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-sky-primary" />
+                      Email
+                    </Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder={
+                        role === 'structure'
+                          ? 'es. info@miastruttura.it'
+                          : role === 'admin'
+                          ? 'es. admin@ats.it'
+                          : 'es. mario.rossi@gmail.com'
+                      }
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1.5 text-left">
+                    <Label htmlFor="login-password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-sky-primary" />
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="login-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        placeholder="La tua password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-text-muted hover:text-white"
+                        aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Ricorda email */}
+                  <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
+                    <Checkbox
+                      checked={rememberMe}
+                      onCheckedChange={(v) => setRememberMe(v === true)}
+                    />
+                    Ricorda la mia email su questo dispositivo
+                  </label>
+
+                  {/* Errore */}
+                  {loginError && (
+                    <p className="text-sm text-error text-left">{loginError}</p>
+                  )}
+
+                  {/* Pulsante Accedi */}
                   <motion.button
-                    whileHover={{ scale: 1.02, boxShadow: '0 8px 24px rgba(91,184,245,0.25)' }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => role && handleDemo(role)}
-                    className="w-full py-3.5 text-sm font-semibold text-text-inverse rounded-xl transition-all duration-200 flex items-center justify-center gap-2 backdrop-blur-md gradient-sky hover:brightness-110"
+                    type="submit"
+                    disabled={isLoggingIn}
+                    whileHover={!isLoggingIn ? { scale: 1.02, boxShadow: '0 8px 24px rgba(91,184,245,0.25)' } : {}}
+                    whileTap={!isLoggingIn ? { scale: 0.98 } : {}}
+                    className="w-full py-3.5 text-sm font-semibold text-text-inverse rounded-xl transition-all duration-200 flex items-center justify-center gap-2 backdrop-blur-md gradient-sky hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Check className="w-4 h-4" />
-                    Entra come {role === 'admin' ? 'Admin' : role === 'structure' ? 'Struttura' : 'Dipendente'}
+                    {isLoggingIn ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-text-inverse border-t-transparent rounded-full animate-spin" />
+                        Accesso in corso…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Accedi
+                      </>
+                    )}
                   </motion.button>
 
-                  {/* Links */}
+                  {/* Links sotto */}
                   <div className="text-center space-y-3 pt-2">
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
@@ -628,6 +1226,7 @@ export default function Auth() {
 
                     {role === 'admin' ? (
                       <button
+                        type="button"
                         onClick={() => setView('register-admin')}
                         className="text-sm text-sky-primary hover:text-sky-blue transition-colors"
                       >
@@ -637,6 +1236,7 @@ export default function Auth() {
                       <p className="text-sm text-text-secondary">
                         Non hai un account?{' '}
                         <button
+                          type="button"
                           onClick={() =>
                             setView(role === 'structure' ? 'register-structure' : 'register-employee')
                           }
@@ -647,7 +1247,7 @@ export default function Auth() {
                       </p>
                     )}
                   </div>
-                </div>
+                </form>
               </motion.div>
             )}
 
@@ -723,13 +1323,14 @@ export default function Auth() {
                         isFirst={true}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Dati Aziendali</h2>
                         <p className="text-sm text-text-muted mb-6">Inserisci le informazioni della tua azienda</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="sm:col-span-2 space-y-1.5">
-                            <Label>Ragione Sociale</Label>
+                            <Label>Ragione Sociale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Ristorante Bella Vita S.r.l."
                               value={structData.ragioneSociale as string}
@@ -738,7 +1339,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>P.IVA</Label>
+                            <Label>P.IVA <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="12345678901"
                               maxLength={11}
@@ -778,7 +1379,7 @@ export default function Auth() {
                             <p className="text-sm font-medium text-sky-primary mb-3">Referente Principale</p>
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Nome e Cognome</Label>
+                            <Label>Nome e Cognome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Mario Rossi"
                               value={structData.referenteNome as string}
@@ -805,7 +1406,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Email Aziendale</Label>
+                            <Label>Email Aziendale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="email"
                               placeholder="info@ristorante.it"
@@ -813,6 +1414,39 @@ export default function Auth() {
                               onChange={(e) => updateStruct('referenteEmail', e.target.value)}
                               className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
                             />
+                            <p className="text-xs text-text-muted">
+                              Sarà l'email di accesso al portale.
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2 border-t border-[rgba(255,255,255,0.06)] pt-4 mt-2">
+                            <p className="text-sm font-medium text-sky-primary mb-3 flex items-center gap-2">
+                              <Lock className="w-4 h-4" />
+                              Credenziali di accesso
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Password <span className="text-[#F04545]">*</span></Label>
+                            <Input
+                              type="password"
+                              placeholder="Almeno 8 caratteri"
+                              value={structData.password as string}
+                              onChange={(e) => updateStruct('password', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Conferma password <span className="text-[#F04545]">*</span></Label>
+                            <Input
+                              type="password"
+                              placeholder="Ripeti la password"
+                              value={structData.passwordConfirm as string}
+                              onChange={(e) => updateStruct('passwordConfirm', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                            {(structData.passwordConfirm as string) &&
+                              structData.password !== structData.passwordConfirm && (
+                                <p className="text-xs text-error">Le password non coincidono</p>
+                              )}
                           </div>
                         </div>
                       </GlassOnboardingStep>
@@ -827,6 +1461,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Identit&agrave; della Struttura</h2>
                         <p className="text-sm text-text-muted mb-6">Descrivi il tuo tipo di attivit&agrave;</p>
@@ -915,6 +1550,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Video di Attestazione</h2>
                         <p className="text-sm text-text-muted mb-6">Registra un breve video per verificare la tua identit&agrave;</p>
@@ -935,6 +1571,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Esigenze Operative</h2>
                         <p className="text-sm text-text-muted mb-6">Indica quali figure cerchi e i tuoi fabbisogni</p>
@@ -979,7 +1616,7 @@ export default function Auth() {
                               <Clock className="w-4 h-4 text-sky-primary" />
                               Fasce Orarie Tipiche
                             </Label>
-                            {['Luned\u00EC', 'Marted\u00EC', 'Mercoled\u00EC', 'Gioved\u00EC', 'Venerd\u00EC', 'Sabato', 'Domenica'].map(
+                            {['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'].map(
                               (day) => (
                                 <div key={day} className="flex items-center gap-3">
                                   <span className="text-sm text-text-secondary w-28">{day}</span>
@@ -1065,6 +1702,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Tag di Valori Richiesti</h2>
                         <p className="text-sm text-text-muted mb-6">Seleziona le qualit&agrave; che cerchi nei tuoi collaboratori</p>
@@ -1086,6 +1724,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Domande di Qualificazione</h2>
                         <p className="text-sm text-text-muted mb-6">Aiutaci a capire meglio le tue esigenze</p>
@@ -1170,6 +1809,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedStructure()}
+                        missingFields={getStructureMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Metodo di Pagamento</h2>
                         <p className="text-sm text-text-muted mb-6">Configura il metodo di pagamento per i servizi</p>
@@ -1386,13 +2026,14 @@ export default function Auth() {
                         isFirst={true}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Dati Personali</h2>
                         <p className="text-sm text-text-muted mb-6">Inserisci i tuoi dati anagrafici</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <Label>Nome</Label>
+                            <Label>Nome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Marco"
                               value={empData.nome as string}
@@ -1401,7 +2042,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Cognome</Label>
+                            <Label>Cognome <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="Bianchi"
                               value={empData.cognome as string}
@@ -1410,7 +2051,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Data di Nascita</Label>
+                            <Label>Data di Nascita <span className="text-[#F04545]">*</span></Label>
                             <Input
                               type="date"
                               value={empData.dataNascita as string}
@@ -1419,7 +2060,7 @@ export default function Auth() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label>Codice Fiscale</Label>
+                            <Label>Codice Fiscale <span className="text-[#F04545]">*</span></Label>
                             <Input
                               placeholder="BNCMRC85A01H501Z"
                               value={empData.cf as string}
@@ -1455,7 +2096,7 @@ export default function Auth() {
                           <div className="space-y-1.5">
                             <Label className="flex items-center gap-2">
                               <Mail className="w-4 h-4 text-sky-primary" />
-                              Email
+                              Email <span className="text-[#F04545]">*</span>
                             </Label>
                             <Input
                               type="email"
@@ -1464,6 +2105,37 @@ export default function Auth() {
                               onChange={(e) => updateEmp('email', e.target.value)}
                               className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
                             />
+                            <p className="text-xs text-text-muted">Sarà la tua email di accesso.</p>
+                          </div>
+                          <div className="sm:col-span-2 border-t border-[rgba(255,255,255,0.06)] pt-4 mt-2">
+                            <p className="text-sm font-medium text-sky-primary mb-3 flex items-center gap-2">
+                              <Lock className="w-4 h-4" />
+                              Credenziali di accesso
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Password <span className="text-[#F04545]">*</span></Label>
+                            <Input
+                              type="password"
+                              placeholder="Almeno 8 caratteri"
+                              value={empData.password as string}
+                              onChange={(e) => updateEmp('password', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Conferma password <span className="text-[#F04545]">*</span></Label>
+                            <Input
+                              type="password"
+                              placeholder="Ripeti la password"
+                              value={empData.passwordConfirm as string}
+                              onChange={(e) => updateEmp('passwordConfirm', e.target.value)}
+                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
+                            />
+                            {(empData.passwordConfirm as string) &&
+                              empData.password !== empData.passwordConfirm && (
+                                <p className="text-xs text-error">Le password non coincidono</p>
+                              )}
                           </div>
                           <div className="sm:col-span-2 space-y-1.5">
                             <Label className="flex items-center gap-2">
@@ -1499,6 +2171,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Foto Professionale</h2>
                         <p className="text-sm text-text-muted mb-6">Carica una foto in contesto lavorativo</p>
@@ -1543,6 +2216,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Video di Attestazione</h2>
                         <p className="text-sm text-text-muted mb-6">Registra un breve video per il contratto</p>
@@ -1563,6 +2237,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Storico Lavorativo</h2>
                         <p className="text-sm text-text-muted mb-6">Aggiungi le tue esperienze e certificazioni</p>
@@ -1771,6 +2446,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Preferenze e Disponibilit&agrave;</h2>
                         <p className="text-sm text-text-muted mb-6">Configura le tue preferenze di lavoro</p>
@@ -1942,6 +2618,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Calendario Disponibilit&agrave;</h2>
                         <p className="text-sm text-text-muted mb-6">
@@ -1968,6 +2645,7 @@ export default function Auth() {
                         isFirst={false}
                         isLast={false}
                         canProceed={canProceedEmployee()}
+                        missingFields={getEmployeeMissingFields()}
                       >
                         <h2 className="text-xl font-semibold text-text-primary mb-1">Colloquio Video</h2>
                         <p className="text-sm text-text-muted mb-6">Prenota il tuo colloquio di benvenuto</p>

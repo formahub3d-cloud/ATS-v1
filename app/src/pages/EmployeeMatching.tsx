@@ -1,358 +1,510 @@
-import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, Search, Star, Heart, X, MapPin, Sliders } from 'lucide-react';
-import GlassSwipeCard, { type SwipeCardData } from '@/components/employee/GlassSwipeCard';
-import GlassBottomNav from '@/components/employee/GlassBottomNav';
-import { useToast } from '@/components/ui/ToastSystem';
-import { cn } from '@/lib/utils';
+// EmployeeMatching — feed turni open compatibili per il dipendente.
+// Versione collegata a Supabase: legge da `public.shifts` con status='open',
+// esclude quelli su cui ho già fatto azione (like/skip) e mostra metadata
+// della struttura. Like = entry in shift_likes, struttura vede il candidato.
 
-// ---- Confetti ----
-import confetti from 'canvas-confetti';
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import {
+  Heart, X, MapPin, Clock, Calendar, Building2, Briefcase,
+  AlertCircle, Sparkles, RefreshCw, SlidersHorizontal, RotateCcw, Euro,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import GlassBottomNav from '@/components/employee/GlassBottomNav'
+import StatusScreen from '@/components/structure/StatusScreen'
+import { useToast } from '@/components/ui/ToastSystem'
+import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/ui/EmptyState'
+import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
+import { useAuth } from '@/context/AuthContext'
+import type { Database } from '@/lib/database.types'
 
-function launchConfetti() {
-  const defaults = {
-    origin: { y: 0.7 },
-    zIndex: 500,
-  };
-  confetti({
-    ...defaults,
-    particleCount: 40,
-    spread: 60,
-    startVelocity: 60,
-    colors: ['#5BB8F5', '#3AA3E8', '#1EC99A', '#F5B800'],
-  });
-  setTimeout(() => {
-    confetti({
-      ...defaults,
-      particleCount: 25,
-      spread: 40,
-      startVelocity: 50,
-      colors: ['#5BB8F5', '#1EC99A'],
-    });
-  }, 150);
+type ShiftRow = Database['public']['Tables']['shifts']['Row']
+type StructureRow = Database['public']['Tables']['structures']['Row']
+
+interface ShiftWithStructure extends ShiftRow {
+  structure?: Pick<StructureRow, 'ragione_sociale' | 'tipo_struttura' | 'zona'>
 }
 
-// ---- Mock Data with structure photos ----
-const rawCards: SwipeCardData[] = [
-  {
-    id: '1', code: 'RIST-BN-0047', type: 'Ristorante', zone: 'Centro', role: 'Cameriere',
-    schedule: 'Mar-Ven 18:00-23:30', pay: '€12,00/h', matchScore: 95,
-    requirements: ['Attestato HACCP', 'Esperienza ristorazione'],
-    tags: ['Paga veloce', 'Team giovane'], hasNavetta: true, photo: '/structure-1.jpg',
-  },
-  {
-    id: '2', code: 'HOTEL-BN-0003', type: 'Hotel 4*', zone: 'Centro', role: 'Receptionist',
-    schedule: 'Sab-Dom 08:00-16:00', pay: '€12,50/h', matchScore: 88,
-    requirements: ['Inglese B2', 'Esperienza alberghiera'],
-    tags: ['Lavoro continuativo', 'Inserimento rapido'], hasNavetta: false, photo: '/structure-2.jpg',
-  },
-  {
-    id: '3', code: 'BAR-BN-0011', type: 'Bar', zone: 'Periferia', role: 'Barista',
-    schedule: 'Ven-Sab 22:00-04:00', pay: '€14,00/h', matchScore: 75,
-    requirements: ['Latte art', 'Resistenza ritmi notturni'],
-    tags: ['Notturno', 'Mance elevate'], hasNavetta: true, photo: '/structure-3.jpg',
-  },
-  {
-    id: '4', code: 'EVEN-BN-0020', type: 'Location Eventi', zone: 'Eventi', role: 'Event Staff',
-    schedule: 'Dom 14:00-22:00', pay: '€15,00/h', matchScore: 82,
-    requirements: ['Resistenza ritmi intensi', 'Vestito nero'],
-    tags: ['Paga elevata', 'Occasionale'], hasNavetta: false, photo: '/structure-4.jpg',
-  },
-  {
-    id: '5', code: 'SPAS-BN-0008', type: 'SPA & Wellness', zone: 'Resort', role: 'SPA Staff',
-    schedule: 'Mer-Ven 10:00-18:00', pay: '€11,50/h', matchScore: 70,
-    requirements: ['Attestato massaggio'],
-    tags: ['Ambiente rilassante', 'Sconti benessere'], hasNavetta: true, photo: '/structure-5.jpg',
-  },
-  {
-    id: '6', code: 'CLOC-BN-0013', type: 'Circolo Sportivo', zone: 'Periferia', role: 'Aiuto Cucina',
-    schedule: 'Mar-Sab 17:00-23:00', pay: '€10,50/h', matchScore: 65,
-    requirements: ['Velocità e resistenza'],
-    tags: ['Cucina a vista', 'Sportivo'], hasNavetta: false, photo: '/structure-6.jpg',
-  },
-  {
-    id: '7', code: 'BOUT-BN-0025', type: 'Boutique Hotel', zone: 'Centro Storico', role: 'Concierge',
-    schedule: 'Lun-Ven 15:00-23:00', pay: '€13,00/h', matchScore: 90,
-    requirements: ['Inglese fluente', 'Conoscenza città'],
-    tags: ['Lusso', 'Propina elevata'], hasNavetta: true, photo: '/structure-7.jpg',
-  },
-  {
-    id: '8', code: 'RIST-BN-0052', type: 'Trattoria', zone: 'Industriale', role: 'Aiuto Sala',
-    schedule: 'Lun-Sab 11:30-15:00', pay: '€9,50/h', matchScore: 60,
-    requirements: ['Disponibilità immediata'],
-    tags: ['Orario pranzo', 'Fuori orario'], hasNavetta: false, photo: '/structure-8.jpg',
-  },
-];
+const MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
-// ---- Match success overlay ----
-function MatchOverlay({ onClose }: { onClose: () => void }) {
-  return (
-    <motion.div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-[rgba(6,16,30,0.9)]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="text-center"
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.15, duration: 0.4, ease: [0.34, 1.56, 0.64, 1] as [number, number, number, number] }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <motion.div
-          className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #1EC99A 0%, #5BB8F5 100%)',
-            boxShadow: '0 0 40px rgba(30,201,154,0.4)',
-          }}
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 0.6 }}
-        >
-          <Heart className="w-10 h-10 text-white fill-white" />
-        </motion.div>
-        <h2
-          className="text-3xl font-bold text-white mb-2"
-          style={{ fontFamily: 'Playfair Display, Georgia, serif' }}
-        >
-          È un match!
-        </h2>
-        <p className="text-sm text-[#94A3B8] mb-1">
-          La struttura ti ricontatterà
-        </p>
-        <p className="text-sm text-[#94A3B8] mb-6">
-          per confermare il turno.
-        </p>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={onClose}
-          className={cn(
-            'px-8 h-12 text-sm font-medium text-[#06101E] rounded-xl',
-            'gradient-sky hover:brightness-110 shadow-[0_0_20px_rgba(91,184,245,0.3)]'
-          )}
-        >
-          Continua a esplorare
-        </motion.button>
-      </motion.div>
-    </motion.div>
-  );
+type PeriodFilter = 'all' | 'today' | 'week' | 'month'
+const PERIOD_LABEL: Record<PeriodFilter, string> = {
+  all: 'Tutti', today: 'Oggi', week: '7 giorni', month: '30 giorni',
+}
+const FILTERS_STORAGE_KEY = 'ats_emp_matching_filters'
+
+interface FilterState {
+  period: PeriodFilter
+  zone: string | null
+  minRate: number  // 0 = nessun minimo
+}
+
+const DEFAULT_FILTERS: FilterState = { period: 'all', zone: null, minRate: 0 }
+
+function loadStoredFilters(): FilterState {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) return DEFAULT_FILTERS
+    const parsed = JSON.parse(raw) as Partial<FilterState>
+    return {
+      period: parsed.period ?? DEFAULT_FILTERS.period,
+      zone: parsed.zone ?? null,
+      minRate: typeof parsed.minRate === 'number' ? parsed.minRate : 0,
+    }
+  } catch { return DEFAULT_FILTERS }
 }
 
 export default function EmployeeMatching() {
-  const { addToast } = useToast();
-  const [cards, setCards] = useState<SwipeCardData[]>(rawCards);
-  const [matchedIds, setMatchedIds] = useState<string[]>([]);
-  const [passedIds, setPassedIds] = useState<string[]>([]);
-  const [showMatch, setShowMatch] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  usePageTitle('Scopri turni')
+  const navigate = useNavigate()
+  const { addToast } = useToast()
+  const { user, status: authStatus } = useAuth()
+  const [feed, setFeed] = useState<ShiftWithStructure[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
+  // Filtri client-side. Volume turni nel feed è basso (max ~50), filtrare
+  // dopo fetch è la scelta più semplice. Persist in localStorage per non
+  // costringere il dipendente a re-impostare ogni volta.
+  const [filters, setFilters] = useState<FilterState>(() => loadStoredFilters())
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  useEffect(() => {
+    try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters)) } catch { /* ignore */ }
+  }, [filters])
 
-  const handlePass = useCallback((id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
-    setPassedIds((prev) => [...prev, id]);
-    addToast({ type: 'info', title: 'Turno saltato', message: 'Non ti proporranno più questa offerta.' });
-  }, [addToast]);
+  const load = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    setFetchError(null)
+    try {
+      // Tutti i turni open (RLS già filtra: employee vede solo open o suoi
+      // assigned). Filtriamo per data >= oggi. Il join structure è client-side.
+      const today = new Date().toISOString().slice(0, 10)
+      const [{ data: rawShifts, error: sErr }, { data: myLikes, error: lErr }, { data: structs, error: stErr }] =
+        await Promise.all([
+          supabase
+            .from('shifts')
+            .select('*')
+            .eq('status', 'open')
+            .gte('shift_date', today)
+            .order('shift_date', { ascending: true }),
+          supabase
+            .from('shift_likes')
+            .select('shift_id')
+            .eq('employee_id', user.id),
+          supabase
+            .from('structures')
+            .select('id, ragione_sociale, tipo_struttura, zona'),
+        ])
+      if (sErr) throw sErr
+      if (lErr) throw lErr
+      if (stErr) throw stErr
 
-  const handleLike = useCallback((id: string) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
-    setMatchedIds((prev) => [...prev, id]);
-    launchConfetti();
-    setShowMatch(true);
-    addToast({ type: 'success', title: 'Interesse inviato', message: 'La struttura ti ricontatterà presto.' });
-  }, [addToast]);
+      const skipIds = new Set((myLikes ?? []).map((l) => l.shift_id))
+      const structById = new Map((structs ?? []).map((s) => [s.id, s]))
 
-  const handleRewind = () => {
-    if (passedIds.length > 0) {
-      const lastId = passedIds[passedIds.length - 1];
-      const card = rawCards.find((c) => c.id === lastId);
-      if (card) {
-        setCards((prev) => [card, ...prev]);
-        setPassedIds((prev) => prev.slice(0, -1));
-        addToast({ type: 'info', title: 'Ripristinato', message: 'Il turno è tornato in coda.' });
-      }
+      const visible = (rawShifts ?? [])
+        .filter((s) => !skipIds.has(s.id))
+        .map((s) => ({ ...s, structure: structById.get(s.structure_id) }))
+
+      setFeed(visible)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore caricamento turni'
+      console.error('[EmployeeMatching] fetch error', err)
+      setFetchError(message)
+    } finally {
+      setLoading(false)
     }
-  };
+  }, [user])
 
-  const topCard = cards[0] || null;
-  const total = rawCards.length;
-  const matchedCount = matchedIds.length;
-  const passedCount = passedIds.length;
+  useEffect(() => {
+    if (authStatus === 'loading') return
+    if (authStatus === 'anonymous' || !user) {
+      navigate('/auth')
+      return
+    }
+    void load()
+  }, [authStatus, user, load, navigate])
+
+  const handleAction = async (shift: ShiftRow, action: 'like' | 'skip') => {
+    if (!user) return
+    setPendingAction(shift.id)
+    try {
+      const { error } = await supabase.from('shift_likes').insert({
+        shift_id: shift.id,
+        employee_id: user.id,
+        action,
+      })
+      if (error) throw error
+      // Ottimistic: rimuovo dal feed.
+      setFeed((prev) => prev.filter((s) => s.id !== shift.id))
+      addToast({
+        type: action === 'like' ? 'success' : 'info',
+        title: action === 'like' ? 'Mi piace ✨' : 'Saltato',
+        message: action === 'like'
+          ? 'La struttura ti vedrà tra i candidati. Riceverai notifica se ti sceglie.'
+          : 'Turno nascosto dal feed.',
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore'
+      addToast({ type: 'error', title: 'Errore', message })
+    } finally {
+      setPendingAction(null)
+    }
+  }
+
+  // Zone uniche estratte dal feed (per i chip filtro). Ordine alfabetico.
+  const availableZones = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of feed) {
+      if (s.structure?.zona) set.add(s.structure.zona)
+    }
+    return Array.from(set).sort()
+  }, [feed])
+
+  // Feed filtrato applicando tutti i criteri attivi.
+  const filteredFeed = useMemo(() => {
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
+    const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7)
+    const monthEnd = new Date(now); monthEnd.setDate(monthEnd.getDate() + 30)
+    const weekEndStr = weekEnd.toISOString().slice(0, 10)
+    const monthEndStr = monthEnd.toISOString().slice(0, 10)
+
+    return feed.filter((s) => {
+      if (filters.minRate > 0 && Number(s.hourly_rate) < filters.minRate) return false
+      if (filters.zone && s.structure?.zona !== filters.zone) return false
+      if (filters.period === 'today' && s.shift_date !== todayStr) return false
+      if (filters.period === 'week' && s.shift_date > weekEndStr) return false
+      if (filters.period === 'month' && s.shift_date > monthEndStr) return false
+      return true
+    })
+  }, [feed, filters])
+
+  const activeFiltersCount =
+    (filters.period !== 'all' ? 1 : 0) +
+    (filters.zone ? 1 : 0) +
+    (filters.minRate > 0 ? 1 : 0)
+
+  const resetFilters = () => setFilters(DEFAULT_FILTERS)
+
+  const stats = useMemo(
+    () => ({ available: feed.length, filtered: filteredFeed.length }),
+    [feed.length, filteredFeed.length],
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <header className="sticky top-0 z-40 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(6,16,30,0.9)] backdrop-blur-xl">
+          <div className="max-w-[640px] mx-auto px-4 h-16 flex items-center justify-between">
+            <h1 className="text-xl font-bold text-white">Scopri turni</h1>
+          </div>
+        </header>
+        <div className="max-w-[640px] mx-auto px-4 py-6 space-y-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
+        <GlassBottomNav />
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <>
+        <StatusScreen
+          icon={AlertCircle}
+          iconColor="#F04545"
+          title="Impossibile caricare i turni"
+          description={fetchError}
+          primaryAction={{ label: 'Riprova', onClick: () => void load() }}
+        />
+        <GlassBottomNav />
+      </>
+    )
+  }
 
   return (
-    <div className="min-h-[100dvh] bg-[#06101E] pb-24 flex flex-col">
+    <div className="min-h-[100dvh] bg-[#06101E] pb-24">
       {/* Header */}
-      <header
-        className="sticky top-0 z-50 border-b border-[rgba(255,255,255,0.06)]"
-        style={{
-          background: 'rgba(6,16,30,0.9)',
-          backdropFilter: 'blur(20px)',
-        }}
-      >
-        <div className="max-w-[430px] mx-auto px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-2">
+      <header className="sticky top-0 z-40 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(6,16,30,0.9)] backdrop-blur-xl">
+        <div className="max-w-[640px] mx-auto px-4 h-16 flex items-center justify-between">
+          <div>
             <h1 className="text-xl font-bold text-white">Scopri turni</h1>
+            <p className="text-xs text-text-muted">
+              {activeFiltersCount > 0
+                ? `${stats.filtered} di ${stats.available} (filtri attivi)`
+                : `${stats.available} disponibili`}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] active:scale-90 transition-transform"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={cn(
+                'relative p-2 rounded-lg transition-colors',
+                filtersOpen || activeFiltersCount > 0
+                  ? 'bg-[rgba(91,184,245,0.15)] text-sky-primary'
+                  : 'hover:bg-white/5 text-text-muted',
+              )}
+              aria-label="Filtri"
             >
-              <Sliders className="w-4 h-4 text-[#94A3B8]" />
+              <SlidersHorizontal className="w-5 h-5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-sky-primary text-[10px] font-bold text-text-inverse flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => void load()}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Aggiorna"
+            >
+              <RefreshCw className="w-5 h-5 text-text-muted" />
             </button>
           </div>
-          {/* Stats */}
-          <div className="flex gap-2">
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(30,201,154,0.1)] text-[#1EC99A] border border-[rgba(30,201,154,0.2)]">
-              {matchedCount} match
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(148,163,184,0.1)] text-[#94A3B8] border border-[rgba(148,163,184,0.2)]">
-              {passedCount} saltati
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(91,184,245,0.1)] text-[#5BB8F5] border border-[rgba(91,184,245,0.2)]">
-              {cards.length} rimanenti
-            </span>
-          </div>
         </div>
-      </header>
 
-      {/* Filter bar */}
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden border-b border-[rgba(255,255,255,0.06)]"
-          >
-            <div className="max-w-[430px] mx-auto px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
-              {['Centro', 'Periferia', 'Eventi', 'Resort', 'Industriale'].map((zone) => (
-                <button
-                  key={zone}
-                  className={cn(
-                    'flex-shrink-0 px-3 py-1.5 text-[11px] font-medium rounded-full border backdrop-blur-sm transition-all',
-                    zone === 'Centro'
-                      ? 'text-[#5BB8F5] border-[rgba(91,184,245,0.3)] bg-[rgba(91,184,245,0.08)]'
-                      : 'text-[#94A3B8] border-[rgba(255,255,255,0.08)] bg-[rgba(13,30,52,0.4)] hover:border-[#5BB8F5] hover:text-[#5BB8F5]'
-                  )}
-                >
-                  {zone}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Swipe area */}
-      <div className="flex-1 relative max-w-[430px] mx-auto w-full">
-        <AnimatePresence mode="popLayout">
-          {cards.length > 0 ? (
-            cards.map((card, i) => (
-              <GlassSwipeCard
-                key={card.id}
-                data={card}
-                index={i}
-                isTop={i === 0}
-                onLike={handleLike}
-                onPass={handlePass}
-              />
-            ))
-          ) : (
+        {/* Pannello filtri espandibile */}
+        <AnimatePresence>
+          {filtersOpen && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden border-t border-[rgba(255,255,255,0.06)]"
             >
-              <div className="w-20 h-20 rounded-full bg-[rgba(91,184,245,0.08)] flex items-center justify-center mb-4 border border-[rgba(91,184,245,0.15)]">
-                <Search className="w-8 h-8 text-[#5BB8F5]" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-1">
-                Nessun nuovo turno
-              </h3>
-              <p className="text-sm text-[#94A3B8] mb-6">
-                Ti avviseremo appena arrivano nuove proposte!
-              </p>
-              <div className="flex gap-2 text-sm text-[#94A3B8] mb-4">
-                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-[rgba(30,201,154,0.06)] border border-[rgba(30,201,154,0.15)] text-[#1EC99A]">
-                  <Heart className="w-4 h-4" /> {matchedCount}
+              <div className="max-w-[640px] mx-auto px-4 py-3 space-y-3">
+                {/* Periodo */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">Quando</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['all', 'today', 'week', 'month'] as PeriodFilter[]).map((p) => {
+                      const active = filters.period === p
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setFilters({ ...filters, period: p })}
+                          className={cn(
+                            'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                            active
+                              ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                              : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                          )}
+                        >
+                          {PERIOD_LABEL[p]}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-[rgba(148,163,184,0.06)] border border-[rgba(148,163,184,0.15)] text-[#94A3B8]">
-                  <X className="w-4 h-4" /> {passedCount}
-                </div>
-              </div>
-              <div className="text-xs text-[#5E7A95] mb-6">
-                Proposte totali: {total}
-              </div>
-              <button
-                onClick={() => {
-                  setCards(rawCards);
-                  setMatchedIds([]);
-                  setPassedIds([]);
-                }}
-                className={cn(
-                  'px-6 h-11 text-sm font-medium text-white rounded-xl',
-                  'gradient-sky hover:brightness-110 active:scale-[0.98] transition-all'
+
+                {/* Zona (mostrato solo se ci sono zone nel feed) */}
+                {availableZones.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">Zona</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => setFilters({ ...filters, zone: null })}
+                        className={cn(
+                          'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                          filters.zone === null
+                            ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                            : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                        )}
+                      >
+                        Tutte
+                      </button>
+                      {availableZones.map((z) => {
+                        const active = filters.zone === z
+                        return (
+                          <button
+                            key={z}
+                            onClick={() => setFilters({ ...filters, zone: z })}
+                            className={cn(
+                              'px-3 py-1 rounded-full text-xs font-medium border transition-all',
+                              active
+                                ? 'bg-[rgba(91,184,245,0.15)] border-sky-primary text-sky-primary'
+                                : 'bg-white/[0.03] border-white/10 text-text-secondary hover:bg-white/[0.06]',
+                            )}
+                          >
+                            {z}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )}
-              >
-                Ricarica
-              </button>
+
+                {/* Paga minima */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5 flex items-center gap-1.5">
+                    <Euro className="w-3 h-3" />
+                    Paga minima oraria
+                    {filters.minRate > 0 && (
+                      <span className="ml-auto text-sky-primary font-mono">€ {filters.minRate}/h</span>
+                    )}
+                  </p>
+                  <input
+                    type="range"
+                    min={0}
+                    max={25}
+                    step={1}
+                    value={filters.minRate}
+                    onChange={(e) => setFilters({ ...filters, minRate: Number(e.target.value) })}
+                    className="w-full accent-sky-primary"
+                    aria-label="Paga minima oraria"
+                  />
+                  <div className="flex justify-between text-[10px] text-text-muted mt-0.5 font-mono">
+                    <span>€0</span><span>€25</span>
+                  </div>
+                </div>
+
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-white transition-colors py-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Azzera filtri
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+      </header>
+
+      {/* Feed */}
+      <div className="max-w-[640px] mx-auto px-4 py-6 space-y-3">
+        {filteredFeed.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] mt-12">
+            {feed.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="Nessun turno disponibile"
+                description="Non ci sono turni open compatibili in questo momento. Torna più tardi: nuove richieste arrivano spesso."
+              />
+            ) : (
+              <EmptyState
+                icon={Sparkles}
+                title="Nessun turno con questi filtri"
+                description={`Ci sono ${feed.length} turni disponibili ma nessuno corrisponde ai filtri attivi.`}
+                action={{ label: 'Azzera filtri', onClick: resetFilters }}
+              />
+            )}
+          </div>
+        ) : (
+          <AnimatePresence>
+            {filteredFeed.map((shift, i) => (
+              <motion.div
+                key={shift.id}
+                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -200 }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
+                className="rounded-2xl border border-[rgba(91,184,245,0.15)] bg-[rgba(13,30,52,0.7)] backdrop-blur-md overflow-hidden"
+              >
+                <div className="p-5 space-y-3">
+                  {/* Header card */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Building2 className="w-4 h-4 text-sky-primary flex-shrink-0" />
+                        <p className="text-sm font-semibold text-white truncate">
+                          {shift.structure?.ragione_sociale ?? 'Struttura'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-text-muted">
+                        {shift.structure?.tipo_struttura ?? '—'}
+                        {shift.structure?.zona && (
+                          <>
+                            {' · '}
+                            <MapPin className="w-3 h-3 inline" /> {shift.structure.zona}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-2xl font-bold text-[#1EC99A] font-mono leading-tight">
+                        € {Number(shift.hourly_rate).toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-text-muted uppercase tracking-wider">/ora</p>
+                    </div>
+                  </div>
+
+                  {/* Ruolo */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-[rgba(91,184,245,0.12)] text-sky-primary border border-[rgba(91,184,245,0.25)] w-fit">
+                    <Briefcase className="w-3 h-3" />
+                    {shift.role}
+                  </div>
+
+                  {/* Data + orario */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-text-muted" />
+                      <span>
+                        {new Date(shift.shift_date).getDate()} {MONTHS_IT[new Date(shift.shift_date).getMonth()]}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono">
+                      <Clock className="w-4 h-4 text-text-muted" />
+                      <span>{shift.time_start.slice(0, 5)} – {shift.time_end.slice(0, 5)}</span>
+                    </div>
+                    {shift.estimated_hours && (
+                      <span className="text-xs text-text-muted">
+                        ({shift.estimated_hours}h ≈ € {(Number(shift.hourly_rate) * Number(shift.estimated_hours)).toFixed(2)})
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Note */}
+                  {shift.notes && (
+                    <p className="text-sm text-text-secondary leading-relaxed border-l-2 border-[rgba(91,184,245,0.3)] pl-3 py-1">
+                      {shift.notes}
+                    </p>
+                  )}
+
+                  {/* Azioni */}
+                  <div className="flex gap-3 pt-2">
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => void handleAction(shift, 'skip')}
+                      disabled={pendingAction === shift.id}
+                      className="flex-1 py-2.5 text-sm font-semibold text-[#94A3B8] rounded-xl border border-white/10 hover:bg-white/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <X className="w-4 h-4" />
+                      Salta
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      onClick={() => void handleAction(shift, 'like')}
+                      disabled={pendingAction === shift.id}
+                      className={cn(
+                        'flex-1 py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50',
+                        'gradient-sky text-text-inverse hover:brightness-110',
+                      )}
+                    >
+                      <Heart className="w-4 h-4" />
+                      Mi piace
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
 
-      {/* Bottom controls */}
-      {cards.length > 0 && (
-        <div className="flex items-center justify-center gap-4 py-4 z-10">
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={() => topCard && handlePass(topCard.id)}
-            className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center',
-              'bg-[rgba(240,69,69,0.08)] border border-[rgba(240,69,69,0.3)]',
-              'hover:bg-[rgba(240,69,69,0.15)] active:scale-90 transition-all',
-              'shadow-[0_4px_16px_rgba(240,69,69,0.2)]'
-            )}
-          >
-            <X className="w-6 h-6 text-[#F04545]" />
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={handleRewind}
-            disabled={passedIds.length === 0}
-            className={cn(
-              'w-12 h-12 rounded-full flex items-center justify-center',
-              'bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)]',
-              passedIds.length === 0 ? 'opacity-30' : 'hover:bg-[rgba(255,255,255,0.08)] active:scale-90',
-              'transition-all'
-            )}
-          >
-            <Sliders className="w-5 h-5 text-[#94A3B8]" />
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={() => topCard && handleLike(topCard.id)}
-            className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center',
-              'bg-[rgba(30,201,154,0.08)] border border-[rgba(30,201,154,0.3)]',
-              'hover:bg-[rgba(30,201,154,0.15)] active:scale-90 transition-all',
-              'shadow-[0_4px_16px_rgba(30,201,154,0.2)]'
-            )}
-          >
-            <Heart className="w-6 h-6 text-[#1EC99A]" />
-          </motion.button>
-        </div>
-      )}
-
       <GlassBottomNav />
-
-      {/* Match overlay */}
-      <AnimatePresence>
-        {showMatch && <MatchOverlay onClose={() => setShowMatch(false)} />}
-      </AnimatePresence>
     </div>
-  );
+  )
 }
-
-

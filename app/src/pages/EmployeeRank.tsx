@@ -1,12 +1,16 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight, Star, Award, TrendingUp, TrendingDown, BookOpen, Clock, CheckCircle, HelpCircle } from 'lucide-react';
+import { ChevronRight, Star, Award, TrendingUp, TrendingDown, FileText, Clock, CheckCircle, HelpCircle, AlertCircle, Upload } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import GlassTooltip from '@/components/ui/GlassTooltip';
 import PayCounter from '@/components/employee/PayCounter';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { usePageTitle } from '@/hooks/usePageTitle'
+import { useAuth } from '@/context/AuthContext';
 
 // ---- Types ----
 interface RankLevel {
@@ -25,14 +29,6 @@ interface PointsEntry {
   type: 'earned' | 'spent' | 'bonus';
 }
 
-interface Course {
-  name: string;
-  progress: number;
-  totalHours: number;
-  status: 'completed' | 'in-progress' | 'not-started';
-  certificate?: string;
-}
-
 // ---- Data ----
 const rankLevels: RankLevel[] = [
   { name: 'Rookie', color: '#94A3B8', glow: 'rgba(148,163,184,0.2)', minPoints: 0, benefits: ['Accesso base', 'Tariffa standard'] },
@@ -42,26 +38,19 @@ const rankLevels: RankLevel[] = [
   { name: 'Ambassador', color: '#F5B800', glow: 'rgba(245,184,0,0.3)', minPoints: 3500, benefits: ['Tutti i benefit', '+€3/h bonus'] },
 ];
 
-const pointsHistory: PointsEntry[] = [
-  { id: '1', label: 'Turno completato · RIST-BN-0012', points: 120, date: '13 Mag', type: 'earned' },
-  { id: '2', label: 'Recensione 5 stelle', points: 50, date: '12 Mag', type: 'bonus' },
-  { id: '3', label: 'Puntualità bonus', points: 25, date: '12 Mag', type: 'bonus' },
-  { id: '4', label: 'Corso HACCP completato', points: 200, date: '10 Mag', type: 'earned' },
-  { id: '5', label: 'Navetta confermata', points: -5, date: '10 Mag', type: 'spent' },
-  { id: '6', label: 'Turno completato · HOTEL-BN-0003', points: 120, date: '8 Mag', type: 'earned' },
-  { id: '7', label: 'Mancia condivisa', points: 15, date: '8 Mag', type: 'bonus' },
-  { id: '8', label: 'Turno completato · BAR-BN-0011', points: 100, date: '5 Mag', type: 'earned' },
-  { id: '9', label: 'Assenza non giustificata', points: -100, date: '3 Mag', type: 'spent' },
-  { id: '10', label: 'Turno completato · EVEN-BN-0020', points: 150, date: '1 Mag', type: 'earned' },
-];
+// Mock pointsHistory rimosso: ora popolato da `employee_points` reali
+// dentro il componente (vedi useEffect → setRealHistory).
 
-const courses: Course[] = [
-  { name: 'HACCP - Sicurezza alimentare', progress: 100, totalHours: 8, status: 'completed', certificate: 'HACCP-2025-0012' },
-  { name: 'Crisi e conflitti in sala', progress: 65, totalHours: 6, status: 'in-progress' },
-  { name: 'Sommelier base - Vini italiani', progress: 0, totalHours: 12, status: 'not-started' },
-  { name: 'Inglese per hospitality B2', progress: 30, totalHours: 20, status: 'in-progress' },
-  { name: 'Gestione delle emergenze', progress: 100, totalHours: 4, status: 'completed', certificate: 'EMRG-2025-0047' },
-];
+// Etichetta italiana per i tipi di documento (sezione "I tuoi documenti").
+const DOC_TYPE_LABEL: Record<string, string> = {
+  haccp:       'Attestato HACCP',
+  health_cert: 'Idoneità sanitaria',
+  id_card:     "Carta d'identità",
+  tax_code:    'Codice fiscale',
+  iban_proof:  'Prova IBAN',
+  contract:    'Contratto firmato',
+  other:       'Altro',
+}
 
 const payBreakdown = [
   { zone: 'Centro', base: '€15,00/h', rankBonus: '+€1,00/h', total: '€16,00/h', premiumDays: 'Festivi +50%' },
@@ -71,16 +60,101 @@ const payBreakdown = [
   { zone: 'Resort', base: '€14,00/h', rankBonus: '+€1,00/h', total: '€15,00/h', premiumDays: 'Festivi +100%' },
 ];
 
-const currentPoints = 1240;
-const currentLevelIdx = 2; // Senior
-const nextLevelIdx = 3; // Elite
-const nextLevel = rankLevels[nextLevelIdx];
-const prevLevel = rankLevels[currentLevelIdx];
-const pointsToNext = nextLevel.minPoints - currentPoints;
-const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100;
+// Helper: trova indice del livello rank in base ai punti totali.
+function levelIdxFromPoints(points: number): number {
+  if (points >= 3500) return 4; // ambassador
+  if (points >= 2000) return 3; // elite
+  if (points >= 1200) return 2; // senior
+  if (points >= 500)  return 1; // affidabile
+  return 0;                     // rookie
+}
 
 export default function EmployeeRank() {
+  usePageTitle('Il tuo rank')
+  const navigate = useNavigate();
   const [showPayTable, setShowPayTable] = useState(true);
+  const { user, profile } = useAuth();
+  const [realStats, setRealStats] = useState<{
+    avgRating: number | null;
+    totalReviews: number;
+    monthEarnings: number;
+    completedShifts: number;
+    totalPoints: number;
+  } | null>(null);
+  const [realHistory, setRealHistory] = useState<{ id: string; label: string; points: number; date: string; type: 'earned' | 'spent' | 'bonus' }[]>([]);
+  // Documenti reali del dipendente (sostituisce la lista 'Corsi' mock).
+  const [realDocs, setRealDocs] = useState<Array<{
+    id: string; type: string; verified: boolean; expires_at: string | null; uploaded_at: string
+  }>>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const monthStart = new Date(); monthStart.setDate(1);
+      const monthStartStr = monthStart.toISOString().slice(0, 10);
+      const [
+        { data: rating },
+        { data: monthCompleted },
+        { data: pointsRow },
+        { data: ptsHistory },
+        { data: docs },
+      ] = await Promise.all([
+        supabase.from('employee_rating_summary').select('avg_rating, total_reviews').eq('employee_id', user.id).maybeSingle(),
+        supabase.from('shifts').select('hourly_rate, estimated_hours, check_in_at, check_out_at, time_start, time_end')
+          .eq('employee_id', user.id).eq('status', 'completed').gte('shift_date', monthStartStr),
+        supabase.from('employee_total_points').select('total_points, level').eq('employee_id', user.id).maybeSingle(),
+        supabase.from('employee_points').select('id, source_type, points, reason, created_at').eq('employee_id', user.id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('documents').select('id, type, verified, expires_at, uploaded_at').eq('employee_id', user.id).order('uploaded_at', { ascending: false }),
+      ]);
+      if (cancelled) return;
+      let earnings = 0;
+      for (const s of (monthCompleted ?? [])) {
+        const rate = Number(s.hourly_rate);
+        let hours = Number(s.estimated_hours ?? 0);
+        if (!hours && s.check_in_at && s.check_out_at) {
+          hours = (new Date(s.check_out_at).getTime() - new Date(s.check_in_at).getTime()) / 3_600_000;
+        }
+        if (!hours) {
+          const [h1, m1] = s.time_start.split(':').map(Number);
+          const [h2, m2] = s.time_end.split(':').map(Number);
+          let mins = (h2 * 60 + m2) - (h1 * 60 + m1);
+          if (mins < 0) mins += 24 * 60;
+          hours = mins / 60;
+        }
+        earnings += rate * hours;
+      }
+      setRealStats({
+        avgRating: rating?.avg_rating != null ? Number(rating.avg_rating) : null,
+        totalReviews: rating?.total_reviews ?? 0,
+        monthEarnings: Math.round(earnings * 100) / 100,
+        completedShifts: (monthCompleted ?? []).length,
+        totalPoints: pointsRow?.total_points ?? 0,
+      });
+      setRealHistory((ptsHistory ?? []).map((p) => ({
+        id: p.id,
+        label: p.reason ?? p.source_type,
+        points: p.points,
+        date: new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
+        type: p.points > 0 ? (['review_5stars','review_4stars'].includes(p.source_type) ? 'bonus' : 'earned') : 'spent',
+      })));
+      setRealDocs(docs ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const displayName = profile?.full_name || 'Tu';
+
+  // Calcolo livello reale + progresso a partire dai punti.
+  const currentPoints = realStats?.totalPoints ?? 0;
+  const currentLevelIdx = levelIdxFromPoints(currentPoints);
+  const nextLevelIdx = Math.min(currentLevelIdx + 1, rankLevels.length - 1);
+  const nextLevel = rankLevels[nextLevelIdx];
+  const prevLevel = rankLevels[currentLevelIdx];
+  const pointsToNext = Math.max(nextLevel.minPoints - currentPoints, 0);
+  const progressPercent = currentLevelIdx === rankLevels.length - 1
+    ? 100
+    : Math.min(100, Math.max(0, ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100));
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
@@ -130,8 +204,8 @@ export default function EmployeeRank() {
               className="rounded-full"
             >
               <Avatar
-                src="/avatar-employee-2.jpg"
-                alt="Marco R."
+                src={profile?.avatar_url ?? undefined}
+                alt={displayName}
                 size={64}
                 borderColor={rankLevels[currentLevelIdx].color}
               />
@@ -159,7 +233,7 @@ export default function EmployeeRank() {
                   ))}
                 </div>
               </div>
-              <h2 className="text-lg font-semibold text-white">Marco R.</h2>
+              <h2 className="text-lg font-semibold text-white">{displayName}</h2>
               <p className="text-xs text-[#94A3B8]">Cameriere · Senior dal 15 Gen 2025</p>
             </div>
           </div>
@@ -212,6 +286,36 @@ export default function EmployeeRank() {
           </div>
         </motion.div>
 
+        {/* Statistiche reali del mese */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="px-4 mt-4 grid grid-cols-2 gap-3"
+        >
+          <div className="rounded-2xl p-4 bg-[rgba(13,30,52,0.7)] border border-[rgba(91,184,245,0.15)]">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Paga mese</p>
+            <p className="text-2xl font-bold font-mono text-[#1EC99A]">
+              € {realStats?.monthEarnings.toFixed(2) ?? '—'}
+            </p>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {realStats?.completedShifts ?? 0} turn{(realStats?.completedShifts ?? 0) === 1 ? 'o' : 'i'} completat{(realStats?.completedShifts ?? 0) === 1 ? 'o' : 'i'}
+            </p>
+          </div>
+          <div className="rounded-2xl p-4 bg-[rgba(13,30,52,0.7)] border border-[rgba(245,184,0,0.15)]">
+            <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Rating ricevuto</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-2xl font-bold text-white">
+                {realStats?.avgRating != null ? realStats.avgRating.toFixed(1) : '—'}
+              </p>
+              {realStats?.avgRating != null && <Star className="w-4 h-4 fill-[#F5B800] text-[#F5B800]" />}
+            </div>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {realStats?.totalReviews ?? 0} recension{(realStats?.totalReviews ?? 0) === 1 ? 'e' : 'i'}
+            </p>
+          </div>
+        </motion.div>
+
         {/* Points History */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -230,7 +334,7 @@ export default function EmployeeRank() {
               'shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
             )}
           >
-            {pointsHistory.map((entry, i) => (
+            {realHistory.map((entry, i) => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, x: -16 }}
@@ -238,7 +342,7 @@ export default function EmployeeRank() {
                 transition={{ delay: 0.2 + i * 0.04, duration: 0.35 }}
                 className={cn(
                   'flex items-center gap-3 px-4 py-3',
-                  i !== pointsHistory.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]'
+                  i !== realHistory.length - 1 && 'border-b border-[rgba(255,255,255,0.04)]'
                 )}
               >
                 <div
@@ -484,74 +588,87 @@ export default function EmployeeRank() {
           </div>
         </motion.div>
 
-        {/* Courses */}
+        {/* Documenti & certificazioni — dati reali da public.documents */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.55, duration: 0.5 }}
           className="px-4 mt-6 mb-8"
         >
-          <h3 className="text-base font-semibold text-white mb-3">Corsi e certificazioni</h3>
-          <div className="space-y-3">
-            {courses.map((course, i) => (
-              <motion.div
-                key={course.name}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 + i * 0.06, duration: 0.35 }}
-                className={cn(
-                  'rounded-xl p-4 border backdrop-blur-sm',
-                  'bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)]',
-                  'hover:border-[rgba(91,184,245,0.2)] transition-colors'
-                )}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-white">I tuoi documenti</h3>
+            <button
+              onClick={() => navigate('/employee/documents')}
+              className="text-xs text-[#5BB8F5] hover:underline flex items-center gap-1"
+            >
+              Gestisci <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {realDocs.length === 0 ? (
+            <div className="rounded-xl p-5 border border-dashed border-[rgba(245,184,0,0.25)] bg-[rgba(245,184,0,0.04)] text-center">
+              <Upload className="w-8 h-8 mx-auto mb-2 text-[#F5B800] opacity-70" />
+              <p className="text-sm text-white mb-1">Nessun documento caricato</p>
+              <p className="text-xs text-[#94A3B8] mb-3">
+                HACCP, idoneità sanitaria e altri documenti ti aiutano a ricevere più turni.
+              </p>
+              <button
+                onClick={() => navigate('/employee/documents')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#06101E] gradient-sky rounded-lg hover:brightness-110 transition-all"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                <Upload className="w-3.5 h-3.5" />
+                Carica documenti
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {realDocs.map((doc, i) => {
+                const expDays = doc.expires_at
+                  ? Math.floor((new Date(doc.expires_at).getTime() - Date.now()) / 86400000)
+                  : null
+                const expired = expDays !== null && expDays < 0
+                const expiringSoon = expDays !== null && expDays >= 0 && expDays < 30
+                const statusColor = expired ? '#F04545' : doc.verified ? '#1EC99A' : expiringSoon ? '#F5B800' : '#5BB8F5'
+                const statusIcon = expired ? AlertCircle : doc.verified ? CheckCircle : expiringSoon ? Clock : FileText
+                const Icon = statusIcon
+                return (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + i * 0.04, duration: 0.3 }}
+                    className="rounded-xl p-3 border bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)] flex items-center gap-3"
+                  >
                     <div
-                      className={cn(
-                        'w-9 h-9 rounded-lg flex items-center justify-center',
-                        course.status === 'completed' && 'bg-[rgba(30,201,154,0.1)]',
-                        course.status === 'in-progress' && 'bg-[rgba(91,184,245,0.1)]',
-                        course.status === 'not-started' && 'bg-[rgba(255,255,255,0.04)]'
-                      )}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${statusColor}18`, border: `1px solid ${statusColor}30` }}
                     >
-                      {course.status === 'completed' && <CheckCircle className="w-4 h-4 text-[#1EC99A]" />}
-                      {course.status === 'in-progress' && <BookOpen className="w-4 h-4 text-[#5BB8F5]" />}
-                      {course.status === 'not-started' && <Clock className="w-4 h-4 text-[#5E7A95]" />}
+                      <Icon className="w-4 h-4" style={{ color: statusColor }} />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{course.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {DOC_TYPE_LABEL[doc.type] ?? doc.type}
+                      </p>
                       <p className="text-[11px] text-[#94A3B8]">
-                        {course.totalHours} ore · {course.certificate ? `Cert. ${course.certificate}` : 'In corso'}
+                        {expired
+                          ? `Scaduto ${Math.abs(expDays!)}g fa — rinnova`
+                          : expiringSoon
+                          ? `Scade tra ${expDays}g`
+                          : doc.verified
+                          ? 'Verificato dall\'admin'
+                          : 'In attesa di verifica'}
                       </p>
                     </div>
-                  </div>
-                  <span
-                    className="text-xs font-semibold"
-                    style={{
-                      color: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
-                    }}
-                  >
-                    {course.progress}%
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="h-1.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{
-                      backgroundColor: course.status === 'completed' ? '#1EC99A' : course.status === 'in-progress' ? '#5BB8F5' : '#5E7A95',
-                      boxShadow: `0 0 8px ${course.status === 'completed' ? '#1EC99A30' : course.status === 'in-progress' ? '#5BB8F530' : 'transparent'}`,
-                    }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${course.progress}%` }}
-                    transition={{ duration: 0.8, delay: 0.7 + i * 0.1, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                    {doc.expires_at && (
+                      <span className="text-[10px] text-[#5E7A95] font-mono flex-shrink-0">
+                        {new Date(doc.expires_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
         </motion.div>
       </div>
 

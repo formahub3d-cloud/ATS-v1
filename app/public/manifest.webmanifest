@@ -1,0 +1,22 @@
+{
+  "name": "ATS — Catering HORECA",
+  "short_name": "ATS",
+  "description": "Piattaforma di gestione personale catering HORECA: turni, check-in QR, chat, recensioni, payroll.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06101E",
+  "theme_color": "#06101E",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "it",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

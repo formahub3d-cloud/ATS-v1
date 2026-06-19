@@ -1,514 +1,480 @@
-// @ts-nocheck
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+// AdminDashboard — pagina di overview per gli admin ATS.
+// Versione collegata a Supabase: KPI reali su strutture/dipendenti, lista
+// candidature pending. Le aree non ancora supportate dal DB (turni, matching,
+// pagamenti) mostrano placeholder onesti "Nessun dato ancora".
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
-  Bell, AlertTriangle, X, CheckCircle, CreditCard,
-  UserPlus, MessageCircle, TrendingUp, Search,
-  ChevronRight, PlusCircle, UserPlus as UserPlusIcon,
-  Building, Send, FileText, MessageSquare, Calendar,
-  Loader2,
+  Building2, Users, Hourglass, ShieldCheck, CheckCircle,
+  ChevronRight, AlertCircle, FileWarning, Inbox, Clock, Activity,
+  MessageSquare,
 } from 'lucide-react'
-import KPICard from '@/components/admin/KPICard'
-import StatusPill from '@/components/admin/StatusPill'
+import { cn } from '@/lib/utils'
+import PageHeader from '@/components/ui/PageHeader'
 import GlassCard from '@/components/admin/GlassCard'
-import GlassBadge from '@/components/admin/GlassBadge'
-import Avatar from '@/components/Avatar'
-import { useToast } from '@/components/ui/ToastSystem'
-import GlassTooltip from '@/components/ui/GlassTooltip'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  mockActiveShifts, mockNotifications, mockAlerts,
-  mockWeeklyDays, mockShifts, revenueData, roleDistribution,
-} from '@/data/mockAdmin'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell,
-} from 'recharts'
+import NotificationsBell from '@/components/notifications/NotificationsBell'
+import { supabase } from '@/lib/supabase'
+import { usePageTitle } from '@/hooks/usePageTitle'
+import { useLastUpdated } from '@/hooks/useLastUpdated'
+import type { Database, StructureStatus } from '@/lib/database.types'
 
-const dayNames = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM']
+type StructureRow = Database['public']['Tables']['structures']['Row']
+type AuditRow = Database['public']['Tables']['audit_log']['Row']
 
-const iconMap: Record<string, React.ReactNode> = {
-  'check-circle': <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />,
-  'alert-triangle': <AlertTriangle className="w-4 h-4 text-error flex-shrink-0" />,
-  'credit-card': <CreditCard className="w-4 h-4 text-sky-primary flex-shrink-0" />,
-  'user-plus': <UserPlus className="w-4 h-4 text-success flex-shrink-0" />,
-  'message-circle': <MessageCircle className="w-4 h-4 text-sky-primary flex-shrink-0" />,
+interface DashboardStats {
+  structuresTotal: number
+  structuresPending: number
+  structuresApproved: number
+  employeesTotal: number
+  docsExpiring: number          // documenti che scadono entro 30 giorni
+  docsExpired: number           // documenti già scaduti
+  // Operatività mese in corso
+  shiftsCompletedMonth: number
+  hoursWorkedMonth: number
+  messagesUnhandled: number     // contact_messages con status new o in_progress
+  recentPending: StructureRow[]
+  recentActivity: AuditRow[]
 }
 
-const employeeAvatars = [
-  '/avatar-employee-1.jpg',
-  '/avatar-employee-2.jpg',
-  '/avatar-employee-3.jpg',
-  '/avatar-employee-4.jpg',
-  '/avatar-employee-5.jpg',
-]
-
-const structurePhotos = [
-  '/structure-1.jpg',
-  '/structure-2.jpg',
-  '/structure-3.jpg',
-  '/structure-6.jpg',
-]
+const initialStats: DashboardStats = {
+  structuresTotal: 0,
+  structuresPending: 0,
+  structuresApproved: 0,
+  employeesTotal: 0,
+  docsExpiring: 0,
+  docsExpired: 0,
+  shiftsCompletedMonth: 0,
+  hoursWorkedMonth: 0,
+  messagesUnhandled: 0,
+  recentPending: [],
+  recentActivity: [],
+}
 
 export default function AdminDashboard() {
-  const { addToast } = useToast()
-  const [alerts, setAlerts] = useState(mockAlerts)
-  const [notifs, setNotifs] = useState(mockNotifications)
-  const [notifOpen, setNotifOpen] = useState(false)
+  usePageTitle('Dashboard')
+  const [stats, setStats] = useState<DashboardStats>(initialStats)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { label: updatedLabel } = useLastUpdated(loading)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setFetchError(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const in30 = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
+      // Inizio mese corrente per contare turni/ore del mese.
+      const monthStart = new Date()
+      monthStart.setDate(1)
+      monthStart.setHours(0, 0, 0, 0)
+      const monthStartIso = monthStart.toISOString().slice(0, 10)
+
+      // 11 query in parallelo. Più del doppio di prima ma comunque sotto i 200ms
+      // su Supabase regional (single roundtrip multiplexato).
+      const [
+        { count: structuresTotal, error: e1 },
+        { count: structuresPending, error: e2 },
+        { count: structuresApproved, error: e3 },
+        { count: employeesTotal, error: e4 },
+        { data: recentPending, error: e5 },
+        { count: docsExpiring, error: e6 },
+        { count: docsExpired, error: e7 },
+        { data: shiftsMonth, error: e8 },
+        { count: messagesUnhandled, error: e9 },
+        { data: recentActivity, error: e10 },
+      ] = await Promise.all([
+        supabase.from('structures').select('*', { count: 'exact', head: true }),
+        supabase.from('structures').select('*', { count: 'exact', head: true }).eq('status', 'pending_review'),
+        supabase.from('structures').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'employee'),
+        supabase.from('structures').select('*').eq('status', 'pending_review').order('created_at', { ascending: false }).limit(5),
+        supabase.from('documents').select('*', { count: 'exact', head: true })
+          .gte('expires_at', today).lte('expires_at', in30),
+        supabase.from('documents').select('*', { count: 'exact', head: true })
+          .lt('expires_at', today),
+        // Turni completati del mese: prendiamo estimated_hours per somma ore.
+        supabase.from('shifts').select('estimated_hours').eq('status', 'completed').gte('shift_date', monthStartIso),
+        supabase.from('contact_messages').select('*', { count: 'exact', head: true }).in('status', ['new', 'in_progress']),
+        supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(6),
+      ])
+
+      const firstError = e1 || e2 || e3 || e4 || e5 || e6 || e7 || e8 || e9 || e10
+      if (firstError) throw firstError
+
+      const shiftsCompletedMonth = shiftsMonth?.length ?? 0
+      const hoursWorkedMonth = (shiftsMonth ?? []).reduce(
+        (sum, s) => sum + Number(s.estimated_hours ?? 0),
+        0,
+      )
+
+      setStats({
+        structuresTotal: structuresTotal ?? 0,
+        structuresPending: structuresPending ?? 0,
+        structuresApproved: structuresApproved ?? 0,
+        employeesTotal: employeesTotal ?? 0,
+        docsExpiring: docsExpiring ?? 0,
+        docsExpired: docsExpired ?? 0,
+        shiftsCompletedMonth,
+        hoursWorkedMonth,
+        messagesUnhandled: messagesUnhandled ?? 0,
+        recentPending: recentPending ?? [],
+        recentActivity: recentActivity ?? [],
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Errore caricamento dashboard'
+      console.error('[AdminDashboard] fetch error', err)
+      setFetchError(message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const dismissAlert = (id: number) => {
-    setAlerts(prev => prev.filter(a => a.id !== id))
-    addToast({ type: 'info', title: 'Alert chiuso', message: 'L\'alert è stato rimosso dalla dashboard.' })
-  }
+  useEffect(() => {
+    void load()
+  }, [load])
 
-  const markAllRead = () => {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
-    addToast({ type: 'success', title: 'Notifiche lette', message: 'Tutte le notifiche sono state marcate come lette.' })
-  }
-
-  const handleQuickAction = (label: string) => {
-    addToast({ type: 'info', title: label, message: 'Funzionalità in fase di implementazione.' })
-  }
-
-  const unreadCount = notifs.filter(n => !n.read).length
-
-  const sparklineData = revenueData.slice(-7).map(d => d.revenue)
-  const sparklineMax = Math.max(...sparklineData)
-  const sparklinePoints = sparklineData.map((v, i) => `${(i / (sparklineData.length - 1)) * 80},${24 - (v / sparklineMax) * 24}`).join(' ')
-
-  const quickActions = [
-    { icon: PlusCircle, label: 'Nuovo turno' },
-    { icon: UserPlusIcon, label: 'Nuovo dipendente' },
-    { icon: Building, label: 'Nuova struttura' },
-    { icon: Send, label: 'Notifica broadcast' },
-    { icon: FileText, label: 'Genera report' },
-    { icon: MessageSquare, label: 'Chat' },
-  ]
+  const kpis = useMemo(
+    () => [
+      {
+        label: 'Strutture totali',
+        value: stats.structuresTotal,
+        icon: Building2,
+        color: '#5BB8F5',
+        link: '/admin/structures',
+      },
+      {
+        label: 'In attesa di approvazione',
+        value: stats.structuresPending,
+        icon: Hourglass,
+        color: '#F5B800',
+        link: '/admin/structures',
+        urgent: stats.structuresPending > 0,
+      },
+      {
+        label: 'Strutture attive',
+        value: stats.structuresApproved,
+        icon: ShieldCheck,
+        color: '#1EC99A',
+        link: '/admin/structures',
+      },
+      {
+        label: 'Dipendenti registrati',
+        value: stats.employeesTotal,
+        icon: Users,
+        color: '#3AA3E8',
+        link: '/admin/employees',
+      },
+      {
+        label: 'Turni completati (mese)',
+        value: stats.shiftsCompletedMonth,
+        icon: CheckCircle,
+        color: '#1EC99A',
+        link: '/admin/shifts',
+      },
+      {
+        label: 'Ore lavorate (mese)',
+        value: Math.round(stats.hoursWorkedMonth),
+        icon: Clock,
+        color: '#5BB8F5',
+        link: '/admin/payroll',
+      },
+      {
+        label: 'Messaggi non gestiti',
+        value: stats.messagesUnhandled,
+        icon: Inbox,
+        color: '#F5B800',
+        link: '/admin/messages',
+        urgent: stats.messagesUnhandled > 0,
+      },
+    ],
+    [stats],
+  )
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-semibold text-white font-dm">Dashboard</h1>
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center backdrop-blur-md bg-white/5 border border-white/10 rounded-xl px-3 py-2 w-[280px] focus-within:w-[360px] transition-all duration-300">
-            <Search className="w-4 h-4 text-text-muted mr-2 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Cerca turni, strutture, dipendenti..."
-              className="bg-transparent text-sm text-white placeholder-text-muted outline-none w-full"
-            />
-          </div>
-          <span className="hidden lg:block text-sm font-mono text-text-muted">Lunedì 12 Maggio 2026</span>
-          <button
-            onClick={() => setNotifOpen(!notifOpen)}
-            className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
-          >
-            <Bell className="w-5 h-5 text-text-secondary" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-error rounded-full text-[10px] font-bold text-white flex items-center justify-center">
-                {unreadCount}
+      <PageHeader
+        title="Dashboard"
+        subtitle={new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        actions={
+          <>
+            <NotificationsBell />
+            {updatedLabel && (
+              <span className="hidden sm:inline text-xs text-text-muted font-mono">
+                Aggiornato {updatedLabel}
               </span>
             )}
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm text-text-secondary border border-white/10 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Aggiornamento...' : 'Aggiorna'}
+            </button>
+          </>
+        }
+      />
 
-      {/* Alert Banner */}
-      <AnimatePresence>
-        {alerts.map(alert => (
-          <motion.div
-            key={alert.id}
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ duration: 0.35, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-            className="flex items-center justify-between bg-[rgba(240,69,69,0.08)] backdrop-blur-md border border-[rgba(240,69,69,0.2)] rounded-xl px-5 py-4"
-          >
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-error flex-shrink-0" />
-              <span className="text-sm font-medium text-error">{alert.message}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="text-xs text-error hover:underline">Vedi dettagli</button>
-              <GlassTooltip content="Chiudi alert">
-                <button onClick={() => dismissAlert(alert.id)} className="text-error hover:text-white transition-colors hover:rotate-90 duration-200">
-                  <X className="w-4 h-4" />
-                </button>
-              </GlassTooltip>
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
-      {/* KPI Cards */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {[0, 1, 2, 3].map(i => (
-            <GlassCard key={i} delay={i * 0.1} className="p-7 space-y-3">
-              <Skeleton className="w-24 h-3" />
-              <Skeleton className="w-32 h-12" />
-              <Skeleton className="w-20 h-3" />
-            </GlassCard>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          <KPICard label="Fatturato Maggio" value="€14.103" delta="+€2.128 vs aprile" deltaPositive delay={0}>
-            <svg width="90" height="28" viewBox="0 0 90 28" className="mt-1">
-              <polyline
-                points={sparklinePoints}
-                fill="none"
-                stroke="#5BB8F5"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </KPICard>
-          <KPICard label="Ore lavorate" value="3.200h" delta="+512h vs aprile" deltaPositive delay={100}>
-            <div className="w-full h-2.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden mt-2">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '78%' }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="h-full rounded-full bg-gradient-to-r from-[#5BB8F5] via-[#3AA3E8] to-[#1A56A0]"
-              />
-            </div>
-          </KPICard>
-          <KPICard label="Tasso presenza" value="94%" delta="+1,3% vs mese scorso" deltaPositive delay={200}>
-            <div className="relative w-12 h-12 mt-1">
-              <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
-                <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
-                <motion.circle
-                  cx="20" cy="20" r="16" fill="none"
-                  stroke="#5BB8F5"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={`${94.2 * 1.005} ${100 * 1.005}`}
-                  initial={{ strokeDashoffset: 100 * 1.005 }}
-                  animate={{ strokeDashoffset: (100 - 94.2) * 1.005 }}
-                  transition={{ duration: 1.2, delay: 0.6, ease: [0, 0, 0.2, 1] as [number, number, number, number] }}
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">94%</span>
-            </div>
-          </KPICard>
-          <KPICard label="Dipendenti attivi" value="20" delay={300}>
-            <div className="flex items-center gap-1 mt-2">
-              <div className="flex -space-x-2">
-                {employeeAvatars.map((src, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.8 + i * 0.06, type: 'spring', stiffness: 300 }}
-                  >
-                    <Avatar src={src} size="sm" className="border-2 border-[#06101E]" />
-                  </motion.div>
-                ))}
-              </div>
-              <span className="text-xs text-text-muted ml-2">15 confermati · 3 in colloquio · 2 in attesa</span>
-            </div>
-          </KPICard>
+      {fetchError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-[rgba(240,69,69,0.08)] border border-[rgba(240,69,69,0.2)] text-sm text-[#F04545]">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {fetchError}
         </div>
       )}
 
-      {/* Active Shifts */}
-      <GlassCard delay={0.3}>
+      {/* Banner messaggi non gestiti */}
+      {stats.messagesUnhandled > 0 && (
+        <Link
+          to="/admin/messages"
+          className="flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md transition-all hover:translate-y-[-1px] border-[rgba(245,184,0,0.3)] bg-[rgba(245,184,0,0.06)]"
+        >
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: 'rgba(245,184,0,0.15)',
+              border: '1px solid rgba(245,184,0,0.3)',
+            }}
+          >
+            <MessageSquare className="w-5 h-5 text-[#F5B800]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white">
+              {stats.messagesUnhandled} messagg{stats.messagesUnhandled === 1 ? 'io' : 'i'} dal sito da gestire
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Apri /admin/messages per leggere e rispondere.
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+        </Link>
+      )}
+
+      {/* Banner alert documenti scaduti / in scadenza */}
+      {(stats.docsExpired > 0 || stats.docsExpiring > 0) && (
+        <Link
+          to="/admin/employees"
+          className={cn(
+            'flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md transition-all hover:translate-y-[-1px]',
+            stats.docsExpired > 0
+              ? 'border-[rgba(240,69,69,0.3)] bg-[rgba(240,69,69,0.06)]'
+              : 'border-[rgba(245,184,0,0.3)] bg-[rgba(245,184,0,0.06)]',
+          )}
+        >
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: stats.docsExpired > 0 ? 'rgba(240,69,69,0.15)' : 'rgba(245,184,0,0.15)',
+              border: `1px solid ${stats.docsExpired > 0 ? 'rgba(240,69,69,0.3)' : 'rgba(245,184,0,0.3)'}`,
+            }}
+          >
+            <FileWarning className={cn('w-5 h-5', stats.docsExpired > 0 ? 'text-[#F04545]' : 'text-[#F5B800]')} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white">Documenti dipendenti — attenzione</p>
+            <p className="text-xs text-text-muted mt-0.5">
+              {stats.docsExpired > 0 && (
+                <span className="text-[#F04545] font-medium">{stats.docsExpired} scadut{stats.docsExpired === 1 ? 'o' : 'i'}</span>
+              )}
+              {stats.docsExpired > 0 && stats.docsExpiring > 0 && <span> · </span>}
+              {stats.docsExpiring > 0 && (
+                <span className="text-[#F5B800] font-medium">{stats.docsExpiring} in scadenza nei prossimi 30 giorni</span>
+              )}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+        </Link>
+      )}
+
+      {/* KPI grid — 4-col su desktop wide, 7 KPI = 4 + 3 nella seconda riga */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((kpi, i) => {
+          const Icon = kpi.icon
+          return (
+            <Link
+              key={kpi.label}
+              to={kpi.link}
+              className="block group"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06, duration: 0.35 }}
+                className={cn(
+                  'h-full rounded-2xl p-5 backdrop-blur-md bg-white/5 border border-white/10',
+                  'transition-all duration-200 group-hover:-translate-y-0.5 group-hover:bg-white/[0.07]',
+                  kpi.urgent && 'border-[rgba(245,184,0,0.4)] shadow-[0_0_20px_rgba(245,184,0,0.15)]',
+                )}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">{kpi.label}</span>
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: `${kpi.color}18`, border: `1px solid ${kpi.color}30` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: kpi.color }} />
+                  </div>
+                </div>
+                {loading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="font-playfair text-[36px] font-bold text-white leading-none">{kpi.value}</p>
+                )}
+              </motion.div>
+            </Link>
+          )
+        })}
+      </section>
+
+      {/* Pending review queue */}
+      <GlassCard delay={0.2}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Turni attivi ora</h2>
-          <GlassBadge variant="success" pulse>
-            4 turni in corso
-          </GlassBadge>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Candidature in revisione</h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              {stats.structuresPending === 0
+                ? 'Nessuna candidatura in attesa.'
+                : `${stats.structuresPending} struttur${stats.structuresPending === 1 ? 'a' : 'e'} in attesa di approvazione.`}
+            </p>
+          </div>
+          {stats.structuresPending > 0 && (
+            <Link
+              to="/admin/structures"
+              className="text-sm text-sky-primary hover:underline flex items-center gap-1 group"
+            >
+              Vedi tutte <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          )}
         </div>
+
         {loading ? (
           <div className="space-y-3">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3 py-3">
-                <Skeleton className="w-9 h-9 rounded-full" />
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-20" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 py-2.5">
+                <Skeleton className="w-9 h-9 rounded-lg" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-24 ml-auto" />
               </div>
             ))}
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[rgba(255,255,255,0.06)]">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Struttura</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Dipendente</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Ruolo</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Orario</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockActiveShifts.map((shift, i) => (
-                    <motion.tr
-                      key={shift.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.4 + i * 0.06, duration: 0.4 }}
-                      className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(91,184,245,0.05)] hover:translate-x-1 transition-all duration-200"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar src={structurePhotos[i % structurePhotos.length]} size="sm" className="rounded-lg" />
-                          <span className="font-mono text-xs text-sky-primary bg-[rgba(91,184,245,0.08)] border border-[rgba(91,184,245,0.15)] rounded px-2 py-0.5">
-                            {shift.structureCode}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar src={employeeAvatars[i % employeeAvatars.length]} size="sm" />
-                          <span className="font-mono text-xs text-sky-primary bg-[rgba(91,184,245,0.08)] border border-[rgba(91,184,245,0.15)] rounded px-2 py-0.5">
-                            {shift.employeeCode}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-white">{shift.role}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-text-muted">{shift.time}</td>
-                      <td className="px-4 py-3">
-                        <StatusPill status={shift.status === 'check-in' ? 'check-in' : 'in-attesa'} pulse={shift.status === 'in-attesa'} />
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3">
-              <button className="text-sm text-sky-primary hover:underline flex items-center gap-1 group">
-                Vedi tutti i turni <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </>
-        )}
-      </GlassCard>
-
-      {/* Two Column: Calendar + Notifications */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Weekly Calendar */}
-        <GlassCard delay={0.5} className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-white">Calendario settimanale</h2>
-            <button className="text-sm text-sky-primary hover:underline flex items-center gap-1 group">
-              Vedi completo <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+        ) : stats.recentPending.length === 0 ? (
+          <div className="py-8 text-center text-sm text-text-muted">
+            <ShieldCheck className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            Nessuna candidatura da rivedere. ✨
           </div>
-          {loading ? (
-            <div className="grid grid-cols-7 gap-3">
-              {[0, 1, 2, 3, 4, 5, 6].map(i => (
-                <Skeleton key={i} className="h-32" delay={i * 0.06} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-7 gap-3">
-              {mockWeeklyDays.map((day, di) => (
-                <motion.div
-                  key={day.day}
-                  initial={{ scale: 0.93, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.6 + di * 0.06, duration: 0.3 }}
-                  className={`rounded-xl border p-3 min-h-[140px] ${di === 0 ? 'border-sky-primary bg-[rgba(91,184,245,0.05)] shadow-[inset_0_0_20px_rgba(91,184,245,0.05)]' : 'border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]'}`}
+        ) : (
+          <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
+            {stats.recentPending.map((s) => (
+              <li key={s.id}>
+                <Link
+                  to="/admin/structures"
+                  className="flex items-center gap-3 py-3 hover:bg-[rgba(91,184,245,0.04)] -mx-2 px-2 rounded-lg transition-colors"
                 >
-                  <p className="text-[10px] font-medium text-text-muted text-center mb-1">{day.day}</p>
-                  <p className="text-lg font-bold text-white text-center mb-2">{day.date}</p>
-                  <div className="space-y-1.5">
-                    {mockShifts
-                      .filter(s => s.day === di)
-                      .slice(0, 3)
-                      .map(s => (
-                        <div
-                          key={s.id}
-                          className={`text-[10px] px-2 py-1 rounded-md ${
-                            s.status === 'No-show' ? 'bg-[rgba(240,69,69,0.15)] text-error' :
-                            s.status === 'In corso' ? 'bg-[rgba(30,201,154,0.15)] text-success' :
-                            s.status === 'Da assegnare' ? 'bg-[rgba(245,184,0,0.15)] text-warning' :
-                            'bg-[rgba(91,184,245,0.15)] text-sky-primary'
-                          }`}
-                        >
-                          {s.role} {s.employeeCode ? `(${s.employeeCode.split('-')[2]})` : '(?)'}
-                        </div>
-                      ))}
-                    {mockShifts.filter(s => s.day === di).length === 0 && (
-                      <p className="text-[10px] text-text-muted text-center py-1">Nessun turno</p>
-                    )}
+                  <div className="w-9 h-9 rounded-lg bg-[rgba(91,184,245,0.12)] border border-[rgba(91,184,245,0.2)] flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-4 h-4 text-sky-primary" />
                   </div>
-                  {mockShifts.filter(s => s.day === di).length > 3 && (
-                    <p className="text-[10px] text-text-muted text-center mt-1">
-                      +{mockShifts.filter(s => s.day === di).length - 3} altri
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{s.ragione_sociale}</p>
+                    <p className="text-xs text-text-muted truncate">
+                      {s.tipo_struttura ?? '—'} · {s.zona ?? '—'} · {new Date(s.created_at).toLocaleDateString('it-IT')}
                     </p>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Notifications */}
-        <GlassCard delay={0.6}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-white">Notifiche recenti</h2>
-            <select className="bg-[rgba(6,16,30,0.6)] text-xs text-text-muted border border-[rgba(255,255,255,0.1)] rounded-lg px-2 py-1 outline-none backdrop-blur-sm">
-              <option>Tutte</option>
-              <option>Alert</option>
-              <option>Turni</option>
-              <option>Pagamenti</option>
-            </select>
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2, 3, 4].map(i => (
-                <div key={i} className="flex gap-3 py-3">
-                  <Skeleton className="w-10 h-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="w-32 h-4" />
-                    <Skeleton className="w-48 h-3" />
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-0 max-h-[400px] overflow-y-auto custom-scrollbar">
-                {notifs.map((n, i) => (
-                  <motion.div
-                    key={n.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.7 + i * 0.07, duration: 0.4 }}
-                    className={`flex gap-3 py-3 border-b border-[rgba(255,255,255,0.04)] hover:bg-white/[0.02] hover:translate-x-1 transition-all cursor-pointer ${!n.read ? 'border-l-[3px] border-l-sky-primary pl-3 shadow-[0_0_12px_rgba(91,184,245,0.05)]' : 'pl-3.5'}`}
-                  >
-                    {iconMap[n.icon]}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white">{n.title}</p>
-                      <p className="text-xs text-text-muted mt-0.5 truncate">{n.description}</p>
-                      <p className="text-[10px] text-text-muted mt-1">{n.time}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <button
-                onClick={markAllRead}
-                className="mt-4 text-xs text-text-muted hover:text-white transition-colors flex items-center gap-1"
-              >
-                <CheckCircle className="w-3 h-3" /> Segna tutte come lette
-              </button>
-            </>
-          )}
-        </GlassCard>
-      </div>
-
-      {/* Monthly Summary Charts */}
-      <GlassCard delay={0.7}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Riepilogo mensile</h2>
-          <select className="bg-[rgba(6,16,30,0.6)] text-sm text-text-muted border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 outline-none backdrop-blur-sm">
-            <option>Maggio 2026</option>
-            <option>Aprile 2026</option>
-            <option>Marzo 2026</option>
-          </select>
-        </div>
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Skeleton className="h-60" />
-            <Skeleton className="h-60" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <p className="text-sm text-text-muted mb-3">Fatturato vs Ore</p>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis dataKey="day" tick={{ fill: '#5E7A95', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
-                  <YAxis tick={{ fill: '#5E7A95', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
-                  <Tooltip
-                    contentStyle={{ background: '#0D1E34', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
-                    itemStyle={{ color: '#fff', fontSize: 12 }}
-                    labelStyle={{ color: '#5E7A95' }}
-                  />
-                  <Bar dataKey="revenue" fill="rgba(91,184,245,0.3)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div>
-              <p className="text-sm text-text-muted mb-3">Distribuzione per ruolo</p>
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie
-                    data={roleDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={3}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {roleDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#0D1E34', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }}
-                    formatter={(value: number, name: string) => [`${value}%`, name]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-wrap gap-3 justify-center mt-2">
-                {roleDistribution.map(r => (
-                  <span key={r.name} className="flex items-center gap-1 text-xs text-text-muted">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
-                    {r.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+                  <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </GlassCard>
 
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8, duration: 0.5 }}
-        className="grid grid-cols-3 sm:grid-cols-6 gap-4 pb-6"
-      >
-        {quickActions.map((action, i) => (
-          <motion.button
-            key={action.label}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.85 + i * 0.06, duration: 0.4 }}
-            whileHover={{ y: -6, borderColor: 'rgba(91,184,245,0.2)', backgroundColor: 'rgba(91,184,245,0.08)' }}
-            whileTap={{ scale: 0.93 }}
-            onClick={() => handleQuickAction(action.label)}
-            className="flex flex-col items-center justify-center backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-5 hover:shadow-[0_8px_32px_rgba(91,184,245,0.08)] transition-all duration-200"
+      {/* Activity feed — ultimi eventi dall'audit_log per dare polso operativo */}
+      <GlassCard delay={0.3}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-sky-primary" />
+            <h2 className="text-lg font-semibold text-white">Attività recente</h2>
+          </div>
+          <Link
+            to="/admin/audit"
+            className="text-sm text-sky-primary hover:underline flex items-center gap-1 group"
           >
-            <action.icon className="w-6 h-6 text-sky-primary mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] text-text-muted text-center">{action.label}</span>
-          </motion.button>
-        ))}
-      </motion.div>
+            Vedi tutto <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <Skeleton className="w-8 h-8 rounded-lg" />
+                <Skeleton className="h-4 w-72" />
+                <Skeleton className="h-3 w-12 ml-auto" />
+              </div>
+            ))}
+          </div>
+        ) : stats.recentActivity.length === 0 ? (
+          <div className="py-8 text-center text-sm text-text-muted">
+            <Activity className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            Nessun evento ancora.
+          </div>
+        ) : (
+          <ul className="divide-y divide-[rgba(255,255,255,0.04)]">
+            {stats.recentActivity.map((a) => (
+              <li key={a.id} className="flex items-start gap-3 py-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[rgba(91,184,245,0.1)] border border-[rgba(91,184,245,0.2)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Activity className="w-3.5 h-3.5 text-sky-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white">
+                    {humanizeAuditEvent(a.event_type)}
+                    {a.target_type && (
+                      <span className="text-xs text-text-muted"> · {a.target_type}</span>
+                    )}
+                  </p>
+                </div>
+                <span className="text-[10px] text-text-muted font-mono flex-shrink-0 mt-1">
+                  {timeAgo(a.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </GlassCard>
     </motion.div>
   )
+}
+
+// Mappa event_type SQL → testo italiano leggibile.
+function humanizeAuditEvent(t: string): string {
+  const map: Record<string, string> = {
+    structure_approved:    'Struttura approvata',
+    structure_rejected:    'Struttura respinta',
+    structure_suspended:   'Struttura sospesa',
+    shift_assigned:        'Turno assegnato',
+    shift_cancelled:       'Turno annullato',
+    shift_completed:       'Turno completato',
+    shift_no_show:         'Turno no-show',
+    document_verified:     'Documento verificato',
+    document_deleted:      'Documento cancellato',
+    employee_activated:    'Dipendente attivato',
+    employee_deactivated:  'Dipendente disattivato',
+    role_changed:          'Cambio ruolo',
+    points_adjusted:       'Punti aggiustati',
+  }
+  return map[t] ?? t
+}
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60) return 'ora'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m fa`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h fa`
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}g fa`
+  return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
 }

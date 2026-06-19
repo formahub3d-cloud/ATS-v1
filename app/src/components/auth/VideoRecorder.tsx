@@ -10,7 +10,7 @@ interface VideoRecorderProps {
 
 export default function VideoRecorder({
   onRecordComplete,
-  instructions = 'Registra un breve video \u2014 guarda in camera, dicendo nome, ruolo e data. Attesta di aver letto e accettato il contratto di servizio.',
+  instructions = 'Registra un breve video — guarda in camera, dicendo nome, ruolo e data. Attesta di aver letto e accettato il contratto di servizio.',
 }: VideoRecorderProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)

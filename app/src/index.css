@@ -47,6 +47,30 @@
   * {
     @apply border-[rgba(255,255,255,0.06)];
   }
+
+  /* A11y: focus-visible coerente per tastiera (no outline blu di default).
+     Applicato a tutti gli elementi interattivi via :focus-visible (non
+     :focus, così il mouse non lo mostra). */
+  *:focus {
+    outline: none;
+  }
+  *:focus-visible {
+    outline: 2px solid #5BB8F5;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Riduzione moto per chi lo preferisce (prefers-reduced-motion). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer utilities {
@@ -64,6 +88,19 @@
 
   .text-gradient-sky {
     background: linear-gradient(135deg, #5BB8F5 0%, #3AA3E8 50%, #1A56A0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Variante "people" — pagina /lavoratori (verde dominante per
+     identificare l'audience persona). */
+  .gradient-green {
+    background: linear-gradient(135deg, #1EC99A 0%, #15A47C 50%, #0E7A5C 100%);
+  }
+
+  .text-gradient-green {
+    background: linear-gradient(135deg, #1EC99A 0%, #15A47C 50%, #0E7A5C 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

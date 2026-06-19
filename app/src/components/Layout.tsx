@@ -1,13 +1,23 @@
-import { useLocation, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './AccountSwitcher'
+import { useAuth } from '@/context/AuthContext'
 
 const adminNavItems = [
   { label: 'Dashboard', path: '/admin', icon: 'LayoutDashboard' },
   { label: 'Strutture', path: '/admin/structures', icon: 'Building2' },
   { label: 'Dipendenti', path: '/admin/employees', icon: 'Users' },
   { label: 'Turni', path: '/admin/shifts', icon: 'Calendar' },
+  { label: 'Calendario', path: '/admin/calendar', icon: 'CalendarDays' },
+  { label: 'Chat', path: '/admin/chat', icon: 'MessageCircle' },
+  { label: 'Messaggi', path: '/admin/messages', icon: 'Mail' },
+  { label: 'Payroll', path: '/admin/payroll', icon: 'Euro' },
+  { label: 'Fatture', path: '/admin/invoices', icon: 'FileText' },
+  { label: 'Leaderboard', path: '/admin/leaderboard', icon: 'Trophy' },
+  { label: 'Audit', path: '/admin/audit', icon: 'ShieldCheck' },
   { label: 'Impostazioni', path: '/admin/settings', icon: 'Settings' },
 ]
 
@@ -15,6 +25,7 @@ const structureNavItems = [
   { label: 'Dashboard', path: '/structure', icon: 'LayoutDashboard' },
   { label: 'Matching', path: '/structure/matching', icon: 'Heart' },
   { label: 'Storico', path: '/structure/history', icon: 'History' },
+  { label: 'Chat', path: '/structure/chat', icon: 'MessageCircle' },
 ]
 
 const employeeNavItems = [
@@ -22,11 +33,24 @@ const employeeNavItems = [
   { label: 'Calendario', path: '/employee/calendar', icon: 'Calendar' },
   { label: 'Matching', path: '/employee/matching', icon: 'Heart' },
   { label: 'Check-in', path: '/employee/checkin', icon: 'ScanLine' },
-  { label: 'Rank', path: '/employee/rank', icon: 'Trophy' },
+  { label: 'Chat', path: '/employee/chat', icon: 'MessageCircle' },
 ]
 
 function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: string }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { signOut, status } = useAuth()
+
+  const handleLogout = async () => {
+    try {
+      if (status === 'authenticated') await signOut()
+      localStorage.removeItem('ats_active_role')
+      localStorage.removeItem('ats_draft_structure')
+      localStorage.removeItem('ats_draft_employee')
+    } finally {
+      navigate('/auth')
+    }
+  }
   return (
     <aside
       className="hidden lg:flex flex-col w-[280px] min-h-screen fixed left-0 top-0 z-30"
@@ -68,17 +92,173 @@ function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: 
       </div>
       <div className="p-4 border-t border-[rgba(255,255,255,0.06)] space-y-3">
         <AccountSwitcher />
-        <Link
-          to="/"
+        <button
+          type="button"
+          onClick={handleLogout}
           className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-text-muted hover:text-white hover:bg-[rgba(255,255,255,0.04)] rounded-xl transition-all"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           Logout
-        </Link>
+        </button>
       </div>
     </aside>
+  )
+}
+
+/** Mobile top bar + drawer per i portali admin/structure.
+ *  - Top bar fissa (lg:hidden) con logo ATS + hamburger
+ *  - Drawer slide-in da sinistra con stessa nav del DesktopSidebar
+ *  - Chiusura: click su backdrop, click su un link (cambio rotta), tasto Esc
+ *  - Lock dello scroll body quando il drawer è aperto */
+function MobileTopBarAndDrawer({ items, title }: { items: typeof adminNavItems; title: string }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { signOut, status } = useAuth()
+  const [open, setOpen] = useState(false)
+
+  // Chiudi al cambio rotta (utile se Link viene navigato programmaticamente).
+  useEffect(() => { setOpen(false) }, [location.pathname])
+
+  // Esc chiude.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // Lock body scroll quando il drawer è aperto.
+  useEffect(() => {
+    if (open) {
+      const orig = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = orig }
+    }
+  }, [open])
+
+  const handleLogout = async () => {
+    try {
+      if (status === 'authenticated') await signOut()
+      localStorage.removeItem('ats_active_role')
+      localStorage.removeItem('ats_draft_structure')
+      localStorage.removeItem('ats_draft_employee')
+    } finally {
+      setOpen(false)
+      navigate('/auth')
+    }
+  }
+
+  // Trova label della voce attiva per il titolo della top bar.
+  const activeLabel = items.find((i) => i.path === location.pathname)?.label ?? title
+
+  return (
+    <>
+      {/* Top bar mobile (visibile solo < lg) */}
+      <header
+        className="lg:hidden fixed top-0 left-0 right-0 z-40 h-[56px] flex items-center justify-between px-4"
+        style={{
+          background: 'rgba(6,16,30,0.95)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="p-2 -ml-2 text-text-secondary hover:text-white transition-colors"
+          aria-label="Apri menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="text-sm font-semibold text-white truncate max-w-[60vw]">{activeLabel}</span>
+        <Link to="/" className="text-base font-playfair font-bold text-white tracking-tight">
+          ATS
+        </Link>
+      </header>
+
+      {/* Drawer + backdrop */}
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+              className="lg:hidden fixed left-0 top-0 bottom-0 w-[280px] z-[60] flex flex-col"
+              style={{
+                background: 'rgba(6,16,30,0.98)',
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <div className="h-[72px] flex items-center justify-between px-6 border-b border-[rgba(255,255,255,0.06)]">
+                <Link to="/" onClick={() => setOpen(false)} className="text-xl font-playfair font-bold text-white tracking-tight">
+                  ATS
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="p-1.5 text-text-muted hover:text-white"
+                  aria-label="Chiudi menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-4 py-4 flex-1 overflow-y-auto">
+                <p className="text-[10px] uppercase tracking-[0.1em] text-text-muted px-3 mb-2">{title}</p>
+                <nav className="space-y-1">
+                  {items.map((item) => {
+                    const isActive = location.pathname === item.path
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setOpen(false)}
+                        className={cn(
+                          'flex items-center h-[44px] px-4 rounded-[10px] text-sm font-medium transition-all duration-200',
+                          isActive
+                            ? 'bg-[rgba(91,184,245,0.1)] text-sky-primary shadow-[inset_4px_0_0_#5BB8F5]'
+                            : 'text-text-secondary hover:bg-[rgba(255,255,255,0.05)] hover:text-white',
+                        )}
+                      >
+                        <span className="w-5 h-5 mr-3 flex items-center justify-center">
+                          <IconPlaceholder name={item.icon} />
+                        </span>
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                </nav>
+              </div>
+              <div className="p-4 border-t border-[rgba(255,255,255,0.06)] space-y-3">
+                <AccountSwitcher />
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 text-sm text-text-muted hover:text-white hover:bg-[rgba(255,255,255,0.04)] rounded-xl transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Logout
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
@@ -133,12 +313,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const path = location.pathname
 
-  // Landing/auth routes - no sidebar, use Navbar/Footer from pages
-  if (path === '/' || path === '/auth') {
+  // Landing/auth routes - no sidebar, use Navbar/Footer from pages.
+  // Comprende anche le pagine "completamento landing": chi-siamo, faq,
+  // contatti, legali, e qualsiasi route non-app-portal (404 fallback).
+  const isLandingRoute =
+    path === '/' ||
+    path === '/auth' ||
+    path === '/strutture' ||
+    path === '/lavoratori' ||
+    path === '/chi-siamo' ||
+    path === '/faq' ||
+    path === '/contatti' ||
+    path === '/privacy' ||
+    path === '/termini' ||
+    path === '/cookie'
+
+  if (isLandingRoute) {
     return (
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -152,19 +347,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Admin routes - desktop sidebar
+  // Admin routes — sidebar desktop + top bar/drawer mobile.
   if (path.startsWith('/admin')) {
     return (
       <div className="min-h-[100dvh] bg-navy">
         <DesktopSidebar items={adminNavItems} title="Admin" />
+        <MobileTopBarAndDrawer items={adminNavItems} title="Admin" />
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="lg:ml-[280px] min-h-screen p-6"
+            className="lg:ml-[280px] min-h-screen px-4 pt-[72px] pb-6 sm:px-6 sm:pb-8 lg:pt-8 lg:px-10"
           >
             {children}
           </motion.main>
@@ -173,19 +370,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Structure routes - desktop sidebar
+  // Structure routes — sidebar desktop + top bar/drawer mobile.
   if (path.startsWith('/structure')) {
     return (
       <div className="min-h-[100dvh] bg-navy">
         <DesktopSidebar items={structureNavItems} title="Struttura" />
+        <MobileTopBarAndDrawer items={structureNavItems} title="Struttura" />
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
-            className="lg:ml-[280px] min-h-screen p-6"
+            className="lg:ml-[280px] min-h-screen px-4 pt-[72px] pb-6 sm:px-6 sm:pb-8 lg:pt-8 lg:px-10"
           >
             {children}
           </motion.main>
@@ -200,6 +399,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="min-h-[100dvh] bg-navy">
         <AnimatePresence mode="wait">
           <motion.main
+            id="main-content"
             key={path}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

@@ -1,0 +1,21 @@
+# ATS — Al TuO Servizio · robots.txt
+# Le rotte pubbliche sono indicizzabili. Tutto ciò che è dietro auth
+# (admin, structure, employee) viene escluso esplicitamente.
+
+User-agent: *
+Allow: /
+Allow: /strutture
+Allow: /lavoratori
+Allow: /chi-siamo
+Allow: /faq
+Allow: /contatti
+Allow: /privacy
+Allow: /termini
+Allow: /cookie
+
+Disallow: /auth
+Disallow: /admin/
+Disallow: /structure/
+Disallow: /employee/
+
+Sitemap: https://ats-servizio.it/sitemap.xml
