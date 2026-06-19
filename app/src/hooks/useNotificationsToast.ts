@@ -21,7 +21,6 @@ const kindToToastType: Record<NotificationKind, ToastType> = {
   shift_cancelled:   'warning',
   shift_completed:   'success',
   review_received:   'success',
-  document_expiring: 'warning',
   structure_approved: 'success',
   structure_rejected: 'error',
   new_message:       'info',

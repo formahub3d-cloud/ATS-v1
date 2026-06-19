@@ -177,8 +177,8 @@ export default function StructureMatching() {
           : supabase.from('shifts').select('employee_id').eq('status', 'completed').in('employee_id', likedEmpIds),
         // Documenti verificati per badge HACCP/health/ID.
         likedEmpIds.length === 0
-          ? Promise.resolve({ data: [] as Array<{ employee_id: string; type: string; verified: boolean }> })
-          : supabase.from('documents').select('employee_id, type, verified').in('employee_id', likedEmpIds).eq('verified', true),
+          ? Promise.resolve({ data: [] as Array<{ employee_id: string; type: string; verified_at: string | null }> })
+          : supabase.from('documents').select('employee_id, type, verified_at').in('employee_id', likedEmpIds).not('verified_at', 'is', null),
         // Ultima recensione testuale (struttura → employee) per ogni candidato.
         // Fetch tutte le review struttura sui loro turni e poi prendiamo la più recente.
         likedEmpIds.length === 0
