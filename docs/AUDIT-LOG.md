@@ -5,6 +5,48 @@
 
 ---
 
+## Audit #5 — 19/06/2026 — Onboarding dipendente (registrazione 2 step + dashboard profilo) + audit generale HTML
+
+**Autore:** Claude Code — sessione con Andrea
+**Obiettivo:** Snellire la registrazione dipendente, spostare i dati ricchi nella dashboard, diagnosticare il blocco login, produrre un audit generale.
+**Fase:** Sviluppo (post-adozione Supabase). Dettaglio completo in `docs/AUDIT-GENERALE-19Giugno2026.html`.
+
+### 1. Lavoro svolto
+- **Parte A** — registrazione dipendente ridotta a **2 step** (dati+documento → foto); rimossi IBAN/video/storico/certificazioni/preferenze/colloquio; documento+indirizzo obbligatori; submit snellito. Verificata a video.
+- **Parte B** — nuova pagina `/employee/profile` ("Completa profilo": IBAN, storico, certificazioni, video attestazione, ruoli/zona/preferenze) + card di stato in dashboard + route. Build verde.
+- **Fix UX auth** — email già registrata → messaggio chiaro + login; errori login tradotti in italiano.
+- **Diagnosi blocco login** — causa = email duplicata (autoconfirm ON → email nuova entra subito); pipeline RLS verificata corretta (`employees`/`documents` self-insert presenti). Confermato funzionante con email nuova.
+- **Audit generale HTML** prodotto (voto **6,0/10** + valutazione economica + roadmap P0/P1/P2).
+
+### 2. File toccati
+`app/src/pages/Auth.tsx`, `components/auth/GlassRoleSelector.tsx`, `pages/EmployeeProfile.tsx` (nuovo), `App.tsx`, `pages/EmployeeDashboard.tsx`, `docs/AUDIT-GENERALE-19Giugno2026.html` (nuovo), `docs/AUDIT-LOG.md`.
+
+### 3. Stato dei moduli
+Invariato vs Audit #4 (Personale/Turni/Presenze 🟢, Paga/Fatturazione 🟡). Onboarding dipendente ristrutturato.
+
+### 4. Qualità
+Build verde. Restano: **0 test**, **responsive mancante** (mobile-first), dati mock in dashboard, file giganti (`Auth.tsx` ~2.800 righe).
+
+### 5. Decisioni prese
+- Registrazione = 2 step; tutto il resto nella dashboard.
+- Gate di approvazione (Parte C) = **documento + video attestazione** → sblocca colloquio (scelta utente).
+- Resta **web app responsive** (non nativa/App Store); responsive = priorità **P0**.
+- Preferenze: città geolocalizzate, tipo zona (no prezzi), contratto full/part/a chiamata, paga 7/8/9/10€, auto munito→navetta driver.
+
+### 6. Rischi / questioni aperte
+- Login: account vecchi con password ignota → eliminare/reset su Supabase (azione utente).
+- Parte B (preferenze) e Parte C richiedono **mini-migration** (`has_vehicle`, `service_zones`, stato approvazione, slot colloquio) da applicare su Supabase.
+- Lavoro su branch `feat/onboarding-dipendente` **non pushato**; `main` locale non pushato.
+- Validazione legale paghe ancora aperta.
+
+### 7. Prossimo passo consigliato
+Responsive pass (landing + Admin/Struttura); chiudere Parte B (preferenze+migration) e Parte C; push + deploy su Cloudflare Pages + dominio; Vitest sul motore paghe.
+
+### 8. Valutazione sintetica (1–5)
+Avanzamento: 3,5/5 · Qualità: 3/5 · Aderenza alle regole: 4,5/5.
+
+---
+
 ## Audit #4 — 19/06/2026 — Scoperta e adozione dell'app Supabase esistente (rettifica dello stato di progetto)
 
 **Autore:** Claude Code — sessione con Andrea

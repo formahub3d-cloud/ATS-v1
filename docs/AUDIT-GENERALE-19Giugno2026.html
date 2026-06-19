@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATS — Audit Generale · 19 Giugno 2026</title>
+<style>
+  :root{
+    --sky:#3AA3E8; --sky-d:#1A56A0; --ink:#0f1b2d; --muted:#5b6b7d;
+    --bg:#f6f9fc; --card:#ffffff; --line:#e3ebf2;
+    --green:#1EA97C; --amber:#E8A317; --red:#E0524A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px}
+  header.hero{background:linear-gradient(135deg,#0d1e34,#1A56A0 60%,#3AA3E8);color:#fff;border-radius:20px;padding:34px 32px;margin-bottom:28px;box-shadow:0 12px 40px rgba(26,86,160,.25)}
+  header.hero h1{margin:0 0 4px;font-size:26px;letter-spacing:-.3px}
+  header.hero p{margin:0;opacity:.85;font-size:14px}
+  .scorebar{display:flex;align-items:center;gap:20px;margin-top:22px;flex-wrap:wrap}
+  .bigscore{font-size:54px;font-weight:800;line-height:1}
+  .bigscore small{font-size:20px;font-weight:600;opacity:.7}
+  .scorebar .verdict{font-size:15px;max-width:520px;opacity:.95}
+  h2{font-size:19px;margin:34px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:8px}
+  h3{font-size:15px;margin:18px 0 6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0;box-shadow:0 2px 8px rgba(15,27,45,.03)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .bar{height:8px;border-radius:6px;background:#eef3f8;overflow:hidden;min-width:90px}
+  .bar > i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--sky),var(--sky-d))}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700}
+  .g{background:rgba(30,169,124,.12);color:var(--green)}
+  .a{background:rgba(232,163,23,.14);color:var(--amber)}
+  .r{background:rgba(224,82,74,.12);color:var(--red)}
+  .dot{font-size:15px}
+  ul{margin:6px 0 6px;padding-left:20px}
+  li{margin:4px 0}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;margin-right:6px}
+  .p0{background:#fde8e6;color:#b5392f}.p1{background:#fff2d6;color:#9a6a00}.p2{background:#e7eef6;color:#3a5b7d}
+  .done{background:#e2f6ee;color:#15805d}
+  .muted{color:var(--muted);font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}.bigscore{font-size:42px}}
+  code{background:#eef3f8;padding:1px 6px;border-radius:5px;font-size:13px}
+  .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>ATS — Audit Generale di Progetto</h1>
+    <p>Piattaforma gestionale catering / hospitality · 19 Giugno 2026 · redatto da Claude Code (sessione con Andrea)</p>
+    <div class="scorebar">
+      <div class="bigscore">6,0<small>/10</small></div>
+      <div class="verdict"><strong>Base tecnica solida e quasi feature-complete</strong>, costruita su uno stack moderno e affidabile (Supabase). Ma <strong>non ancora pronta per la produzione</strong>: mancano test automatici, responsive desktop, validazione legale delle paghe e il deploy sul dominio. Il potenziale è alto, il debito è gestibile.</div>
+    </div>
+  </header>
+
+  <h2>1 · In sintesi</h2>
+  <div class="card">
+    <p>ATS è una <strong>web application</strong> (React 19 + Vite + Supabase) per un'azienda di <strong>catering con dipendenti propri</strong>: gestisce anagrafiche, turni, presenze (check-in QR), paga e fatturazione, con tre ruoli (Admin, Struttura, Dipendente).</p>
+    <p>La scoperta chiave di questa sessione: <strong>l'app esisteva già, quasi completa, su Supabase</strong> (58 commit, 25+ migration SQL, ~35 pagine) — mentre la documentazione la dava per "da costruire da zero su MongoDB". Abbiamo <strong>adottato il lavoro reale</strong>, verificato che builda e gira dal vivo, e ripreso lo sviluppo dal punto giusto.</p>
+    <p class="muted">Voto sintetico: <strong>6,0/10</strong> — funzionalità da 8, ma trascinata in basso da test assenti, responsive, validazione legale e assenza di deploy. È un <strong>MVP avanzato</strong>, non un prodotto in produzione.</p>
+  </div>
+
+  <h2>2 · Punteggio per area</h2>
+  <div class="card">
+  <table>
+    <tr><th>Area</th><th style="width:120px">Voto</th><th>Note</th></tr>
+    <tr><td><strong>Copertura funzionale</strong></td><td><span class="bar"><i style="width:80%"></i></span> 8,0</td><td>Auth, CRM, turni+matching, check-in QR, payroll, fatturazione, chat, notifiche, GDPR, PWA. Impressionante per ampiezza.</td></tr>
+    <tr><td><strong>Architettura &amp; codice</strong></td><td><span class="bar"><i style="width:65%"></i></span> 6,5</td><td>Supabase usato bene (RLS, migration versionate, enum). Ma file giganti (<code>Auth.tsx</code> ~2.800 righe), codice morto, valori mock nella dashboard.</td></tr>
+    <tr><td><strong>Sicurezza &amp; GDPR</strong></td><td><span class="bar"><i style="width:60%"></i></span> 6,0</td><td>RLS per ruolo presenti, GDPR self-service, autoconfirm; serve un <em>security review</em> dedicato + rimozione chiave publishable dai doc di handoff.</td></tr>
+    <tr><td><strong>UX &amp; Design</strong></td><td><span class="bar"><i style="width:62%"></i></span> 6,2</td><td>UI "glass" curata e coerente. <strong>Ma è mobile-first: su desktop resta una colonna stretta</strong> → manca il responsive.</td></tr>
+    <tr><td><strong>Testing</strong></td><td><span class="bar"><i style="width:20%"></i></span> 2,0</td><td>Praticamente assente. Vitest non configurato. <strong>Critico per il motore paghe</strong> (soldi).</td></tr>
+    <tr><td><strong>Legale / Paghe</strong></td><td><span class="bar"><i style="width:40%"></i></span> 4,0</td><td>UI payroll e fatturazione esistono, ma tariffe/maggiorazioni/contributi <strong>non validati dal consulente del lavoro</strong>; modello "extra/intermittente/occasionale" da confermare.</td></tr>
+    <tr><td><strong>Deploy &amp; Infra</strong></td><td><span class="bar"><i style="width:50%"></i></span> 5,0</td><td>Supabase live (Frankfurt). Frontend <strong>non ancora pubblicato</strong> sul dominio <code>altuoservizio.online</code>; CI da verificare.</td></tr>
+  </table>
+  </div>
+
+  <h2>3 · Stato dei moduli</h2>
+  <div class="card">
+  <table>
+    <tr><th>Modulo</th><th style="width:90px">Stato</th><th>Note</th></tr>
+    <tr><td>Personale (anagrafiche)</td><td><span class="pill g">🟢 buono</span></td><td>CRM strutture/dipendenti/documenti reale, onboarding, scadenze documenti.</td></tr>
+    <tr><td>Turni (shift)</td><td><span class="pill g">🟢 buono</span></td><td>Schema turni, matching, assegnazione, cancel/duplica, calendario.</td></tr>
+    <tr><td>Presenze / Ore</td><td><span class="pill g">🟢 buono</span></td><td>Check-in/out QR reale con timer ore (RPC security definer).</td></tr>
+    <tr><td>Calcolo Paga</td><td><span class="pill a">🟡 da validare</span></td><td>Esiste drill-down "compenso lordo"; mancano config tariffe validate + test.</td></tr>
+    <tr><td>Fatturazione</td><td><span class="pill a">🟡 da completare</span></td><td>Fatturazione mensile "Stripe-ready"; da verificare export e completezza.</td></tr>
+  </table>
+  </div>
+
+  <h2>4 · Fatto in questa sessione</h2>
+  <div class="card">
+    <ul>
+      <li><span class="tag done">FATTO</span> <strong>Adozione dell'app Supabase esistente</strong>: ri-aggancio del repo, verifica build (corretti 2 bug reali), merge su <code>main</code> (locale), audit di rettifica.</li>
+      <li><span class="tag done">FATTO</span> <strong>Smoke-test dal vivo</strong>: backend Supabase attivo, schema deployato, landing + login renderizzano senza errori.</li>
+      <li><span class="tag done">FATTO</span> <strong>Registrazione dipendente snella a 2 step</strong> (dati+documento → foto). Tolti dalla registrazione IBAN, video, storico, certificazioni, preferenze, colloquio. Verificata a video.</li>
+      <li><span class="tag done">FATTO</span> <strong>Pagina "Completa profilo"</strong> in dashboard (IBAN, storico, certificazioni, video attestazione, ruoli/zona/preferenze) + card di stato.</li>
+      <li><span class="tag done">FATTO</span> <strong>Fix UX auth</strong>: messaggio chiaro per email già registrata + errori di login tradotti.</li>
+    </ul>
+    <p class="muted">Tutto su feature branch <code>feat/onboarding-dipendente</code>, in locale (non ancora pushato).</p>
+  </div>
+
+  <h2>5 · Da fare — prioritizzato</h2>
+  <div class="card">
+    <h3><span class="tag p0">P0</span> Sblocco immediato</h3>
+    <ul>
+      <li><strong>Responsive desktop + mobile</strong>: oggi mobile-first (colonna stretta su desktop). Mantenere PWA mobile per i dipendenti, ma adattare landing, portale Admin e Struttura al desktop.</li>
+      <li><strong>Preferenze &amp; disponibilità (revisione)</strong>: città italiane geolocalizzate, tipo zona (centro/periferia/eventi/navetta, senza prezzi), contratto (full/part/a chiamata), paga minima 7/8/9/10€, auto munito → navetta driver. Richiede <strong>mini-migration</strong> (<code>has_vehicle</code>, <code>service_zones</code>).</li>
+      <li><strong>Parte C — Approvazione + colloquio</strong>: admin approva documento + video attestazione → si sblocca la prenotazione colloquio; calendario disponibilità attivo solo dopo il colloquio. Richiede migration (stato approvazione + slot).</li>
+      <li><strong>Pulizia account/login</strong>: eliminare gli utenti di prova doppi su Supabase; definire 1 account admin reale (via SQL Editor).</li>
+    </ul>
+    <h3><span class="tag p1">P1</span> Verso la produzione</h3>
+    <ul>
+      <li><strong>Test automatici (Vitest)</strong>, con priorità assoluta sul <strong>motore paghe</strong>.</li>
+      <li><strong>Validazione legale</strong> di tariffe/contributi/limiti col consulente del lavoro (i numeri vivono in config, non hardcoded).</li>
+      <li><strong>Deploy</strong> del frontend su <strong>Cloudflare Pages</strong> + dominio <code>altuoservizio.online</code> (DNS SiteGround) + config URL auth su Supabase.</li>
+      <li><strong>Rimuovere i dati mock</strong> ancora presenti nella dashboard dipendente (rank "SENIOR", €18/h, navetta demo, pills 192h/+€48).</li>
+      <li><strong>Security review</strong> RLS + rimozione chiavi dai doc di handoff.</li>
+    </ul>
+    <h3><span class="tag p2">P2</span> Rifinitura</h3>
+    <ul>
+      <li>Pulizia codice morto (vecchi step in <code>Auth.tsx</code>, warning <code>GlassCalendarPicker</code> setState-in-render).</li>
+      <li>Split dei file giganti (<code>Auth.tsx</code> ~2.800 righe) in componenti.</li>
+      <li>Notifiche email/WhatsApp (turni, scadenze documenti, approvazioni).</li>
+    </ul>
+  </div>
+
+  <h2>6 · Da aggiungere (idee)</h2>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <ul>
+          <li>Dashboard Admin con <strong>KPI reali</strong> (ore, fatturato, no-show, copertura turni).</li>
+          <li><strong>Export paghe</strong> CSV/PDF per il commercialista (prospetto ricostruibile).</li>
+          <li>Notifiche push PWA per i turni (già c'è il service worker).</li>
+        </ul>
+      </div>
+      <div>
+        <ul>
+          <li>Sistema "rank/affidabilità" dipendenti collegato a no-show e puntualità reali.</li>
+          <li>Gestione <strong>commessa/evento</strong> che raggruppa più turni (catering vs solo-personale).</li>
+          <li>Alert <strong>limiti di legge</strong> (es. extra 3 giorni, soglie annue).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h2>7 · Cosa migliorare</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Responsività</strong> (la cosa più visibile): l'app va resa usabile e bella anche su schermo grande.</li>
+      <li><strong>Affidabilità soldi</strong>: importi in centesimi/Decimal + test → zero errori di paga.</li>
+      <li><strong>Manutenibilità</strong>: file più piccoli, niente codice morto, niente valori finti in UI.</li>
+      <li><strong>Onboarding chiaro</strong>: messaggi d'errore comprensibili (già migliorati per email/login).</li>
+    </ul>
+  </div>
+
+  <h2>8 · Quanto vale l'app (valutazione)</h2>
+  <div class="card">
+    <p>Premessa onesta: una valutazione <em>pre-lancio e pre-ricavi</em> è in larga parte stima.</p>
+    <ul>
+      <li><strong>Costo di ricostruzione</strong> (quanto costerebbe rifarla da zero con uno sviluppatore senior): stimo <strong>~€35.000–€55.000</strong> (3–5 mesi/uomo) per arrivare al livello funzionale attuale. È il valore "già in cassaforte" del lavoro fatto.</li>
+      <li><strong>Valore come asset software pre-lancio</strong>: limitato finché non genera ricavi e non è in produzione — un SaaS B2B di nicchia senza clienti paganti vale soprattutto per il suo <em>potenziale</em>, non per multipli di fatturato.</li>
+      <li><strong>Valore potenziale</strong>: se messo in produzione, validato legalmente e con i primi clienti (strutture) attivi, diventa un gestionale verticale reale; il valore cresce con i ricavi ricorrenti.</li>
+    </ul>
+    <p class="muted"><strong>In una frase:</strong> oggi vale soprattutto come <strong>base tecnica avanzata (~€40k di sviluppo)</strong> pronta a diventare prodotto; il salto di valore arriva con deploy + validazione legale + primi clienti.</p>
+  </div>
+
+  <h2>9 · Raccomandazione — prossimi passi</h2>
+  <div class="card">
+    <ol>
+      <li>Chiudere la <strong>Parte B (preferenze + migration)</strong> e la <strong>Parte C (approvazione+colloquio)</strong> dell'onboarding.</li>
+      <li><strong>Responsive pass</strong> su landing + portali Admin/Struttura.</li>
+      <li><strong>Push su GitHub</strong> del lavoro e <strong>deploy</strong> su Cloudflare Pages + dominio.</li>
+      <li>Setup <strong>Vitest</strong> e primi test sul <strong>motore paghe</strong>.</li>
+      <li>Avviare la <strong>validazione legale</strong> col consulente del lavoro.</li>
+    </ol>
+    <p class="muted">Con questi 5 passi l'app passa da "MVP avanzato (6/10)" a "prodotto pronto al pilota (8/10)".</p>
+  </div>
+
+  <div class="foot">ATS · Audit generato il 19/06/2026 · documento interno di progetto</div>
+</div>
+</body>
+</html>
