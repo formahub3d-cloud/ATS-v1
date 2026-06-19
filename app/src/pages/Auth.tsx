@@ -453,18 +453,19 @@ export default function Auth() {
         const pwdConfirm = empData.passwordConfirm as string
         const email = empData.email as string
         const cf = empData.cf as string
-        const iban = empData.iban as string
+        const docs = (empData.documentoFiles as UploadedFile[]) || []
         if (!empData.nome) missing.push('Nome')
         if (!empData.cognome) missing.push('Cognome')
         if (!empData.dataNascita) missing.push('Data di nascita')
+        if (!empData.indirizzo) missing.push('Indirizzo di residenza')
         if (!email) missing.push('Email')
         else if (!isValidEmail(email)) missing.push('Email non valida')
         if (!cf) missing.push('Codice fiscale')
         else if (!isValidCf(cf)) missing.push('Codice fiscale non valido (16 caratteri)')
-        if (iban && !isValidIban(iban)) missing.push('IBAN non valido')
         if (!pwd) missing.push('Password')
         else if (pwd.length < 8) missing.push('Password troppo corta (min 8)')
         else if (pwd !== pwdConfirm) missing.push('Le password non coincidono')
+        if (docs.length === 0) missing.push('Documento d\'identità')
         break
       }
       case 2: {
@@ -503,14 +504,15 @@ export default function Auth() {
         const pwdConfirm = empData.passwordConfirm as string
         const email = empData.email as string
         const cf = empData.cf as string
-        const iban = empData.iban as string  // opzionale ma se compilato deve essere valido
+        const docs = (empData.documentoFiles as UploadedFile[]) || []
         return !!(
           empData.nome &&
           empData.cognome &&
           empData.dataNascita &&
+          empData.indirizzo &&
           email && isValidEmail(email) &&
           cf && isValidCf(cf) &&
-          (!iban || isValidIban(iban)) &&
+          docs.length > 0 &&
           pwd && pwd.length >= 8 &&
           pwd === pwdConfirm
         )
@@ -741,22 +743,7 @@ export default function Auth() {
         return
       }
 
-      // 2) Upload video di attestazione (se presente).
-      let videoPath: string | null = null
-      const videoBlob = empData.videoAttestazione as Blob | null
-      if (videoBlob) {
-        const ext = videoBlob.type.includes('mp4') ? 'mp4' : 'webm'
-        videoPath = `${userId}/${crypto.randomUUID()}-attestation.${ext}`
-        const { error: vErr } = await supabase.storage
-          .from('employee-docs')
-          .upload(videoPath, videoBlob, {
-            contentType: videoBlob.type || 'video/webm',
-            upsert: false,
-          })
-        if (vErr) throw vErr
-      }
-
-      // 3) Aggiorna profile con phone (full_name è già settato dal trigger).
+      // 2) Aggiorna profile con phone (full_name è già settato dal trigger).
       const phone = (empData.telefono as string).trim()
       if (phone) {
         const { error: pErr } = await supabase
@@ -766,26 +753,20 @@ export default function Auth() {
         if (pErr) console.warn('[register-employee] profile phone update warn', pErr)
       }
 
-      // 4) INSERT employees: anagrafica + preferenze + esperienze + certificazioni.
-      const skills: string[] = [
-        empData.ruoloPrincipale as string,
-        ...(empData.ruoliSecondari as string[]),
-      ].filter(Boolean)
-
+      // 3) INSERT employees: SOLO anagrafica base raccolta in registrazione.
+      //    IBAN, video attestazione, storico, certificazioni, ruoli/zona/preferenze
+      //    si compilano nella dashboard dipendente dopo il login; l'admin approva
+      //    documento + video attestazione prima di sbloccare il colloquio.
       const { error: eErr } = await supabase.from('employees').insert({
         id: userId,
         cf: (empData.cf as string).trim() || null,
-        iban: (empData.iban as string).trim() || null,
         birth_date: (empData.dataNascita as string) || null,
         home_address: (empData.indirizzo as string) || null,
-        skills,
-        video_attestation_path: videoPath,
-        experiences: (empData.esperienze as EmployeeExperience[]) || [],
-        certifications: (empData.certificazioni as EmployeeCertification[]) || [],
-        preferred_zone: (empData.zonaLavoro as string) || null,
-        min_hourly_rate: empData.pagaMinima ? Number(empData.pagaMinima) : null,
-        tag_valori: (empData.tagValori as string[]) || [],
-        navetta_driver: !!empData.navettaDriver,
+        skills: [],
+        experiences: [],
+        certifications: [],
+        tag_valori: [],
+        navetta_driver: false,
         onboarding_completed_at: new Date().toISOString(),
       })
       if (eErr) throw eErr
@@ -868,15 +849,12 @@ export default function Auth() {
     'Conferma',
   ]
 
+  // Registrazione dipendente snella: solo 2 step.
+  // Video attestazione, IBAN, storico, certificazioni, ruoli/zona/preferenze e
+  // prenotazione colloquio si gestiscono nella dashboard dipendente dopo il login.
   const employeeSteps = [
     'Dati personali',
     'Foto professionale',
-    'Video attestazione',
-    'Storico lavorativo',
-    'Preferenze',
-    'Calendario',
-    'Colloquio',
-    'Firma contratto',
   ]
 
   /* ─── Role badge helper ─── */
@@ -2137,18 +2115,6 @@ export default function Auth() {
                                 <p className="text-xs text-error">Le password non coincidono</p>
                               )}
                           </div>
-                          <div className="sm:col-span-2 space-y-1.5">
-                            <Label className="flex items-center gap-2">
-                              <Landmark className="w-4 h-4 text-sky-primary" />
-                              IBAN (per pagamenti mensili)
-                            </Label>
-                            <Input
-                              placeholder="IT60 X054 2811 1010 0000 0123 456"
-                              value={empData.iban as string}
-                              onChange={(e) => updateEmp('iban', e.target.value)}
-                              className="bg-[rgba(13,30,52,0.5)] backdrop-blur-md border-[rgba(255,255,255,0.08)] font-mono focus:border-sky-primary hover:border-[rgba(255,255,255,0.15)] transition-all"
-                            />
-                          </div>
                           <div className="sm:col-span-2 space-y-2 pt-2">
                             <Label>Documento d&apos;Identit&agrave;</Label>
                             <p className="text-xs text-text-muted">Carica fronte e retro del documento</p>
@@ -2166,10 +2132,11 @@ export default function Auth() {
                     {empStep === 2 && (
                       <GlassOnboardingStep
                         key="e2"
-                        onNext={() => setEmpStep(3)}
+                        onNext={handleEmployeeSubmit}
                         onPrev={() => setEmpStep(1)}
                         isFirst={false}
-                        isLast={false}
+                        isLast={true}
+                        isSubmitting={isSubmitting}
                         canProceed={canProceedEmployee()}
                         missingFields={getEmployeeMissingFields()}
                       >

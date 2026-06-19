@@ -43,7 +43,7 @@ const roles: RoleOption[] = [
     bottomNote: 'Mi candido come dipendente ATS',
     demoLabel: 'Prova come Dipendente',
     accent: GRN,
-    estTime: '5 step · ~8 min',
+    estTime: '2 step · ~3 min',
   },
 ]
 
