@@ -14,6 +14,25 @@
 
 ---
 
+> ## ⚠️ RETTIFICA STATO REALE — 19/06/2026 (leggere PRIMA del resto)
+>
+> Questo manuale è stato scritto pianificando una ricostruzione **da zero su MongoDB**. **NON corrisponde
+> alla realtà del repo.** Una verifica del 19/06 ha accertato che su `main` esiste già un'**app ATS quasi
+> completa, costruita su SUPABASE** (auth, CRM, turni, check-in QR, payroll, fatturazione, chat, notifiche,
+> GDPR, PWA — 58 commit, build verde). Dettagli: `docs/AUDIT-LOG.md` → **Audit #4**.
+>
+> **Finché i docs non sono riallineati, valgono queste rettifiche sul resto del file:**
+> - **Stack reale:** Frontend React/Vite + **Supabase** (PostgreSQL + Auth + Storage + Realtime).
+>   → Le parti che impongono **MongoDB / Mongoose / Fastify / cartella `api/`** (§4, §5, §7.4, §11) sono **SUPERATE**.
+> - **Stato reale:** **non** "Pre-Fase 0 / zero codice"; gran parte delle Fasi 1–5 è implementata.
+> - **DB:** lo schema reale sono le **migration SQL** in `app/supabase/migrations/` (fonte di verità), non `02-MODELLO-DATI.md`.
+> - **Deploy:** l'app è cablata per **Vercel** (`vercel.json` / `_redirects`); i docs dicono Railway/Cloudflare → **da decidere**.
+>
+> **Restano pienamente validi** (indipendenti dallo stack): modello di business e vincoli **legali** (§3),
+> regole su **denaro/ore** (centesimi/Decimal, mai float), **sicurezza/GDPR** (§8) e l'**audit obbligatorio** (§10).
+
+---
+
 ## 1. Cos'è ATS (in una frase)
 
 ATS è la piattaforma gestionale di un'**attività di catering** che fornisce a strutture (ristoranti,

@@ -5,6 +5,74 @@
 
 ---
 
+## Audit #4 — 19/06/2026 — Scoperta e adozione dell'app Supabase esistente (rettifica dello stato di progetto)
+
+**Autore:** Claude Code — sessione con Andrea
+**Sessione / obiettivo:** Iniziare la Fase 0 (setup cloud + push GitHub). Durante il setup è emersa una
+**contraddizione critica** tra i docs e la realtà del repo.
+**Fase roadmap:** RETTIFICA. Lo stato reale **non è** "Pre-Fase 0 / zero codice": esiste già un'app
+quasi completa che copre gran parte delle Fasi 1–5, costruita su **Supabase** (non MongoDB).
+
+### 1. Lavoro svolto
+- Ri-agganciato il repo locale (era uno ZIP senza storia git) a `origin/main` senza perdere file.
+- Scoperti **2 branch `claude/*`** con un'app ATS quasi completa su **Supabase**: `interesting-jemison`
+  (58 commit, linea principale, fino al 13/05) e `mystifying-brattain` (3 commit + doc di handoff).
+- **Verifica tecnica** del branch più avanzato: `npm install` OK; build inizialmente **ROSSA** (6 errori
+  TS in `tsc -b`); corretti **2 bug reali**; build poi **VERDE** (`tsc -b && vite build`) + PWA generata.
+- **Merge** di `interesting-jemison` su `main` (pulito, **senza force-push**): `main` ora = app Supabase
+  reale + docs di progetto. Push sul remoto **non ancora eseguito** (in attesa di OK utente).
+
+### 2. File / aree toccate
+- `app/src/pages/StructureMatching.tsx` e `app/src/hooks/useNotificationsToast.ts` (fix build).
+- `app/.env.local` creato (credenziali Supabase dall'handoff; **gitignored**, non committato).
+- `main`: merge dei 58 commit Supabase + commit di fix. `docs/AUDIT-LOG.md` (questo) e `CLAUDE.md`
+  (banner di rettifica).
+
+### 3. Stato dei moduli prioritari (semaforo) — RIVISTO ALLA REALTÀ (Supabase)
+| Modulo | Stato | Nota (da commit + build; **da confermare con audit funzionale**) |
+|---|---|---|
+| Personale | 🟢 | CRM strutture/dipendenti/documenti reale, onboarding wizard, scadenze doc (cron). |
+| Turni | 🟢 | Schema turni + matching like-based + assegnazione + cancel/duplica + calendario. |
+| Presenze/Ore | 🟢 | QR check-in/out reale con timer ore lavorate (RPC security definer). |
+| Calcolo Paga | 🟡 | `admin-payroll` con drill-down + "Compenso lordo"; **manca** verifica aderenza a tariffe da config validata dal consulente + test. |
+| Fatturazione | 🟡 | Fatturazione mensile strutture "Stripe-ready" (sprint-18); da verificare completezza/export. |
+
+### 4. Qualità tecnica
+- Build **verde** dopo i 2 fix. 26 migration SQL versionate, RLS attiva, enum espliciti → buona disciplina DB.
+- **Debiti:** 14 vulnerabilità npm (1 low / 4 mod / 9 high); bundle main 685 KB (202 KB gzip) → code-split;
+  il cron scadenze documenti riusa `kind='shift_completed'` come fallback (manca un kind proprio
+  `document_expiring`, che richiede `ALTER TYPE` enum — decisione DB, non fatta); **test assenti**
+  (Vitest non configurato) → critico per il modulo paga; serve gate CI su `npm run build` (non solo `tsc --noEmit`).
+
+### 5. Decisioni prese
+- **Stack reale = SUPABASE** (PostgreSQL + Auth + Storage + Realtime), **non** MongoDB/Mongoose/Fastify.
+  I docs `00/01/02` e `CLAUDE.md §3–§4` (impianto MongoDB) sono **SUPERATI** e vanno riallineati.
+- Adottato `interesting-jemison` come base di `main` (linea più avanzata); `mystifying-brattain`
+  accantonato salvo i suoi doc di handoff.
+- I 2 fix sono stati scelti come **allineamento del codice allo schema reale** (fonte di verità = migration SQL), non patch ai tipi.
+
+### 6. Rischi / questioni aperte
+- ⚠️ **Docs ↔ codice in contraddizione**: i manuali dicono MongoDB, il codice è Supabase → riscrivere
+  i docs per non sviare i prossimi agenti (banner provvisorio messo in `CLAUDE.md`).
+- ⚠️ **Disallineamento Cowork ↔ realtà**: la pianificazione del 19/06 ignorava l'app già esistente.
+- ⚠️ **Paga/Fatturazione & legale**: verificare che tariffe/maggiorazioni vivano in config validata dal
+  consulente (regola §3/§7.4) e che il modello (extra/intermittente/occasionale, "solo personale") regga.
+- **Segreti**: publishable key Supabase in chiaro in `HANDOFF_PROMPT.md` (branch mystifying) — è
+  client-safe (RLS) ma valutarne la rimozione dal repo.
+
+### 7. Prossimo passo consigliato
+- **Conferma utente** per: (a) push di `main` su GitHub; (b) deploy target (**Vercel** — già wired via
+  `vercel.json`/`_redirects` — **vs Railway** dei docs).
+- Riallineare i docs (`CLAUDE.md`/`00`/`01`/`02`) a Supabase + stato reale.
+- Smoke-test funzionale end-to-end (login admin/struttura/dipendente) sulla Supabase live.
+- Configurare **Vitest** + primi test sul modulo **paga**; triage delle 14 vuln npm.
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento reale: **4/5** (app quasi completa) · Qualità: **3,5/5** (build verde, ma 0 test + vuln + bundle)
+  · Aderenza alle regole: **4/5** (verifica + audit + no force-push; resta il riallineamento docs).
+
+---
+
 ## Audit #3 — 19/06/2026 — Doppio manuale agenti: Cowork (strategia) + Claude Code (tecnico)
 
 **Autore:** Claude (Cowork) — sessione di kickoff con Andrea
