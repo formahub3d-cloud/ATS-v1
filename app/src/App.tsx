@@ -52,6 +52,7 @@ const EmployeeCheckin  = lazy(() => import('./pages/EmployeeCheckin'))
 const EmployeeChat     = lazy(() => import('./pages/EmployeeChat'))
 const EmployeeDocuments = lazy(() => import('./pages/EmployeeDocuments'))
 const EmployeeRank     = lazy(() => import('./pages/EmployeeRank'))
+const EmployeeProfile  = lazy(() => import('./pages/EmployeeProfile'))
 
 function PageLoader() {
   return (
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/structure/history" element={<StructureHistory />} />
                 <Route path="/structure/chat" element={<StructureChat />} />
                 <Route path="/employee" element={<EmployeeDashboard />} />
+                <Route path="/employee/profile" element={<EmployeeProfile />} />
                 <Route path="/employee/calendar" element={<EmployeeCalendar />} />
                 <Route path="/employee/matching" element={<EmployeeMatching />} />
                 <Route path="/employee/checkin" element={<EmployeeCheckin />} />

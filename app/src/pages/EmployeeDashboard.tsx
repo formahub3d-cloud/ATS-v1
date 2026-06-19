@@ -224,6 +224,14 @@ export default function EmployeeDashboard() {
     );
   }
 
+  // Stato completamento profilo (per la card "Completa profilo").
+  const empSkills = (employee.skills as string[]) ?? [];
+  const profileMissing: string[] = [];
+  if (!employee.iban) profileMissing.push('IBAN');
+  if (!employee.video_attestation_path) profileMissing.push('video attestazione');
+  if (empSkills.length === 0) profileMissing.push('ruoli e preferenze');
+  const profileComplete = profileMissing.length === 0;
+
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
       {/* Glass Header */}
@@ -277,6 +285,40 @@ export default function EmployeeDashboard() {
             {greeting}, {displayName}
           </motion.h1>
           <p className="text-sm text-[#94A3B8] mt-0.5">Ecco il tuo riepilogo</p>
+        </motion.div>
+
+        {/* Completa profilo / Il mio profilo */}
+        <motion.div variants={itemVariants} className="px-4 mt-3">
+          <button
+            type="button"
+            onClick={() => navigate('/employee/profile')}
+            className={cn(
+              'w-full text-left rounded-2xl p-4 border backdrop-blur-md transition-all flex items-center gap-3',
+              profileComplete
+                ? 'bg-[rgba(13,30,52,0.6)] border-[rgba(255,255,255,0.06)] hover:border-[rgba(91,184,245,0.2)]'
+                : 'bg-[rgba(245,184,0,0.06)] border-[rgba(245,184,0,0.25)] hover:bg-[rgba(245,184,0,0.1)]'
+            )}
+          >
+            <div className={cn(
+              'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+              profileComplete ? 'bg-[rgba(91,184,245,0.1)]' : 'bg-[rgba(245,184,0,0.12)]'
+            )}>
+              {profileComplete
+                ? <FileText className="w-5 h-5 text-[#5BB8F5]" />
+                : <AlertCircle className="w-5 h-5 text-[#F5B800]" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">
+                {profileComplete ? 'Il mio profilo' : 'Completa il tuo profilo'}
+              </p>
+              <p className="text-xs text-[#94A3B8] truncate">
+                {profileComplete
+                  ? 'IBAN, storico, certificazioni, video attestazione'
+                  : `Manca: ${profileMissing.join(' · ')}`}
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#5E7A95] flex-shrink-0" />
+          </button>
         </motion.div>
 
         {/* Earnings & Rank Hero Card (Glass) */}
