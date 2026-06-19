@@ -325,9 +325,15 @@ export default function Auth() {
       else if (realRole === 'structure') navigate('/structure')
       else navigate('/employee')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login fallito'
+      const raw = err instanceof Error ? err.message : 'Login fallito'
+      // Traduci i messaggi Supabase più comuni in italiano comprensibile.
+      const message = /invalid login credentials/i.test(raw)
+        ? 'Email o password non corretti. Controlla i dati o registrati.'
+        : /email not confirmed/i.test(raw)
+          ? 'Devi prima confermare la tua email.'
+          : raw
       setLoginError(message)
-      addToast({ type: 'error', title: 'Errore login', message })
+      addToast({ type: 'error', title: 'Accesso non riuscito', message })
     } finally {
       setIsLoggingIn(false)
     }
@@ -729,7 +735,19 @@ export default function Auth() {
           data: { full_name: fullName, role: 'employee' },
         },
       })
-      if (signUpError) throw signUpError
+      if (signUpError) {
+        // Email già usata: messaggio chiaro + porta al login invece dell'errore criptico.
+        if (/already registered|already exists|already been registered/i.test(signUpError.message)) {
+          addToast({
+            type: 'error',
+            title: 'Email già registrata',
+            message: 'Esiste già un account con questa email. Accedi invece di registrarti.',
+          })
+          setView('login')
+          return
+        }
+        throw signUpError
+      }
       const userId = signUpData.user?.id
       if (!userId) throw new Error('SignUp riuscito ma user.id mancante.')
 
