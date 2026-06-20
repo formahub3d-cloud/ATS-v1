@@ -840,12 +840,13 @@ export default function Auth() {
       addToast({
         type: 'success',
         title: 'Benvenuto nel network ATS!',
-        message: 'Profilo creato. Accedi per iniziare a ricevere turni.',
+        message: 'Profilo creato. Completa il tuo profilo dalla dashboard.',
       })
+      // autoconfirm attivo → signUp ha già creato la sessione: ingresso diretto
+      // in dashboard, niente passaggio di login (che confondeva e bloccava).
       setTimeout(() => {
-        setView('login')
-        setEmpStep(1)
-      }, 1800)
+        navigate('/employee')
+      }, 1200)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore sconosciuto'
       console.error('[register-employee] submit error', err)
