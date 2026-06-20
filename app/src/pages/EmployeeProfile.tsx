@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, Landmark, Plus, Trash2, Briefcase, Award, Video,
-  CheckCircle2, Clock, MapPin, Euro, Bus, Save, IdCard,
+  CheckCircle2, Clock, MapPin, Euro, Bus, Save, IdCard, Car,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,6 +38,21 @@ const VALORI_OPTIONS = [
   { id: 'trasporto', label: 'Navetta/Trasporto' },
 ]
 
+const SERVICE_ZONES = [
+  { id: 'centro', label: 'Centro città' },
+  { id: 'periferia', label: 'Periferia' },
+  { id: 'eventi', label: 'Eventi privati' },
+  { id: 'navetta', label: 'Spostamento con navetta' },
+]
+
+const AVAILABILITY = [
+  { value: 'full_time', label: 'Full-time' },
+  { value: 'part_time', label: 'Part-time' },
+  { value: 'on_call', label: 'A chiamata' },
+]
+
+const PAGA_OPTIONS = ['7', '8', '9', '10']
+
 // IBAN UE basico: 2 lettere + 2 cifre + 11-30 alfanumerici. Opzionale → valido se vuoto.
 const isValidIban = (v: string) =>
   !v || /^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/i.test(v.trim().replace(/\s/g, ''))
@@ -67,6 +82,9 @@ export default function EmployeeProfile() {
   const [pagaMinima, setPagaMinima] = useState('')
   const [tagValori, setTagValori] = useState<string[]>([])
   const [navetta, setNavetta] = useState(false)
+  const [hasVehicle, setHasVehicle] = useState(false)
+  const [serviceZones, setServiceZones] = useState<string[]>([])
+  const [availabilityPref, setAvailabilityPref] = useState('')
   const [esperienze, setEsperienze] = useState<EmployeeExperience[]>([])
   const [certificazioni, setCertificazioni] = useState<EmployeeCertification[]>([])
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null)
@@ -96,6 +114,9 @@ export default function EmployeeProfile() {
           setPagaMinima(emp.min_hourly_rate != null ? String(emp.min_hourly_rate) : '')
           setTagValori((emp.tag_valori as string[]) ?? [])
           setNavetta(!!emp.navetta_driver)
+          setHasVehicle(!!emp.has_vehicle)
+          setServiceZones((emp.service_zones as string[]) ?? [])
+          setAvailabilityPref(emp.availability_pref ?? '')
           setEsperienze((emp.experiences as EmployeeExperience[]) ?? [])
           setCertificazioni((emp.certifications as EmployeeCertification[]) ?? [])
         }
@@ -156,7 +177,10 @@ export default function EmployeeProfile() {
           preferred_zone: zona.trim() || null,
           min_hourly_rate: pagaMinima ? Number(pagaMinima) : null,
           tag_valori: tagValori,
-          navetta_driver: navetta,
+          navetta_driver: hasVehicle ? navetta : false,
+          has_vehicle: hasVehicle,
+          service_zones: serviceZones,
+          availability_pref: availabilityPref || null,
           experiences: esperienze,
           certifications: certificazioni,
           ...(videoPath ? { video_attestation_path: videoPath } : {}),
@@ -176,7 +200,7 @@ export default function EmployeeProfile() {
     } finally {
       setSaving(false)
     }
-  }, [user, iban, videoBlob, ruoloPrincipale, ruoliSecondari, zona, pagaMinima, tagValori, navetta, esperienze, certificazioni, addToast])
+  }, [user, iban, videoBlob, ruoloPrincipale, ruoliSecondari, zona, pagaMinima, tagValori, navetta, hasVehicle, serviceZones, availabilityPref, esperienze, certificazioni, addToast])
 
   const hasVideo = !!employee?.video_attestation_path || !!videoBlob
 
@@ -247,10 +271,10 @@ export default function EmployeeProfile() {
           </div>
         </section>
 
-        {/* Preferenze di lavoro */}
+        {/* Ruoli e preferenze */}
         <section className={cardCls}>
           <SectionTitle icon={Briefcase} title="Ruoli e preferenze" />
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-1.5">
               <Label>Ruolo principale</Label>
               <Select value={ruoloPrincipale} onValueChange={setRuoloPrincipale}>
@@ -270,16 +294,44 @@ export default function EmployeeProfile() {
               </div>
             </div>
 
+            {/* Città di lavoro — geolocalizzata (OpenStreetMap) */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-2"><MapPin className="w-4 h-4 text-sky-primary" />Città di lavoro</Label>
+              <CityAutocomplete value={zona} onChange={setZona} />
+              {zona && <p className="text-xs text-[#1EC99A]">Selezionata: {zona}</p>}
+            </div>
+
+            {/* Tipo di zona / servizio (no prezzi) */}
+            <div className="space-y-1.5">
+              <Label>Tipo di zona / servizio</Label>
+              <div className="flex flex-wrap gap-2">
+                {SERVICE_ZONES.map((z) => (
+                  <Chip key={z.id} active={serviceZones.includes(z.id)} onClick={() => toggle(serviceZones, setServiceZones, z.id)}>{z.label}</Chip>
+                ))}
+              </div>
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="flex items-center gap-2"><MapPin className="w-4 h-4 text-sky-primary" />Zona di lavoro</Label>
-                <Input className={inputCls} placeholder="Es. Benevento centro" value={zona} onChange={(e) => setZona(e.target.value)} />
+                <Label className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-sky-primary" />Impiego che cerchi</Label>
+                <Select value={availabilityPref} onValueChange={setAvailabilityPref}>
+                  <SelectTrigger className={inputCls}><SelectValue placeholder="Scegli" /></SelectTrigger>
+                  <SelectContent>
+                    {AVAILABILITY.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-2"><Euro className="w-4 h-4 text-sky-primary" />Paga minima (€/h)</Label>
-                <Input className={inputCls} type="number" inputMode="decimal" min="0" placeholder="Es. 9" value={pagaMinima} onChange={(e) => setPagaMinima(e.target.value)} />
+                <Select value={pagaMinima} onValueChange={setPagaMinima}>
+                  <SelectTrigger className={inputCls}><SelectValue placeholder="Scegli" /></SelectTrigger>
+                  <SelectContent>
+                    {PAGA_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p} €/h</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <p className="text-xs text-[#6e6e6e] -mt-2">La paga minima è solo indicativa: non è la paga che riceverai, ma quanto ti aspetti come minimo.</p>
 
             <div className="space-y-1.5">
               <Label>Cosa cerchi in un lavoro</Label>
@@ -290,10 +342,20 @@ export default function EmployeeProfile() {
               </div>
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer pt-1">
-              <Checkbox checked={navetta} onCheckedChange={(v) => setNavetta(!!v)} />
-              <span className="flex items-center gap-2 text-sm text-[#CBD5E1]"><Bus className="w-4 h-4 text-sky-primary" />Sono disponibile a guidare la navetta</span>
-            </label>
+            {/* Auto munito → navetta driver */}
+            <div className="space-y-2 pt-1">
+              <Label className="flex items-center gap-2"><Car className="w-4 h-4 text-sky-primary" />Sei automunito?</Label>
+              <div className="flex gap-2">
+                <Chip active={hasVehicle} onClick={() => setHasVehicle(true)}>Sì</Chip>
+                <Chip active={!hasVehicle} onClick={() => { setHasVehicle(false); setNavetta(false) }}>No</Chip>
+              </div>
+              {hasVehicle && (
+                <label className="flex items-center gap-3 cursor-pointer pt-1">
+                  <Checkbox checked={navetta} onCheckedChange={(v) => setNavetta(!!v)} />
+                  <span className="flex items-center gap-2 text-sm text-[#CBD5E1]"><Bus className="w-4 h-4 text-sky-primary" />Disponibile come navetta driver</span>
+                </label>
+              )}
+            </div>
           </div>
         </section>
 
@@ -434,6 +496,64 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     >
       {children}
     </button>
+  )
+}
+
+function CityAutocomplete({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [q, setQ] = useState(value)
+  const [results, setResults] = useState<Array<{ name: string; label: string }>>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => { setQ(value) }, [value])
+
+  useEffect(() => {
+    if (!open) return
+    const term = q.trim()
+    if (term.length < 2) { setResults([]); return }
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=it&limit=6&accept-language=it&q=${encodeURIComponent(term)}`,
+        )
+        const data = (await res.json()) as Array<{ display_name: string; name?: string }>
+        setResults(data.map((d) => ({ name: d.name || d.display_name.split(',')[0], label: d.display_name })))
+      } catch {
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [q, open])
+
+  return (
+    <div className="relative">
+      <Input
+        className={inputCls}
+        placeholder="Cerca città… (es. Benevento)"
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && q.trim().length >= 2 && (
+        <div className="absolute z-30 mt-1 w-full rounded-xl border border-[rgba(255,255,255,0.12)] bg-[#0d1e34] shadow-xl max-h-56 overflow-auto">
+          {loading && <div className="px-3 py-2 text-xs text-[#94A3B8]">Ricerca…</div>}
+          {!loading && results.length === 0 && <div className="px-3 py-2 text-xs text-[#94A3B8]">Nessun risultato</div>}
+          {results.map((r, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => { onChange(r.name); setQ(r.name); setOpen(false) }}
+              className="block w-full text-left px-3 py-2 text-sm text-[#CBD5E1] hover:bg-[rgba(91,184,245,0.12)]"
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

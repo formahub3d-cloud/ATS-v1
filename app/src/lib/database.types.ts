@@ -171,6 +171,9 @@ type EmployeeInsert = {
   min_hourly_rate?: number | null
   tag_valori?: string[]
   navetta_driver?: boolean
+  has_vehicle?: boolean
+  service_zones?: string[]
+  availability_pref?: string | null
   onboarding_completed_at?: string | null
   created_at?: string
   updated_at?: string
@@ -388,6 +391,9 @@ export type Database = {
           min_hourly_rate: number | null
           tag_valori: string[]
           navetta_driver: boolean
+          has_vehicle: boolean
+          service_zones: string[]
+          availability_pref: string | null
           onboarding_completed_at: string | null
           created_at: string
           updated_at: string
