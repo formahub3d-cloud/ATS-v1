@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Star, Award, TrendingUp, TrendingDown, FileText, Clock, CheckCircle, HelpCircle, AlertCircle, Upload } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
@@ -166,7 +166,7 @@ export default function EmployeeRank() {
           backdropFilter: 'blur(20px)',
         }}
       >
-        <div className="max-w-[430px] mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-white">Rank & Paga</h1>
           <GlassTooltip
             content={
@@ -182,7 +182,7 @@ export default function EmployeeRank() {
         </div>
       </header>
 
-      <div className="max-w-[430px] mx-auto">
+      <div className="max-w-[430px] lg:max-w-3xl mx-auto">
         {/* Rank Hero Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -291,7 +291,7 @@ export default function EmployeeRank() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="px-4 mt-4 grid grid-cols-2 gap-3"
+          className="px-4 mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3"
         >
           <div className="rounded-2xl p-4 bg-[rgba(13,30,52,0.7)] border border-[rgba(91,184,245,0.15)]">
             <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Paga mese</p>
