@@ -221,7 +221,7 @@ export default function EmployeeProfile() {
     <div className="min-h-[100dvh] bg-[#06101E] pb-28 text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(6,16,30,0.9)] backdrop-blur-[20px]">
-        <div className="flex items-center gap-3 h-16 px-4 max-w-[560px] mx-auto">
+        <div className="flex items-center gap-3 h-16 px-4 max-w-5xl mx-auto">
           <button
             type="button"
             onClick={() => navigate('/employee')}
@@ -241,7 +241,7 @@ export default function EmployeeProfile() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="max-w-[560px] mx-auto px-4 pt-5 space-y-5"
+        className="max-w-[560px] lg:max-w-5xl mx-auto px-4 pt-5 space-y-5 lg:space-y-0 lg:columns-2 lg:gap-5 lg:[&>section]:mb-5 lg:[&>section]:break-inside-avoid"
       >
         {/* Stato verifica admin (documento + video attestazione) */}
         <section className={cn(cardCls, 'border-[rgba(91,184,245,0.18)]')}>
@@ -446,7 +446,7 @@ export default function EmployeeProfile() {
 
       {/* Barra salvataggio sticky */}
       <div className="fixed bottom-[72px] left-0 right-0 z-40 px-4">
-        <div className="max-w-[560px] mx-auto">
+        <div className="max-w-5xl mx-auto">
           <button
             type="button"
             onClick={handleSave}
