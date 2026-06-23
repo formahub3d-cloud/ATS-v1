@@ -242,7 +242,7 @@ export default function EmployeeDashboard() {
           backdropFilter: 'blur(20px)',
         }}
       >
-        <div className="flex items-center justify-between h-16 px-4 max-w-[430px] mx-auto">
+        <div className="flex items-center justify-between h-16 px-4 max-w-5xl mx-auto">
           <div className="flex items-center gap-3">
             <motion.div
               whileTap={{ scale: 0.9 }}
@@ -272,7 +272,7 @@ export default function EmployeeDashboard() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="max-w-[430px] mx-auto"
+        className="max-w-[430px] lg:max-w-5xl mx-auto"
       >
         {/* Greeting */}
         <motion.div variants={itemVariants} className="px-4 pt-4 pb-2">
@@ -287,6 +287,8 @@ export default function EmployeeDashboard() {
           <p className="text-sm text-[#94A3B8] mt-0.5">Ecco il tuo riepilogo</p>
         </motion.div>
 
+        {/* Su desktop le card si dispongono su 2 colonne (mobile: colonna singola) */}
+        <div className="lg:columns-2 lg:gap-x-4 [&>*]:break-inside-avoid">
         {/* Completa profilo / Il mio profilo */}
         <motion.div variants={itemVariants} className="px-4 mt-3">
           <button
@@ -546,6 +548,7 @@ export default function EmployeeDashboard() {
             <ChevronRight className="w-4 h-4 text-[#5E7A95]" />
           </div>
         </motion.div>
+        </div>
       </motion.div>
 
       {/* Sezione privacy GDPR — in fondo alla dashboard, sopra il bottom nav. */}
