@@ -5,6 +5,42 @@
 
 ---
 
+## Audit #6 — 23/06/2026 — Preferenze profilo + fix flusso auth + responsive desktop (portale dipendente)
+
+**Autore:** Claude Code — sessione con Andrea
+**Obiettivo:** Completare le Preferenze del profilo, sbloccare login/registrazione, rendere responsive il portale dipendente.
+
+### 1. Lavoro svolto
+- **Preferenze profilo (Parte B completa):** città geolocalizzata (autocomplete OpenStreetMap), tipo zona (centro/periferia/eventi/navetta, no prezzi), impiego cercato (full/part/a chiamata = `availability_pref`, distinto dal `contract_type` legale admin-only), paga minima 7/8/9/10€, auto munito→navetta driver. Nuova **migration** `20260619000001_employee_preferences.sql` (`has_vehicle`, `service_zones`, `availability_pref`) + tipi TS.
+- **Fix flusso auth:** dopo la registrazione → **ingresso diretto in dashboard** (autoconfirm on → niente re-login, che confondeva/bloccava); messaggio chiaro "email già registrata → accedi"; errori login in italiano. Diagnosi blocco utente: **email duplicata** (riusava la principale). SQL di reset utenti fornito.
+- **Responsive desktop — portale dipendente:** dashboard + profilo a **2 colonne** (`lg:` columns), rank allargato (`lg:max-w-3xl`); calendario già responsive; check-in/chat/matching ok centrati (640px). Mobile invariato.
+- **Bug critico risolto:** `EmployeeRank` usava `AnimatePresence` senza importarlo → **white-screen per tutti** (non visto da `tsc` per `@ts-nocheck`). Emerso grazie al pass responsive visivo.
+
+### 2. File toccati
+`Auth.tsx`, `EmployeeProfile.tsx`, `EmployeeDashboard.tsx`, `EmployeeRank.tsx`, `lib/database.types.ts`, `supabase/migrations/20260619000001_employee_preferences.sql` (nuovo), `docs/AUDIT-LOG.md`.
+
+### 3. Stato moduli
+Personale 🟢 (onboarding + profilo completi e responsive). Turni/Presenze/Paga/Fatturazione invariati.
+
+### 4. Qualità
+Build verde su tutto. ⚠️ Restano: pagine `@ts-nocheck` con possibili bug latenti (come Rank); 0 test; dati mock in dashboard/rank.
+
+### 5. Decisioni
+Responsive = mobile-first mantenuto + desktop a 2 colonne (approvato dall'utente, "applicala ovunque"). `availability_pref` come preferenza, NON contratto legale.
+
+### 6. Rischi / questioni aperte
+- ⚠️ **Lavoro TUTTO in locale sul branch `feat/onboarding-dipendente`, NON pushato** → fare push (backup + abilita Claude Code web/mobile).
+- Portale **Struttura e Admin** responsive ancora da fare (servono i rispettivi ruoli/login; admin è il più critico su desktop — tabelle dati).
+- Migration preferenze da applicare su Supabase (SQL fornito).
+
+### 7. Prossimo passo
+Push su GitHub; responsive Admin (promuovere un account ad admin via SQL) + Struttura; poi "**semplicità d'uso**" della web app.
+
+### 8. Valutazione (1–5)
+Avanzamento: 4/5 · Qualità: 3,5/5 · Aderenza regole: 4,5/5.
+
+---
+
 ## Audit #5 — 19/06/2026 — Onboarding dipendente (registrazione 2 step + dashboard profilo) + audit generale HTML
 
 **Autore:** Claude Code — sessione con Andrea
