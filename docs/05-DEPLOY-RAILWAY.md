@@ -5,7 +5,7 @@
 > segreti, colleghi il dominio — azioni che richiedono i tuoi account (io non vi ho accesso).
 >
 > Decisioni prese (24/06/2026): Frontend **su Railway**, DB **Railway MongoDB**, **Railway Environments**
-> (main→production, staging→staging), dominio **già posseduto** su Cloudflare.
+> (main→production, staging→staging), dominio **altuoservizio.online** con DNS su **SiteGround**.
 
 ---
 
@@ -20,9 +20,9 @@ Railway project "Al Tuo Servizio - ATS"
 └─ Environment: staging      (branch GitHub: staging)
     ├─ web · api · MongoDB (separati o con DB dedicato)
 
-Cloudflare (DNS + CDN/SSL davanti):
-  app.<dominio>  → service web
-  api.<dominio>  → service api
+SiteGround (DNS del dominio altuoservizio.online):
+  app.altuoservizio.online  → CNAME → service web (Railway)
+  api.altuoservizio.online  → CNAME → service api (Railway)
 ```
 
 I file `app/railway.json` e `api/railway.json` sono già nel repo: Railway li usa in automatico
@@ -96,25 +96,32 @@ I file `app/railway.json` e `api/railway.json` sono già nel repo: Railway li us
 
 ---
 
-## 5. Dominio + DNS (Cloudflare)
+## 5. Dominio + DNS (SiteGround)
 
-> Servono i nomi esatti: dimmi **qual è il dominio** e quali sottodomini vuoi (consigliati
-> `app.` per il frontend e `api.` per l'API) e preparo la tabella DNS precisa. Schema generale:
+> Dominio reale: **altuoservizio.online** — registrato/gestito su **SiteGround** (il DNS si modifica
+> nel **DNS Zone Editor** di SiteGround, non su Cloudflare). Sottodomini consigliati:
+> `app.altuoservizio.online` (frontend) e `api.altuoservizio.online` (API).
 
 1. **In Railway**, per ciascun service → Settings → **Networking → Custom Domain**:
-   - su `web` aggiungi `app.<dominio>` (o il dominio root)
-   - su `api` aggiungi `api.<dominio>`
-   - Railway mostra un **target CNAME** (es. `xxxx.up.railway.app`).
-2. **In Cloudflare** (DNS del dominio) → Add record:
-   | Type | Name | Target | Proxy |
+   - su `web` aggiungi `app.altuoservizio.online`
+   - su `api` aggiungi `api.altuoservizio.online`
+   - Railway mostra per ognuno un **target CNAME** (es. `abcd1234.up.railway.app`). Annòtali.
+2. **In SiteGround** → Site Tools → **Domain → DNS Zone Editor** → aggiungi due record CNAME:
+   | Type | Name (host) | Points to (target Railway) | TTL |
    |---|---|---|---|
-   | CNAME | `app` | *(target del service web)* | DNS only (grigio) all'inizio |
-   | CNAME | `api` | *(target del service api)* | DNS only (grigio) all'inizio |
-   - Lascia **DNS only** finché Railway non emette il certificato; poi puoi attivare il **proxy
-     (arancione)** con SSL **Full (strict)** per avere CDN/cache/WAF Cloudflare davanti.
-   - Per il dominio **root** (apex), Cloudflare supporta CNAME flattening.
-3. Aggiorna le variabili: `CORS_ORIGIN` (API) = `https://app.<dominio>`; `VITE_API_URL` (web) =
-   `https://api.<dominio>` → rifai il build del web.
+   | CNAME | `app` | *(target del service web)* | 1 ora |
+   | CNAME | `api` | *(target del service api)* | 1 ora |
+   - Il **dominio root** `altuoservizio.online` (apex) su SiteGround **non** può puntare via CNAME a
+     Railway (Railway non dà un IP fisso). Soluzioni:
+     a) lasciare il root come landing/redirect verso `https://app.altuoservizio.online` (SiteGround →
+        Domain → **Redirect**), oppure b) gestirlo più avanti spostando il DNS su Cloudflare (apex
+        flattening). Per ora si usano i sottodomini.
+3. Attendi la propagazione DNS (minuti–ore) e che Railway emetta il **certificato SSL** (automatico).
+4. Aggiorna le variabili: `CORS_ORIGIN` (API) = `https://app.altuoservizio.online`; `VITE_API_URL`
+   (web) = `https://api.altuoservizio.online` → rifai il build del web.
+
+> **Cloudflare (opzionale, dopo):** se in futuro vuoi CDN/WAF globale, sposta i *nameserver* del
+> dominio su Cloudflare e ricrea lì gli stessi CNAME (proxati). Non necessario per andare online.
 
 ---
 
