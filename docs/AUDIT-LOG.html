@@ -45,6 +45,66 @@
 <h1>AUDIT-LOG — Registro cronologico degli audit ATS</h1>
 <blockquote>Audit più recente <strong>in alto</strong>. Si compila con <code>docs/03-AUDIT-TEMPLATE.md</code> a fine di ogni lavoro.<br/>Questo registro è la memoria condivisa del progetto: ogni nuovo agente lo legge prima di iniziare.</blockquote>
 <hr/>
+<h2>Audit #11 — 24/06/2026 — Preparazione deploy Railway (config + guida)</h2>
+<p><strong>Autore:</strong> Claude Code · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Preparare il repo al deploy su Railway dopo che l'utente ha creato il<br/>progetto "Al Tuo Servizio - ATS". Decisioni utente: frontend su Railway, <strong>Railway MongoDB</strong>,<br/><strong>Railway Environments</strong> (main→production, staging→staging), dominio già posseduto.<br/><strong>Fase roadmap:</strong> Fase 0 — messa in produzione delle fondamenta.</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li><strong>Frontend pronto per container:</strong> aggiunto <code>serve</code> + script <code>start</code> (<code>serve -s dist -l $PORT</code>) e</li>
+</ul>
+<p>  <code>app/railway.json</code> (build Vite + start statico + healthcheck <code>/</code>).</p>
+<ul>
+<li><strong>API pronta per Railway:</strong> <code>api/railway.json</code> (build + <code>npm start</code> + healthcheck <code>/api/v1/health</code>,</li>
+</ul>
+<p>  restart policy). L'API usa già <code>0.0.0.0:$PORT</code> (PORT iniettata da Railway).</p>
+<ul>
+<li><strong><code>app/.env.example</code></strong> con <code>VITE_API_URL</code> (per il futuro collegamento all'API).</li>
+<li><strong>Guida <code>docs/05-DEPLOY-RAILWAY.md</code></strong>: passo-passo per MongoDB plugin, service api/web (root dir +</li>
+</ul>
+<p>  variabili + segreti), Environments staging/production con mapping branch, dominio + DNS Cloudflare,<br/>  generazione segreti, checklist.</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li>Nuovi: <code>app/railway.json</code>, <code>api/railway.json</code>, <code>app/.env.example</code>, <code>docs/05-DEPLOY-RAILWAY.md</code>.</li>
+<li>Modificati: <code>app/package.json</code> (dep <code>serve</code> + script <code>start</code>), docs/audit.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato (infrastruttura). Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Frontend: build ✅, lint 0 errori, 20 test ✅. Backend: typecheck/build/7 test ✅.</li>
+<li>Config deploy versionata nel repo; segreti <strong>solo</strong> su Railway (mai committati).</li>
+</ul>
+<h3>5. Decisioni prese (con l'utente)</h3>
+<ul>
+<li><strong>Deviazione da CLAUDE.md §4.2:</strong> DB = <strong>Railway MongoDB</strong> (plugin) invece di Atlas M0 — scelta</li>
+</ul>
+<p>  dell'owner per tenere tutto su un'unica piattaforma. Annotata qui; valutare di aggiornare CLAUDE.md.</p>
+<ul>
+<li>Frontend servito come statico con <code>serve</code> dietro Cloudflare.</li>
+<li>Ambienti via Railway Environments con auto-deploy da branch.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li><strong>Azioni dashboard (utente):</strong> creazione DB, inserimento segreti, collegamento dominio/DNS — non</li>
+</ul>
+<p>  eseguibili da questa sessione (nessun accesso a Railway/Cloudflare/registrar).</p>
+<ul>
+<li><strong>Branch produzione:</strong> <code>main</code> è ancora la baseline vecchia; per pubblicare la versione aggiornata</li>
+</ul>
+<p>  serve il <strong>merge del branch di lavoro in <code>main</code></strong> (o puntare production a questo branch).</p>
+<ul>
+<li><strong>Dominio:</strong> servono nome dominio + sottodomini per generare i record DNS esatti (chiesto all'utente).</li>
+<li>Staging: usare <strong>DB separato</strong> da production (non mischiare i dati).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Utente: seguire <code>docs/05-DEPLOY-RAILWAY.md</code> (DB → api → web → environments → dominio) e fornire il</li>
+</ul>
+<p>  dominio. Poi: collegare <code>app/src/services/*</code> all'API reale (da <code>simulate</code> a <code>fetch</code>).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 3/5 · Qualità: 4/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 4/5 (deviazione DB documentata).</li>
+</ul>
+<hr/>
 <h2>Audit #10 — 24/06/2026 — A4 (test Vitest) + Fase 0: scaffolding backend <code>api/</code></h2>
 <p><strong>Autore:</strong> Claude Code · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Implementare A4 (test) e avviare la <strong>Fase 0</strong> (backend reale).<br/><strong>Fase roadmap:</strong> <strong>Fase 0 — Fondamenta tecniche</strong> (avviata).</p>
 <h3>1. Lavoro svolto</h3>

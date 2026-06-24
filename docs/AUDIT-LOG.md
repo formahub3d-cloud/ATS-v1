@@ -5,6 +5,58 @@
 
 ---
 
+## Audit #11 — 24/06/2026 — Preparazione deploy Railway (config + guida)
+
+**Autore:** Claude Code · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
+**Sessione / obiettivo:** Preparare il repo al deploy su Railway dopo che l'utente ha creato il
+progetto "Al Tuo Servizio - ATS". Decisioni utente: frontend su Railway, **Railway MongoDB**,
+**Railway Environments** (main→production, staging→staging), dominio già posseduto.
+**Fase roadmap:** Fase 0 — messa in produzione delle fondamenta.
+
+### 1. Lavoro svolto
+- **Frontend pronto per container:** aggiunto `serve` + script `start` (`serve -s dist -l $PORT`) e
+  `app/railway.json` (build Vite + start statico + healthcheck `/`).
+- **API pronta per Railway:** `api/railway.json` (build + `npm start` + healthcheck `/api/v1/health`,
+  restart policy). L'API usa già `0.0.0.0:$PORT` (PORT iniettata da Railway).
+- **`app/.env.example`** con `VITE_API_URL` (per il futuro collegamento all'API).
+- **Guida `docs/05-DEPLOY-RAILWAY.md`**: passo-passo per MongoDB plugin, service api/web (root dir +
+  variabili + segreti), Environments staging/production con mapping branch, dominio + DNS Cloudflare,
+  generazione segreti, checklist.
+
+### 2. File / aree toccate
+- Nuovi: `app/railway.json`, `api/railway.json`, `app/.env.example`, `docs/05-DEPLOY-RAILWAY.md`.
+- Modificati: `app/package.json` (dep `serve` + script `start`), docs/audit.
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato (infrastruttura). Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.
+
+### 4. Qualità tecnica
+- Frontend: build ✅, lint 0 errori, 20 test ✅. Backend: typecheck/build/7 test ✅.
+- Config deploy versionata nel repo; segreti **solo** su Railway (mai committati).
+
+### 5. Decisioni prese (con l'utente)
+- **Deviazione da CLAUDE.md §4.2:** DB = **Railway MongoDB** (plugin) invece di Atlas M0 — scelta
+  dell'owner per tenere tutto su un'unica piattaforma. Annotata qui; valutare di aggiornare CLAUDE.md.
+- Frontend servito come statico con `serve` dietro Cloudflare.
+- Ambienti via Railway Environments con auto-deploy da branch.
+
+### 6. Rischi / questioni aperte
+- **Azioni dashboard (utente):** creazione DB, inserimento segreti, collegamento dominio/DNS — non
+  eseguibili da questa sessione (nessun accesso a Railway/Cloudflare/registrar).
+- **Branch produzione:** `main` è ancora la baseline vecchia; per pubblicare la versione aggiornata
+  serve il **merge del branch di lavoro in `main`** (o puntare production a questo branch).
+- **Dominio:** servono nome dominio + sottodomini per generare i record DNS esatti (chiesto all'utente).
+- Staging: usare **DB separato** da production (non mischiare i dati).
+
+### 7. Prossimo passo consigliato
+- Utente: seguire `docs/05-DEPLOY-RAILWAY.md` (DB → api → web → environments → dominio) e fornire il
+  dominio. Poi: collegare `app/src/services/*` all'API reale (da `simulate` a `fetch`).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 3/5 · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 4/5 (deviazione DB documentata).
+
+---
+
 ## Audit #10 — 24/06/2026 — A4 (test Vitest) + Fase 0: scaffolding backend `api/`
 
 **Autore:** Claude Code · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
