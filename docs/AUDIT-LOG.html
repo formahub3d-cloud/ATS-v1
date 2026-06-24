@@ -45,6 +45,64 @@
 <h1>AUDIT-LOG — Registro cronologico degli audit ATS</h1>
 <blockquote>Audit più recente <strong>in alto</strong>. Si compila con <code>docs/03-AUDIT-TEMPLATE.md</code> a fine di ogni lavoro.<br/>Questo registro è la memoria condivisa del progetto: ogni nuovo agente lo legge prima di iniziare.</blockquote>
 <hr/>
+<h2>Audit #8 — 24/06/2026 — M1: migrazione pagine Admin al service layer + stati</h2>
+<p><strong>Autore:</strong> Claude Code (+ 4 sub-agenti) · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Avviare <strong>M1</strong> (vedi <code>AUDIT-GENERALE.md</code> §5.2): spostare le pagine dai mock<br/>diretti al service layer async con stati loading/error.<br/><strong>Fase roadmap:</strong> abilitazione Fase 0 (frontend pronto all'API).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Espanso il service layer admin: aggiunti getter <code>getAlerts</code>, <code>getWeeklyDays</code>, <code>getReperibili</code>,</li>
+</ul>
+<p>  <code>getPenalties</code>, <code>getRevenueData</code>, <code>getRoleDistribution</code> in <code>adminService</code> + tipi corrispondenti in<br/>  <code>types/domain.ts</code> (<code>AdminAlert</code>, <code>WeeklyDay</code>, <code>Reperibile</code>, <code>Penalty</code>, <code>RevenuePoint</code>, <code>RoleDistributionSlice</code>).</p>
+<ul>
+<li>Migrate <strong>4 pagine Admin</strong> (<code>AdminDashboard</code>, <code>AdminEmployees</code>, <code>AdminShifts</code>, <code>AdminStructures</code>) al</li>
+</ul>
+<p>  pattern <code>useAsync</code> + <code>LoadingState</code>/<code>ErrorState</code>, sostituendo gli import di dati record dai mock con i<br/>  service. Config/helper di presentazione (<code>rankColors</code>, <code>statusColors</code>, <code>getHourlyRate</code>, <code>*Photos</code>)<br/>  restano importati direttamente (non sono dati personali).</p>
+<ul>
+<li>Con <code>EmployeeDashboard</code> (Audit #5) sono <strong>5 pagine</strong> ora sul service layer.</li>
+</ul>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>app/src/services/adminService.ts</code>, <code>app/src/types/domain.ts</code> (nuovi getter/tipi).</li>
+<li><code>app/src/pages/{AdminDashboard,AdminEmployees,AdminShifts,AdminStructures}.tsx</code> (migrazione).</li>
+<li><code>docs/04-TASK-MIGLIORAMENTI-WEBAPP.md</code>, <code>docs/AUDIT-LOG.md</code>, HTML rigenerati.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato a livello funzionale (mock); migliorata la robustezza dello strato dati (loading/error reali).<br/>Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Build ✅ · Lint <strong>0 errori</strong> (35 warning: per lo più <code>react-hooks/exhaustive-deps</code> sulle nuove</li>
+</ul>
+<p>  dipendenze, accettati) · <code>@ts-nocheck</code> 0.</p>
+<ul>
+<li>Le pagine admin non importano più i dati record dai mock: il passaggio all'API toccherà solo</li>
+</ul>
+<p>  <code>src/services/*</code> e <code>simulate</code>.</p>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li>Migrazione delegata a 4 sub-agenti su file non sovrapposti, dopo aver completato i service (così</li>
+</ul>
+<p>  nessun conflitto sui file di servizio). Integrazione verificata con build+lint complessivi.</p>
+<ul>
+<li>I dati <strong>inline</strong> delle pagine Structure*/Employee(Calendar/Matching/Rank) non sono stati spostati:</li>
+</ul>
+<p>  sono co-locati e tipizzati; migrazione rinviata (minore valore/rischio). AdminSettings resta su<br/>  config statica editabile.</p>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li><strong>QA visiva non eseguita</strong> (solo build+lint): verificare le 4 pagine admin (tabelle, filtri, grafici,</li>
+</ul>
+<p>  no-show pool, drawer) prima del merge.</p>
+<ul>
+<li>Restano da migrare: <code>AdminSettings</code> (config) + pagine con dati inline → completa M1.</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Completare M1 sulle pagine con dati inline (creando <code>structureService</code> ed estendendo</li>
+</ul>
+<p>  <code>employeeService</code>), poi <strong>A5</strong> (zod nei form) e <strong>A4</strong> (primi test Vitest).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 2/5 · Qualità: 4/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 5/5.</li>
+</ul>
+<hr/>
 <h2>Audit #7 — 24/06/2026 — Audit generale del progetto (punteggi 1–10 + backlog + handoff)</h2>
 <p><strong>Autore:</strong> Claude Code · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Produrre un <strong>audit generale</strong> olistico aggiornato all'ultimo intervento, con<br/>valutazione 1–10, backlog esaustivo (aggiungere/migliorare/automatizzare/implementare) e istruzioni per<br/>il prossimo agente. Nessuna modifica al codice applicativo.</p>
 <h3>1. Lavoro svolto</h3>

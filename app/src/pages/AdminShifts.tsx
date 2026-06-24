@@ -10,19 +10,12 @@ import GlassCard from '@/components/admin/GlassCard'
 import GlassBadge from '@/components/admin/GlassBadge'
 import Avatar from '@/components/Avatar'
 import { useToast } from '@/components/ui/ToastSystem'
-import { mockShifts, mockEmployees, mockReperibili, getHourlyRate } from '@/data/mockAdmin'
+import { ErrorState, LoadingState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import { getShifts, getEmployees, getReperibili } from '@/services/adminService'
+import { getHourlyRate } from '@/data/mockAdmin'
+import type { Shift } from '@/types/domain'
 import { cn } from '@/lib/utils'
-
-interface Shift {
-  id: number
-  structureCode: string
-  employeeCode: string | null
-  role: string
-  time: string
-  status: string
-  day: number
-  date: string
-}
 
 const dayNames = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM']
 const dayDates = ['12 Mag', '13 Mag', '14 Mag', '15 Mag', '16 Mag', '17 Mag', '18 Mag']
@@ -51,14 +44,22 @@ export default function AdminShifts() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const a = useAsync(getShifts, [])
+  const b = useAsync(getEmployees, [])
+  const c = useAsync(getReperibili, [])
+  const loading = a.loading || b.loading || c.loading
+  const error = a.error || b.error || c.error
+
+  const shifts = a.data
   const filteredShifts = useMemo(() => {
-    return mockShifts.filter(s => {
+    return (shifts ?? []).filter(s => {
       const matchRole = roleFilter === 'all' || s.role === roleFilter
       return matchRole
     })
-  }, [roleFilter])
+  }, [shifts, roleFilter])
 
-  const hasNoShow = mockShifts.some(s => s.status === 'No-show')
+  const hasNoShow = (shifts ?? []).some(s => s.status === 'No-show')
 
   const shiftsByDay = useMemo(() => {
     const byDay: Record<number, Shift[]> = {}
@@ -77,6 +78,25 @@ export default function AdminShifts() {
   const handleNotifyAll = () => {
     addToast({ type: 'info', title: 'Notifica inviata', message: 'Tutti i reperibili disponibili sono stati notificati.' })
   }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <LoadingState rows={6} />
+      </div>
+    )
+  }
+
+  if (error || !a.data || !b.data || !c.data) {
+    return (
+      <div className="space-y-6">
+        <ErrorState onRetry={() => window.location.reload()} />
+      </div>
+    )
+  }
+
+  const employees = b.data
+  const reperibili = c.data
 
   return (
     <motion.div
@@ -172,7 +192,7 @@ export default function AdminShifts() {
                 </label>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {mockReperibili.map((rep, i) => (
+                {reperibili.map((rep, i) => (
                   <motion.div
                     key={rep.id}
                     initial={{ scale: 0.9, opacity: 0 }}
@@ -451,7 +471,7 @@ export default function AdminShifts() {
                 />
               </div>
               <div className="space-y-2 mb-4">
-                {mockEmployees
+                {employees
                   .filter(e => e.status === 'Attivo')
                   .slice(0, 8)
                   .map((emp, i) => {

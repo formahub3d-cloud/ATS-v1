@@ -12,25 +12,12 @@ import GlassBadge from '@/components/admin/GlassBadge'
 import Avatar from '@/components/Avatar'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { mockEmployees, rankColors, getHourlyRate, zoneRates } from '@/data/mockAdmin'
+import { LoadingState, ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import { getEmployees } from '@/services/adminService'
+import { rankColors, getHourlyRate, zoneRates } from '@/data/mockAdmin'
+import type { Employee } from '@/types/domain'
 import { cn } from '@/lib/utils'
-
-interface Employee {
-  id: number
-  firstName: string
-  lastName: string
-  code: string
-  role: string
-  rank: string
-  rankLevel: number
-  rankPoints: number
-  status: string
-  shifts: number
-  joinDate: string
-  phone: string
-  zone: string
-  driver: boolean
-}
 
 const pipelineSteps = [
   { key: 'In attesa', label: 'In attesa', color: '#F5B800' },
@@ -55,6 +42,7 @@ const employeePhotos = [
 
 export default function AdminEmployees() {
   const { addToast } = useToast()
+  const employeesState = useAsync(getEmployees, [])
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
@@ -64,16 +52,18 @@ export default function AdminEmployees() {
   const [selectedZone, setSelectedZone] = useState<string>('Centro')
   const [customRate, setCustomRate] = useState<number | null>(null)
 
+  const employees = employeesState.data ?? []
+
   const pipelineCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     pipelineSteps.forEach(step => {
-      counts[step.key] = mockEmployees.filter(e => e.status === step.key).length
+      counts[step.key] = employees.filter(e => e.status === step.key).length
     })
     return counts
-  }, [])
+  }, [employees])
 
   const filteredEmployees = useMemo(() => {
-    return mockEmployees.filter(e => {
+    return employees.filter(e => {
       const matchStatus = statusFilter === 'all' ||
         (statusFilter === 'pipeline' ? !['Attivo', 'Sospeso'].includes(e.status) : e.status === statusFilter)
       const matchSearch = !searchQuery ||
@@ -82,14 +72,32 @@ export default function AdminEmployees() {
         e.phone.includes(searchQuery)
       return matchStatus && matchSearch
     })
-  }, [statusFilter, searchQuery])
+  }, [employees, statusFilter, searchQuery])
 
   const stats = useMemo(() => ({
-    all: mockEmployees.length,
-    active: mockEmployees.filter(e => e.status === 'Attivo').length,
-    pipeline: mockEmployees.filter(e => !['Attivo', 'Sospeso'].includes(e.status)).length,
-    suspended: mockEmployees.filter(e => e.status === 'Sospeso').length,
-  }), [])
+    all: employees.length,
+    active: employees.filter(e => e.status === 'Attivo').length,
+    pipeline: employees.filter(e => !['Attivo', 'Sospeso'].includes(e.status)).length,
+    suspended: employees.filter(e => e.status === 'Sospeso').length,
+  }), [employees])
+
+  if (employeesState.loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-[28px] font-semibold text-white">Gestione Dipendenti</h1>
+        <LoadingState rows={8} />
+      </div>
+    )
+  }
+
+  if (employeesState.error || !employeesState.data) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-[28px] font-semibold text-white">Gestione Dipendenti</h1>
+        <ErrorState onRetry={() => window.location.reload()} />
+      </div>
+    )
+  }
 
   const columns = [
     {

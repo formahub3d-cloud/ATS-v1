@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell, AlertTriangle, X, CheckCircle, CreditCard,
@@ -14,10 +14,13 @@ import Avatar from '@/components/Avatar'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
 import {
-  mockActiveShifts, mockNotifications, mockAlerts,
-  mockWeeklyDays, mockShifts, revenueData, roleDistribution,
-} from '@/data/mockAdmin'
+  getActiveShifts, getAdminNotifications, getAlerts,
+  getWeeklyDays, getShifts, getRevenueData, getRoleDistribution,
+} from '@/services/adminService'
+import type { AdminAlert, AdminNotification } from '@/types/domain'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -49,23 +52,44 @@ const structurePhotos = [
 
 export default function AdminDashboard() {
   const { addToast } = useToast()
-  const [alerts, setAlerts] = useState(mockAlerts)
-  const [notifs, setNotifs] = useState(mockNotifications)
   const [notifOpen, setNotifOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
-  }, [])
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const activeShiftsState = useAsync(getActiveShifts, [])
+  const notificationsState = useAsync(getAdminNotifications, [])
+  const alertsState = useAsync(getAlerts, [])
+  const weeklyDaysState = useAsync(getWeeklyDays, [])
+  const shiftsState = useAsync(getShifts, [])
+  const revenueState = useAsync(getRevenueData, [])
+  const roleDistributionState = useAsync(getRoleDistribution, [])
+
+  const loading =
+    activeShiftsState.loading || notificationsState.loading || alertsState.loading ||
+    weeklyDaysState.loading || shiftsState.loading || revenueState.loading ||
+    roleDistributionState.loading
+  const error =
+    activeShiftsState.error || notificationsState.error || alertsState.error ||
+    weeklyDaysState.error || shiftsState.error || revenueState.error ||
+    roleDistributionState.error
+
+  // Alert e notifiche restano interattivi (dismiss / segna come lette) senza copiare i
+  // dati del service in stato locale: si tracciano solo le mutazioni dell'utente e le
+  // liste mostrate vengono derivate dai dati del service.
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<number[]>([])
+  const [allRead, setAllRead] = useState(false)
+
+  const alerts: AdminAlert[] = (alertsState.data ?? []).filter(a => !dismissedAlertIds.includes(a.id))
+  const notifs: AdminNotification[] = (notificationsState.data ?? []).map(n =>
+    allRead ? { ...n, read: true } : n
+  )
 
   const dismissAlert = (id: number) => {
-    setAlerts(prev => prev.filter(a => a.id !== id))
+    setDismissedAlertIds(prev => [...prev, id])
     addToast({ type: 'info', title: 'Alert chiuso', message: 'L\'alert è stato rimosso dalla dashboard.' })
   }
 
   const markAllRead = () => {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+    setAllRead(true)
     addToast({ type: 'success', title: 'Notifiche lette', message: 'Tutte le notifiche sono state marcate come lette.' })
   }
 
@@ -75,10 +99,6 @@ export default function AdminDashboard() {
 
   const unreadCount = notifs.filter(n => !n.read).length
 
-  const sparklineData = revenueData.slice(-7).map(d => d.revenue)
-  const sparklineMax = Math.max(...sparklineData)
-  const sparklinePoints = sparklineData.map((v, i) => `${(i / (sparklineData.length - 1)) * 80},${24 - (v / sparklineMax) * 24}`).join(' ')
-
   const quickActions = [
     { icon: PlusCircle, label: 'Nuovo turno' },
     { icon: UserPlusIcon, label: 'Nuovo dipendente' },
@@ -87,6 +107,27 @@ export default function AdminDashboard() {
     { icon: FileText, label: 'Genera report' },
     { icon: MessageSquare, label: 'Chat' },
   ]
+
+  // Caso errore: dati non disponibili dopo il caricamento → stato di errore con retry.
+  if (
+    !loading &&
+    (error ||
+      !activeShiftsState.data || !weeklyDaysState.data || !shiftsState.data ||
+      !revenueState.data || !roleDistributionState.data)
+  ) {
+    return <ErrorState onRetry={() => window.location.reload()} />
+  }
+
+  // Costanti locali dai service (durante il loading restano vuote: il JSX mostra gli skeleton).
+  const activeShifts = activeShiftsState.data ?? []
+  const weeklyDays = weeklyDaysState.data ?? []
+  const shifts = shiftsState.data ?? []
+  const revenue = revenueState.data ?? []
+  const roleDist = roleDistributionState.data ?? []
+
+  const sparklineData = revenue.slice(-7).map(d => d.revenue)
+  const sparklineMax = Math.max(...sparklineData)
+  const sparklinePoints = sparklineData.map((v, i) => `${(i / (sparklineData.length - 1)) * 80},${24 - (v / sparklineMax) * 24}`).join(' ')
 
   return (
     <motion.div
@@ -256,7 +297,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockActiveShifts.map((shift, i) => (
+                  {activeShifts.map((shift, i) => (
                     <motion.tr
                       key={shift.id}
                       initial={{ opacity: 0, x: -12 }}
@@ -317,7 +358,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-7 gap-3">
-              {mockWeeklyDays.map((day, di) => (
+              {weeklyDays.map((day, di) => (
                 <motion.div
                   key={day.day}
                   initial={{ scale: 0.93, opacity: 0 }}
@@ -328,7 +369,7 @@ export default function AdminDashboard() {
                   <p className="text-[10px] font-medium text-text-muted text-center mb-1">{day.day}</p>
                   <p className="text-lg font-bold text-white text-center mb-2">{day.date}</p>
                   <div className="space-y-1.5">
-                    {mockShifts
+                    {shifts
                       .filter(s => s.day === di)
                       .slice(0, 3)
                       .map(s => (
@@ -344,13 +385,13 @@ export default function AdminDashboard() {
                           {s.role} {s.employeeCode ? `(${s.employeeCode.split('-')[2]})` : '(?)'}
                         </div>
                       ))}
-                    {mockShifts.filter(s => s.day === di).length === 0 && (
+                    {shifts.filter(s => s.day === di).length === 0 && (
                       <p className="text-[10px] text-text-muted text-center py-1">Nessun turno</p>
                     )}
                   </div>
-                  {mockShifts.filter(s => s.day === di).length > 3 && (
+                  {shifts.filter(s => s.day === di).length > 3 && (
                     <p className="text-[10px] text-text-muted text-center mt-1">
-                      +{mockShifts.filter(s => s.day === di).length - 3} altri
+                      +{shifts.filter(s => s.day === di).length - 3} altri
                     </p>
                   )}
                 </motion.div>
@@ -433,7 +474,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-sm text-text-muted mb-3">Fatturato vs Ore</p>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={revenueData}>
+                <BarChart data={revenue}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                   <XAxis dataKey="day" tick={{ fill: '#5E7A95', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
                   <YAxis tick={{ fill: '#5E7A95', fontSize: 12 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
@@ -451,7 +492,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie
-                    data={roleDistribution}
+                    data={roleDist}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -460,7 +501,7 @@ export default function AdminDashboard() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {roleDistribution.map((entry, index) => (
+                    {roleDist.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -471,7 +512,7 @@ export default function AdminDashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-3 justify-center mt-2">
-                {roleDistribution.map(r => (
+                {roleDist.map(r => (
                   <span key={r.name} className="flex items-center gap-1 text-xs text-text-muted">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
                     {r.name}

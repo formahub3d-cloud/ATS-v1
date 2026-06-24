@@ -12,26 +12,11 @@ import GlassBadge from '@/components/admin/GlassBadge'
 import CoverPhoto from '@/components/CoverPhoto'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { mockStructures, mockPenalties } from '@/data/mockAdmin'
+import { LoadingState, ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import { getStructures, getPenalties } from '@/services/adminService'
+import type { Structure } from '@/types/domain'
 import { cn } from '@/lib/utils'
-
-interface Structure {
-  id: number
-  name: string
-  code: string
-  type: string
-  status: string
-  shiftsMonth: number
-  revenueMonth: number
-  address: string
-  zone: string
-  fee: number
-  piva: string
-  contact: string
-  phone: string
-  contractSigned: boolean
-  joinDate: string
-}
 
 const statusOptions = [
   { label: 'Tutte', value: 'all', color: 'text-text-muted' },
@@ -56,8 +41,14 @@ export default function AdminStructures() {
   const [loading, setLoading] = useState(false)
   const [hourlyRateEdit, setHourlyRateEdit] = useState<string | null>(null)
 
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const structuresState = useAsync(getStructures, [])
+  const penaltiesState = useAsync(getPenalties, [])
+  const structures = useMemo(() => structuresState.data ?? [], [structuresState.data])
+  const penalties = useMemo(() => penaltiesState.data ?? [], [penaltiesState.data])
+
   const filteredStructures = useMemo(() => {
-    return mockStructures.filter(s => {
+    return structures.filter(s => {
       const matchStatus = statusFilter === 'all' || s.status === statusFilter
       const matchSearch = !searchQuery ||
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,14 +57,14 @@ export default function AdminStructures() {
       const matchType = typeFilter === 'all' || s.type === typeFilter
       return matchStatus && matchSearch && matchType
     })
-  }, [statusFilter, searchQuery, typeFilter])
+  }, [structures, statusFilter, searchQuery, typeFilter])
 
   const stats = useMemo(() => ({
-    all: mockStructures.length,
-    active: mockStructures.filter(s => s.status === 'Attiva').length,
-    pending: mockStructures.filter(s => s.status === 'In attesa').length,
-    suspended: mockStructures.filter(s => s.status === 'Sospesa').length,
-  }), [])
+    all: structures.length,
+    active: structures.filter(s => s.status === 'Attiva').length,
+    pending: structures.filter(s => s.status === 'In attesa').length,
+    suspended: structures.filter(s => s.status === 'Sospesa').length,
+  }), [structures])
 
   const tabs = [
     { key: 'profilo', label: 'Profilo' },
@@ -216,6 +207,25 @@ export default function AdminStructures() {
       ),
     },
   ]
+
+  const dataLoading = structuresState.loading || penaltiesState.loading
+  const dataError = structuresState.error || penaltiesState.error
+
+  if (dataLoading) {
+    return (
+      <div className="space-y-6">
+        <LoadingState rows={6} />
+      </div>
+    )
+  }
+
+  if (dataError || !structuresState.data || !penaltiesState.data) {
+    return (
+      <div className="space-y-6">
+        <ErrorState onRetry={() => window.location.reload()} />
+      </div>
+    )
+  }
 
   return (
     <motion.div
@@ -500,7 +510,7 @@ export default function AdminStructures() {
                       transition={{ duration: 0.2 }}
                       className="space-y-3"
                     >
-                      {mockPenalties.map(p => (
+                      {penalties.map(p => (
                         <div key={p.id} className="backdrop-blur-sm bg-white/[0.03] border border-white/5 rounded-xl p-4 hover:border-[rgba(240,69,69,0.3)] hover:-translate-y-0.5 transition-all">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm font-medium text-white">{p.type}</span>

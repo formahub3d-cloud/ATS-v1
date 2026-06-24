@@ -5,6 +5,59 @@
 
 ---
 
+## Audit #8 — 24/06/2026 — M1: migrazione pagine Admin al service layer + stati
+
+**Autore:** Claude Code (+ 4 sub-agenti) · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
+**Sessione / obiettivo:** Avviare **M1** (vedi `AUDIT-GENERALE.md` §5.2): spostare le pagine dai mock
+diretti al service layer async con stati loading/error.
+**Fase roadmap:** abilitazione Fase 0 (frontend pronto all'API).
+
+### 1. Lavoro svolto
+- Espanso il service layer admin: aggiunti getter `getAlerts`, `getWeeklyDays`, `getReperibili`,
+  `getPenalties`, `getRevenueData`, `getRoleDistribution` in `adminService` + tipi corrispondenti in
+  `types/domain.ts` (`AdminAlert`, `WeeklyDay`, `Reperibile`, `Penalty`, `RevenuePoint`, `RoleDistributionSlice`).
+- Migrate **4 pagine Admin** (`AdminDashboard`, `AdminEmployees`, `AdminShifts`, `AdminStructures`) al
+  pattern `useAsync` + `LoadingState`/`ErrorState`, sostituendo gli import di dati record dai mock con i
+  service. Config/helper di presentazione (`rankColors`, `statusColors`, `getHourlyRate`, `*Photos`)
+  restano importati direttamente (non sono dati personali).
+- Con `EmployeeDashboard` (Audit #5) sono **5 pagine** ora sul service layer.
+
+### 2. File / aree toccate
+- `app/src/services/adminService.ts`, `app/src/types/domain.ts` (nuovi getter/tipi).
+- `app/src/pages/{AdminDashboard,AdminEmployees,AdminShifts,AdminStructures}.tsx` (migrazione).
+- `docs/04-TASK-MIGLIORAMENTI-WEBAPP.md`, `docs/AUDIT-LOG.md`, HTML rigenerati.
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato a livello funzionale (mock); migliorata la robustezza dello strato dati (loading/error reali).
+Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.
+
+### 4. Qualità tecnica
+- Build ✅ · Lint **0 errori** (35 warning: per lo più `react-hooks/exhaustive-deps` sulle nuove
+  dipendenze, accettati) · `@ts-nocheck` 0.
+- Le pagine admin non importano più i dati record dai mock: il passaggio all'API toccherà solo
+  `src/services/*` e `simulate`.
+
+### 5. Decisioni prese
+- Migrazione delegata a 4 sub-agenti su file non sovrapposti, dopo aver completato i service (così
+  nessun conflitto sui file di servizio). Integrazione verificata con build+lint complessivi.
+- I dati **inline** delle pagine Structure*/Employee(Calendar/Matching/Rank) non sono stati spostati:
+  sono co-locati e tipizzati; migrazione rinviata (minore valore/rischio). AdminSettings resta su
+  config statica editabile.
+
+### 6. Rischi / questioni aperte
+- **QA visiva non eseguita** (solo build+lint): verificare le 4 pagine admin (tabelle, filtri, grafici,
+  no-show pool, drawer) prima del merge.
+- Restano da migrare: `AdminSettings` (config) + pagine con dati inline → completa M1.
+
+### 7. Prossimo passo consigliato
+- Completare M1 sulle pagine con dati inline (creando `structureService` ed estendendo
+  `employeeService`), poi **A5** (zod nei form) e **A4** (primi test Vitest).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 2/5 · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+
+---
+
 ## Audit #7 — 24/06/2026 — Audit generale del progetto (punteggi 1–10 + backlog + handoff)
 
 **Autore:** Claude Code · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)

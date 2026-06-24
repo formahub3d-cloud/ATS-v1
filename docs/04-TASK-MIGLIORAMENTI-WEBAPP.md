@@ -22,7 +22,7 @@
 | **T1** CI GitHub Actions | ✅ Fatto | `.github/workflows/ci.yml` (lint + build), step test predisposto. |
 | **T2** Lint a zero | ✅ Fatto | 139 → **0 errori** (32 warning su regole RC sperimentali, declassate). |
 | **T3** Rimozione `@ts-nocheck` | ✅ Fatto | 6 file → **0**; corretti bug reali nascosti (vedi Audit #5). |
-| **T4** Service layer + tipi | 🟡 Parziale | Infrastruttura creata (`services/`, `types/`, `useAsync`); migrata `EmployeeDashboard`. **Resta** migrare le altre ~13 pagine. |
+| **T4** Service layer + tipi | 🟡 Quasi | Infrastruttura + migrate **5 pagine** (EmployeeDashboard + 4 Admin: Dashboard/Employees/Shifts/Structures). **Resta** AdminSettings (config) e le pagine con dati inline (Structure*, EmployeeCalendar/Matching/Rank). |
 | **T5** Route guard + 404 | ✅ Fatto | `RoleGuard` + `NotFound` + catch-all in `App.tsx` (UX, non sicurezza). |
 | **T6** Stati UI riusabili | 🟡 Parziale | Componenti `LoadingState/EmptyState/ErrorState` creati + applicati a `EmployeeDashboard`. **Resta** applicarli alle altre pagine (con T4). |
 | **T7** Validazione zod | ⬜ Da fare | Librerie già presenti, non usate. |

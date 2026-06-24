@@ -9,6 +9,12 @@ import {
   mockShifts,
   mockActiveShifts,
   mockNotifications,
+  mockAlerts,
+  mockWeeklyDays,
+  mockReperibili,
+  mockPenalties,
+  revenueData,
+  roleDistribution,
   getHourlyRate as computeHourlyRate,
 } from '@/data/mockAdmin'
 import type {
@@ -17,6 +23,12 @@ import type {
   Shift,
   ActiveShift,
   AdminNotification,
+  AdminAlert,
+  WeeklyDay,
+  Reperibile,
+  Penalty,
+  RevenuePoint,
+  RoleDistributionSlice,
 } from '@/types/domain'
 import { simulate } from './simulate'
 
@@ -38,6 +50,30 @@ export function getActiveShifts(): Promise<ActiveShift[]> {
 
 export function getAdminNotifications(): Promise<AdminNotification[]> {
   return simulate([...mockNotifications])
+}
+
+export function getAlerts(): Promise<AdminAlert[]> {
+  return simulate([...mockAlerts])
+}
+
+export function getWeeklyDays(): Promise<WeeklyDay[]> {
+  return simulate([...mockWeeklyDays])
+}
+
+export function getReperibili(): Promise<Reperibile[]> {
+  return simulate([...mockReperibili])
+}
+
+export function getPenalties(): Promise<Penalty[]> {
+  return simulate([...mockPenalties])
+}
+
+export function getRevenueData(): Promise<RevenuePoint[]> {
+  return simulate([...revenueData])
+}
+
+export function getRoleDistribution(): Promise<RoleDistributionSlice[]> {
+  return simulate([...roleDistribution])
 }
 
 /**

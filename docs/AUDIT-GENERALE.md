@@ -93,7 +93,7 @@ ottimo stato per accoglierli con poco attrito.
 ### 5.2 ⬆️ MIGLIORARE (esiste ma è migliorabile)
 | ID | Voce | Prio | Stima |
 |---|---|:--:|:--:|
-| M1 | **Migrare le ~13 pagine restanti** al service layer + stati Loading/Empty/Error — T4/T6 | P1 | L |
+| M1 | 🟡 **In corso** — migrate 5 pagine (EmployeeDashboard + 4 Admin). Restano AdminSettings + pagine con dati inline (Structure*, EmployeeCalendar/Matching/Rank) | P1 | M |
 | M2 | **Accessibilità completa** — T9: contrasto testi `text-muted`, `aria-invalid`/label nei form, Lighthouse ≥ 90 | P1 | M |
 | M3 | **Alleggerire il bundle**: `recharts` (~430 kB) lazy/alternativa, valutare `manualChunks` per i vendor | P2 | M |
 | M4 | **Sostituire i `@ts-nocheck` residui**: già 0 — mantenere, vietare reintroduzioni via CI | P1 | S |
