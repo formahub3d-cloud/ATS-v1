@@ -1,0 +1,17 @@
+{
+  "_note": "ESEMPIO di struttura — NON valori reali. Da sostituire con tabelle validate dal consulente.",
+  "currency": "EUR",
+  "roleRates": [
+    { "role": "Cameriere", "baseRate": 0.0 },
+    { "role": "Chef", "baseRate": 0.0 }
+  ],
+  "multipliers": {
+    "night": 0.0,
+    "holiday": 0.0,
+    "overtime": 0.0
+  },
+  "limits": {
+    "prestoYearlyMaxPerWorker": 0,
+    "extraMaxConsecutiveDays": 3
+  }
+}

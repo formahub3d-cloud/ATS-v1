@@ -78,8 +78,8 @@
       <p>Frontend React/Vite · backend e auth ancora da costruire (Fase 0)</p>
     </div>
     <div class="scorebig">
-      <div><span class="val">6.0</span><span class="max">/10</span></div>
-      <span class="delta">▲ +0.5 da 5.5</span>
+      <div><span class="val">6.8</span><span class="max">/10</span></div>
+      <span class="delta">▲ +0.8 da 6.0</span>
     </div>
   </div>
 
@@ -91,11 +91,11 @@
     <div class="bar-row"><span class="lbl">Validazione form (zod)</span><div class="track"><div class="fill mid" style="width:70%"></div></div><span class="num">7/10 <span class="d new">NEW</span></span></div>
     <div class="bar-row"><span class="lbl">UI / UX</span><div class="track"><div class="fill mid" style="width:70%"></div></div><span class="num">7/10 <span class="d flat">=</span></span></div>
     <div class="bar-row"><span class="lbl">Performance</span><div class="track"><div class="fill mid" style="width:70%"></div></div><span class="num">7/10 <span class="d flat">=</span></span></div>
-    <div class="bar-row"><span class="lbl">DevOps / CI</span><div class="track"><div class="fill mid" style="width:60%"></div></div><span class="num">6/10 <span class="d flat">=</span></span></div>
+    <div class="bar-row"><span class="lbl">DevOps / CI</span><div class="track"><div class="fill mid" style="width:70%"></div></div><span class="num">7/10 <span class="d up">▲+1</span></span></div>
+    <div class="bar-row"><span class="lbl">Test automatici</span><div class="track"><div class="fill mid" style="width:40%"></div></div><span class="num">4/10 <span class="d up">▲+3</span></span></div>
+    <div class="bar-row"><span class="lbl">Sicurezza / Auth</span><div class="track"><div class="fill low" style="width:40%"></div></div><span class="num">4/10 <span class="d up">▲+2</span></span></div>
+    <div class="bar-row"><span class="lbl">Backend / dati reali</span><div class="track"><div class="fill low" style="width:30%"></div></div><span class="num">3/10 <span class="d up">▲+2</span></span></div>
     <div class="bar-row"><span class="lbl">Accessibilità (a11y)</span><div class="track"><div class="fill low" style="width:50%"></div></div><span class="num">5/10 <span class="d flat">=</span></span></div>
-    <div class="bar-row"><span class="lbl">Sicurezza / Auth</span><div class="track"><div class="fill low" style="width:20%"></div></div><span class="num">2/10 <span class="d flat">=</span></span></div>
-    <div class="bar-row"><span class="lbl">Backend / dati reali</span><div class="track"><div class="fill low" style="width:10%"></div></div><span class="num">1/10 <span class="d flat">=</span></span></div>
-    <div class="bar-row"><span class="lbl">Test automatici</span><div class="track"><div class="fill low" style="width:10%"></div></div><span class="num">1/10 <span class="d flat">=</span></span></div>
   </div>
 
   <h2>Stato attività (task)</h2>
@@ -117,10 +117,12 @@
     <div class="pill"><span class="ic done">✓</span><span class="t">T7/A5 Validazione zod<span class="s">onboarding</span></span></div>
     <div class="pill"><span class="ic part">◐</span><span class="t">T4/T6 Dati+stati<span class="s">manca AdminSettings (config)</span></span></div>
     <div class="pill"><span class="ic part">◐</span><span class="t">T9 Accessibilità<span class="s">base ok, contrasto/form da fare</span></span></div>
-    <div class="pill"><span class="ic todo">✗</span><span class="t">A4/T13 Test (Vitest)<span class="s">assenti</span></span></div>
-    <div class="pill"><span class="ic todo">✗</span><span class="t">A1 Backend API<span class="s">Fastify+MongoDB</span></span></div>
-    <div class="pill"><span class="ic todo">✗</span><span class="t">A2 Auth reale<span class="s">JWT/refresh</span></span></div>
-    <div class="pill"><span class="ic todo">✗</span><span class="t">A3 RBAC server<span class="s">per endpoint</span></span></div>
+    <div class="pill"><span class="ic done">✓</span><span class="t">A4 Test (Vitest)<span class="s">27 test, FE+BE, in CI</span></span></div>
+    <div class="pill"><span class="ic part">◐</span><span class="t">A1 Backend API<span class="s">scaffold Fastify+Mongoose · no deploy</span></span></div>
+    <div class="pill"><span class="ic part">◐</span><span class="t">A2 Auth JWT/RBAC<span class="s">lato API · non collegata al FE</span></span></div>
+    <div class="pill"><span class="ic part">◐</span><span class="t">A3 RBAC server<span class="s">requireRole · da estendere</span></span></div>
+    <div class="pill"><span class="ic todo">✗</span><span class="t">Deploy + DB Atlas<span class="s">Railway + collegamento FE</span></span></div>
+    <div class="pill"><span class="ic todo">✗</span><span class="t">Motore paghe<span class="s">config/payroll validata</span></span></div>
     <div class="pill"><span class="ic todo">✗</span><span class="t">T11 i18n<span class="s">stringhe centralizzate</span></span></div>
     <div class="pill"><span class="ic todo">✗</span><span class="t">A8 PWA<span class="s">manifest+SW</span></span></div>
   </div>
@@ -129,21 +131,21 @@
     <div>
       <h2>Fatto in questa sessione</h2>
       <ul class="list">
-        <li><span class="chk">✓</span> Migrazione di tutte le pagine dati al <b>service layer</b> (Admin + Structure + Employee): 11 pagine con <code>useAsync</code> + stati loading/error.</li>
-        <li><span class="chk">✓</span> Nuovi service <code>structureService</code> ed estensione <code>employeeService</code> + tipi in <code>types/domain</code>.</li>
-        <li><span class="chk">✓</span> <b>Validazione zod</b> nei form di onboarding (email, P.IVA, CF, IBAN) con schemi riusabili in <code>src/schemas/auth.ts</code>.</li>
+        <li><span class="chk">✓</span> <b>Test Vitest</b>: 27 test (FE: zod, service, useAsync, RoleGuard · BE: password, auth, RBAC, health) attivi in CI.</li>
+        <li><span class="chk">✓</span> <b>Fase 0 — backend <code>api/</code></b>: Fastify + Mongoose, modelli (User/Employee/Structure/Shift), <b>auth JWT+RBAC</b>, route <code>/api/v1</code>.</li>
+        <li><span class="chk">✓</span> CI con job <b>backend</b> (typecheck + test + build) oltre al frontend.</li>
         <li><span class="chk">✓</span> Audit aggiornato (MD + HTML) e push su GitHub + <code>staging</code>.</li>
       </ul>
     </div>
     <div>
       <h2>Cosa manca per la produzione</h2>
       <ul class="list">
-        <li><span class="crs">✗</span> <b>Backend</b> Fastify + MongoDB + REST <code>/api/v1</code> (i service passano da mock a fetch).</li>
-        <li><span class="crs">✗</span> <b>Auth reale</b> (JWT + refresh) e <b>RBAC server-side</b> su ogni endpoint.</li>
-        <li><span class="crs">✗</span> <b>Test</b> Vitest (obbligatori su ore/paga) + step CI.</li>
-        <li><span class="crs">✗</span> <b>Motore paghe</b> con <code>config/payroll</code> validata dal consulente.</li>
+        <li><span class="crs">✗</span> <b>Deploy</b> di <code>api/</code> su Railway + <b>MongoDB Atlas</b>, e <b>collegamento del frontend</b> (i service da mock a <code>fetch</code>).</li>
+        <li><span class="crs">✗</span> Estendere modelli/route ai moduli: Strutture, Turni, Presenze/Ore.</li>
+        <li><span class="crs">✗</span> <b>Motore paghe</b> con <code>config/payroll</code> validata dal consulente + test.</li>
+        <li><span class="crs">✗</span> Test <b>DB end-to-end</b> (register/login) con Mongo in-memory o Atlas.</li>
         <li><span class="crs">✗</span> <b>Accessibilità</b> completa (contrasto, label form) e <b>i18n</b>.</li>
-        <li><span class="crs">✗</span> Documenti su <b>Cloudflare R2</b>, GDPR, deploy automatico.</li>
+        <li><span class="crs">✗</span> Documenti su <b>Cloudflare R2</b>, GDPR, deploy automatico/preview.</li>
       </ul>
     </div>
   </div>

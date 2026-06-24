@@ -45,6 +45,73 @@
 <h1>AUDIT-LOG — Registro cronologico degli audit ATS</h1>
 <blockquote>Audit più recente <strong>in alto</strong>. Si compila con <code>docs/03-AUDIT-TEMPLATE.md</code> a fine di ogni lavoro.<br/>Questo registro è la memoria condivisa del progetto: ogni nuovo agente lo legge prima di iniziare.</blockquote>
 <hr/>
+<h2>Audit #10 — 24/06/2026 — A4 (test Vitest) + Fase 0: scaffolding backend <code>api/</code></h2>
+<p><strong>Autore:</strong> Claude Code · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Implementare A4 (test) e avviare la <strong>Fase 0</strong> (backend reale).<br/><strong>Fase roadmap:</strong> <strong>Fase 0 — Fondamenta tecniche</strong> (avviata).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li><strong>A4 — Test frontend:</strong> Vitest configurato (<code>vitest.config.ts</code>, setup jsdom+jest-dom). <strong>20 test</strong></li>
+</ul>
+<p>  su schemi zod, <code>adminService</code>/<code>employeeService</code>, hook <code>useAsync</code>, <code>RoleGuard</code>. Step test attivo in CI.</p>
+<ul>
+<li><strong>Fase 0 — Backend <code>api/</code>:</strong> scaffolding completo <strong>Fastify + TypeScript + Mongoose</strong>:</li>
+<ul>
+<li><code>env.ts</code> (config validata zod), <code>db.ts</code> (connessione), <code>server.ts</code> (build app testabile via inject),</li>
+</ul>
+</ul>
+<p>    <code>index.ts</code> (avvio).</p>
+<ul>
+<ul>
+<li><strong>Modelli</strong> Mongoose: <code>User</code>, <code>Employee</code>, <code>Structure</code>, <code>Shift</code> (enum, <code>Decimal128</code> per importi, indici).</li>
+<li><strong>Auth JWT</strong> (access+refresh) con <code>bcryptjs</code>; <strong>RBAC</strong> via preHandler <code>requireAuth</code>/<code>requireRole</code>.</li>
+<li><strong>Route</strong> <code>/api/v1</code>: <code>health</code>, <code>auth</code> (register/login/refresh/me), <code>employees</code> (CRUD min., solo ADMIN).</li>
+<li><strong>7 test</strong> backend (password, health, validazione auth 400, RBAC 401/403) — girano <strong>senza DB</strong>.</li>
+<li><code>.env.example</code>, <code>README.md</code>, <code>config/payroll/</code> (placeholder + nota "validare dal consulente").</li>
+<li>CI: nuovo job <strong>backend</strong> (typecheck + test + build).</li>
+</ul>
+</ul>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li>Frontend: <code>app/vitest.config.ts</code>, <code>app/src/test/setup.ts</code>, 4 file <code>*.test.ts(x)</code>, <code>package.json</code> (script test).</li>
+<li>Backend (nuovo): tutta la cartella <code>api/</code> (package, tsconfig, env, db, models, auth, services, routes,</li>
+</ul>
+<p>  server, index, test, README, config/payroll).</p>
+<ul>
+<li><code>.github/workflows/ci.yml</code> (job backend), docs/audit.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>API <code>employees</code> (CRUD min.) scaffold; FE ancora su mock.</td></tr><tr><td>Turni</td><td>🟡</td><td>Modello <code>Shift</code> pronto; nessuna route ancora.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>—</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td><code>config/payroll</code> predisposto (da validare).</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>—</td></tr></tbody></table>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Frontend: build ✅, lint 0 errori, <strong>20 test</strong> ✅.</li>
+<li>Backend: typecheck ✅, build ✅, <strong>7 test</strong> ✅ (totale progetto <strong>27 test</strong>).</li>
+<li>Sicurezza: auth reale (JWT+RBAC) lato API; password con bcrypt; segreti via env (default dev bloccati</li>
+</ul>
+<p>  in produzione da <code>assertProductionSecrets</code>). <strong>Non ancora collegata al frontend né deployata.</strong></p>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><code>server.ts</code> costruisce l'app <strong>senza</strong> connettere il DB → testabile con <code>app.inject()</code> (no DB nei test CI).</li>
+<li>Access+refresh firmati dalla stessa istanza JWT per l'MVP (due segreti in env predisposti per separazione).</li>
+<li><code>bcryptjs</code> (pure-JS) invece di <code>argon2</code>/<code>bcrypt</code> nativi per evitare build nativi in CI/Railway.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Backend <strong>non deployato</strong> e <strong>non collegato</strong> al frontend: prossimo passo concreto.</li>
+<li>Flussi DB (register/login end-to-end) <strong>non testati</strong> qui (manca un Mongo): testare con Atlas/locale o</li>
+</ul>
+<p>  <code>mongodb-memory-server</code> in una sessione con rete adeguata.</p>
+<ul>
+<li><code>config/payroll</code> da popolare/validare col <strong>consulente</strong> prima del motore paghe.</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Deployare <code>api/</code> su Railway + MongoDB Atlas M0; collegare <code>app/src/services/*</code> alle API reali (auth +</li>
+</ul>
+<p>  <code>employees</code>) al posto dei mock; poi proseguire i moduli (Personale → Turni → Presenze → Paga).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 3/5 (Fase 0 avviata) · Qualità: 4/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 5/5.</li>
+</ul>
+<hr/>
 <h2>Audit #9 — 24/06/2026 — M1 completo (pagine inline) + A5 (validazione zod) + audit visivo</h2>
 <p><strong>Autore:</strong> Claude Code (+ sub-agenti) · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Completare M1 sulle pagine con dati inline, implementare A5 (zod nei form),<br/>e produrre un <strong>audit HTML visivo</strong>.<br/><strong>Fase roadmap:</strong> abilitazione Fase 0.</p>
 <h3>1. Lavoro svolto</h3>

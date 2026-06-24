@@ -5,6 +5,66 @@
 
 ---
 
+## Audit #10 — 24/06/2026 — A4 (test Vitest) + Fase 0: scaffolding backend `api/`
+
+**Autore:** Claude Code · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
+**Sessione / obiettivo:** Implementare A4 (test) e avviare la **Fase 0** (backend reale).
+**Fase roadmap:** **Fase 0 — Fondamenta tecniche** (avviata).
+
+### 1. Lavoro svolto
+- **A4 — Test frontend:** Vitest configurato (`vitest.config.ts`, setup jsdom+jest-dom). **20 test**
+  su schemi zod, `adminService`/`employeeService`, hook `useAsync`, `RoleGuard`. Step test attivo in CI.
+- **Fase 0 — Backend `api/`:** scaffolding completo **Fastify + TypeScript + Mongoose**:
+  - `env.ts` (config validata zod), `db.ts` (connessione), `server.ts` (build app testabile via inject),
+    `index.ts` (avvio).
+  - **Modelli** Mongoose: `User`, `Employee`, `Structure`, `Shift` (enum, `Decimal128` per importi, indici).
+  - **Auth JWT** (access+refresh) con `bcryptjs`; **RBAC** via preHandler `requireAuth`/`requireRole`.
+  - **Route** `/api/v1`: `health`, `auth` (register/login/refresh/me), `employees` (CRUD min., solo ADMIN).
+  - **7 test** backend (password, health, validazione auth 400, RBAC 401/403) — girano **senza DB**.
+  - `.env.example`, `README.md`, `config/payroll/` (placeholder + nota "validare dal consulente").
+  - CI: nuovo job **backend** (typecheck + test + build).
+
+### 2. File / aree toccate
+- Frontend: `app/vitest.config.ts`, `app/src/test/setup.ts`, 4 file `*.test.ts(x)`, `package.json` (script test).
+- Backend (nuovo): tutta la cartella `api/` (package, tsconfig, env, db, models, auth, services, routes,
+  server, index, test, README, config/payroll).
+- `.github/workflows/ci.yml` (job backend), docs/audit.
+
+### 3. Stato dei moduli prioritari (semaforo)
+| Modulo | Stato | Nota |
+|---|---|---|
+| Personale | 🟡 | API `employees` (CRUD min.) scaffold; FE ancora su mock. |
+| Turni | 🟡 | Modello `Shift` pronto; nessuna route ancora. |
+| Presenze/Ore | 🔴 | — | 
+| Calcolo Paga | 🔴 | `config/payroll` predisposto (da validare). |
+| Fatturazione | 🔴 | — |
+
+### 4. Qualità tecnica
+- Frontend: build ✅, lint 0 errori, **20 test** ✅.
+- Backend: typecheck ✅, build ✅, **7 test** ✅ (totale progetto **27 test**).
+- Sicurezza: auth reale (JWT+RBAC) lato API; password con bcrypt; segreti via env (default dev bloccati
+  in produzione da `assertProductionSecrets`). **Non ancora collegata al frontend né deployata.**
+
+### 5. Decisioni prese
+- `server.ts` costruisce l'app **senza** connettere il DB → testabile con `app.inject()` (no DB nei test CI).
+- Access+refresh firmati dalla stessa istanza JWT per l'MVP (due segreti in env predisposti per separazione).
+- `bcryptjs` (pure-JS) invece di `argon2`/`bcrypt` nativi per evitare build nativi in CI/Railway.
+
+### 6. Rischi / questioni aperte
+- Backend **non deployato** e **non collegato** al frontend: prossimo passo concreto.
+- Flussi DB (register/login end-to-end) **non testati** qui (manca un Mongo): testare con Atlas/locale o
+  `mongodb-memory-server` in una sessione con rete adeguata.
+- `config/payroll` da popolare/validare col **consulente** prima del motore paghe.
+
+### 7. Prossimo passo consigliato
+- Deployare `api/` su Railway + MongoDB Atlas M0; collegare `app/src/services/*` alle API reali (auth +
+  `employees`) al posto dei mock; poi proseguire i moduli (Personale → Turni → Presenze → Paga).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 3/5 (Fase 0 avviata) · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+
+---
+
 ## Audit #9 — 24/06/2026 — M1 completo (pagine inline) + A5 (validazione zod) + audit visivo
 
 **Autore:** Claude Code (+ sub-agenti) · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)

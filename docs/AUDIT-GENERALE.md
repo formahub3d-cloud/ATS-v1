@@ -34,12 +34,12 @@ ottimo stato per accoglierli con poco attrito.
 | UI / UX | **7** | Design coerente e ricco, responsive, scroll restoration, icone nav corrette. Manca QA visiva. |
 | Performance | **7** | Code splitting: bundle iniziale ~1.48 MB → ~415 kB. `recharts` ancora pesante (lazy). |
 | Accessibilità (a11y) | **5** | Focus visibile, reduced-motion, aria di base. Contrasto e form ancora da sistemare. |
-| DevOps / CI | **6** | CI lint+build su GitHub Actions. Mancano test, deploy automatico, preview. |
-| Sicurezza / Auth | **2** | Nessuna auth reale; ruolo in `localStorage`; guard solo lato client. |
-| Backend / dati reali | **1** | Assente: tutto su mock. |
-| Test automatici | **1** | Nessun test (step Vitest predisposto in CI). |
+| DevOps / CI | **7** ▲ | CI con due job (frontend + backend): lint, test, build. Manca deploy automatico/preview. |
+| Sicurezza / Auth | **4** ▲ | Auth reale JWT+RBAC implementata lato **API** (bcrypt, segreti via env). Non ancora collegata al FE né deployata. |
+| Backend / dati reali | **3** ▲ | Scaffolding `api/` Fastify+Mongoose (modelli, auth, route, test). Non deployato/collegato. |
+| Test automatici | **4** ▲ | 27 test (20 FE + 7 BE) in CI. Mancano test DB end-to-end e copertura paghe. |
 
-### Punteggio complessivo: **6.0 / 10** ▲ (da 5.5)
+### Punteggio complessivo: **6.8 / 10** ▲ (da 6.0)
 > Frontend ~8/10, ma il prodotto nel suo insieme è frenato da backend/auth/test assenti. Il numero
 > salirà rapidamente con la **Fase 0** (auth + API + un primo modulo su dati reali).
 > Versione grafica: **`docs/AUDIT-VISUALE.html`**.
@@ -81,10 +81,10 @@ ottimo stato per accoglierli con poco attrito.
 ### 5.1 ➕ AGGIUNGERE (non c'è ancora)
 | ID | Voce | Prio | Stima |
 |---|---|:--:|:--:|
-| A1 | **Backend `api/`** (Fastify + MongoDB Atlas + Mongoose), REST `/api/v1` versionata | P0 | L |
-| A2 | **Auth reale** (login email/password, JWT access+refresh, hashing argon2/bcrypt) | P0 | L |
-| A3 | **RBAC server-side** su ogni endpoint (ruolo + proprietà del dato) | P0 | M |
-| A4 | **Test** Vitest (unit/integrazione) — partire da `useAsync`, services, `RoleGuard`, schemi zod | P1 | M |
+| A1 | 🟡 **Scaffold fatto** — `api/` Fastify+Mongoose, route `/api/v1` (health/auth/employees). **Resta** deploy Railway + Atlas e collegamento FE | P0 | L |
+| A2 | 🟡 **Scaffold fatto** — auth JWT access+refresh + bcrypt lato API. **Resta** collegare il FE e separare i due segreti | P0 | L |
+| A3 | 🟡 **Scaffold fatto** — RBAC server `requireAuth`/`requireRole` (es. employees solo ADMIN). **Resta** estendere a tutte le risorse + proprietà del dato | P0 | M |
+| A4 | ✅ **Fatto** — Vitest: 27 test (zod, service, useAsync, RoleGuard, auth/RBAC API) in CI | P1 | M |
 | A5 | ✅ **Fatto** — schemi zod (`src/schemas/auth.ts`) attivi negli onboarding. Resta UI per-field error + condivisione col BE | P1 | M |
 | A6 | **Gestione documenti** (CI, HACCP, permessi) su Cloudflare R2 con URL firmati | P1 | M |
 | A7 | **Notifiche** reali (email/push) per turni e scadenze documenti | P2 | L |
