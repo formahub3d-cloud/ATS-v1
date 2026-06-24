@@ -29,9 +29,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build
-
-      # Step predisposto per quando arriveranno i test (Vitest): scommentare.
-      # - name: Test
-      #   run: npm test
