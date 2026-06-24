@@ -45,6 +45,48 @@
 <h1>AUDIT-LOG — Registro cronologico degli audit ATS</h1>
 <blockquote>Audit più recente <strong>in alto</strong>. Si compila con <code>docs/03-AUDIT-TEMPLATE.md</code> a fine di ogni lavoro.<br/>Questo registro è la memoria condivisa del progetto: ogni nuovo agente lo legge prima di iniziare.</blockquote>
 <hr/>
+<h2>Audit #7 — 24/06/2026 — Audit generale del progetto (punteggi 1–10 + backlog + handoff)</h2>
+<p><strong>Autore:</strong> Claude Code · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/><strong>Sessione / obiettivo:</strong> Produrre un <strong>audit generale</strong> olistico aggiornato all'ultimo intervento, con<br/>valutazione 1–10, backlog esaustivo (aggiungere/migliorare/automatizzare/implementare) e istruzioni per<br/>il prossimo agente. Nessuna modifica al codice applicativo.</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Creato <strong><code>docs/AUDIT-GENERALE.md</code></strong>: fotografia complessiva, punteggi per dimensione (complessivo</li>
+</ul>
+<p>  <strong>5.5/10</strong>), stato moduli, backlog ragionato e §7 <strong>Istruzioni per il prossimo agente</strong>.</p>
+<ul>
+<li>Aggiunta versione HTML: <strong><code>docs/AUDIT-GENERALE.html</code></strong> (generata da <code>scripts/md2html.mjs</code>).</li>
+<li>Rigenerato <strong><code>docs/AUDIT-LOG.html</code></strong> con questo Audit #7.</li>
+</ul>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>docs/AUDIT-GENERALE.md</code> (nuovo), <code>docs/AUDIT-GENERALE.html</code> (nuovo), <code>docs/AUDIT-LOG.md</code> (questa voce),</li>
+</ul>
+<p>  <code>docs/AUDIT-LOG.html</code> (rigenerato). <strong>Nessun codice applicativo toccato.</strong></p>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato (documentazione). Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Build ✅ · Lint 0 errori · <code>@ts-nocheck</code> 0. Nessun impatto sul codice.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li>Separare l'<strong>audit generale</strong> (fotografia + backlog + handoff) dal <strong>registro cronologico</strong></li>
+</ul>
+<p>  (<code>AUDIT-LOG.md</code>), mantenendo entrambi e generando l'HTML da MD.</p>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Invariati rispetto ad Audit #6 (QA visiva mancante; sicurezza/backend assenti). Dettaglio in <code>AUDIT-GENERALE.md</code> §6.</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Seguire l'ordine in <code>AUDIT-GENERALE.md</code> §7: M1 (migrazione pagine) → A5/A4 (zod+test) → M2 (a11y) →</li>
+</ul>
+<p>  Fase 0 backend (A1→A2→A3).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 2/5 · Qualità: 5/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 5/5.</li>
+<li>(Valutazione estesa 1–10 per dimensione in <code>docs/AUDIT-GENERALE.md</code> §2.)</li>
+</ul>
+<hr/>
 <h2>Audit #6 — 24/06/2026 — Miglioramenti UI/UX (T8, T9, T12 + ScrollToTop)</h2>
 <p><strong>Autore:</strong> Claude Code — sessione UI/UX sul branch <code>claude/web-app-improvements-3modcu</code><br/><strong>Sessione / obiettivo:</strong> Solo miglioramenti <strong>UI/UX</strong> (no Stripe, no dominio/legale): performance<br/>percepita, robustezza, accessibilità e rifinitura. Poi audit aggiornato (MD + HTML), push su GitHub e<br/>staging, e istruzioni per il prossimo agente.<br/><strong>Fase roadmap:</strong> rifinitura frontend (anticipo Fase 6) a supporto della Fase 0.</p>
 <h3>1. Lavoro svolto</h3>

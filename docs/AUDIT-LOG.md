@@ -5,6 +5,46 @@
 
 ---
 
+## Audit #7 — 24/06/2026 — Audit generale del progetto (punteggi 1–10 + backlog + handoff)
+
+**Autore:** Claude Code · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
+**Sessione / obiettivo:** Produrre un **audit generale** olistico aggiornato all'ultimo intervento, con
+valutazione 1–10, backlog esaustivo (aggiungere/migliorare/automatizzare/implementare) e istruzioni per
+il prossimo agente. Nessuna modifica al codice applicativo.
+
+### 1. Lavoro svolto
+- Creato **`docs/AUDIT-GENERALE.md`**: fotografia complessiva, punteggi per dimensione (complessivo
+  **5.5/10**), stato moduli, backlog ragionato e §7 **Istruzioni per il prossimo agente**.
+- Aggiunta versione HTML: **`docs/AUDIT-GENERALE.html`** (generata da `scripts/md2html.mjs`).
+- Rigenerato **`docs/AUDIT-LOG.html`** con questo Audit #7.
+
+### 2. File / aree toccate
+- `docs/AUDIT-GENERALE.md` (nuovo), `docs/AUDIT-GENERALE.html` (nuovo), `docs/AUDIT-LOG.md` (questa voce),
+  `docs/AUDIT-LOG.html` (rigenerato). **Nessun codice applicativo toccato.**
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato (documentazione). Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.
+
+### 4. Qualità tecnica
+- Build ✅ · Lint 0 errori · `@ts-nocheck` 0. Nessun impatto sul codice.
+
+### 5. Decisioni prese
+- Separare l'**audit generale** (fotografia + backlog + handoff) dal **registro cronologico**
+  (`AUDIT-LOG.md`), mantenendo entrambi e generando l'HTML da MD.
+
+### 6. Rischi / questioni aperte
+- Invariati rispetto ad Audit #6 (QA visiva mancante; sicurezza/backend assenti). Dettaglio in `AUDIT-GENERALE.md` §6.
+
+### 7. Prossimo passo consigliato
+- Seguire l'ordine in `AUDIT-GENERALE.md` §7: M1 (migrazione pagine) → A5/A4 (zod+test) → M2 (a11y) →
+  Fase 0 backend (A1→A2→A3).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 2/5 · Qualità: 5/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+- (Valutazione estesa 1–10 per dimensione in `docs/AUDIT-GENERALE.md` §2.)
+
+---
+
 ## Audit #6 — 24/06/2026 — Miglioramenti UI/UX (T8, T9, T12 + ScrollToTop)
 
 **Autore:** Claude Code — sessione UI/UX sul branch `claude/web-app-improvements-3modcu`

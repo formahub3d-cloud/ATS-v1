@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ATS — Registro Audit</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#06101E; color:#E6EEF6;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.6; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  .banner { background: linear-gradient(135deg,#5BB8F5 0%,#1A56A0 100%); color:#04101f;
+    border-radius:16px; padding:24px 28px; margin-bottom:32px; }
+  .banner h1 { margin:0; font-size:24px; }
+  .banner p { margin:6px 0 0; opacity:.85; font-size:14px; }
+  h1,h2,h3,h4 { color:#fff; line-height:1.25; }
+  h2 { margin-top:40px; font-size:21px; border-bottom:1px solid rgba(255,255,255,.1); padding-bottom:8px; }
+  h3 { margin-top:26px; font-size:16px; color:#5BB8F5; }
+  h4 { margin-top:20px; font-size:14px; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; }
+  a { color:#5BB8F5; }
+  code { background:rgba(91,184,245,.12); color:#9ed2fb; padding:1px 6px; border-radius:5px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.88em; }
+  strong { color:#fff; }
+  hr { border:0; border-top:1px solid rgba(255,255,255,.08); margin:32px 0; }
+  blockquote { margin:16px 0; padding:12px 16px; border-left:3px solid #5BB8F5;
+    background:rgba(91,184,245,.06); border-radius:0 8px 8px 0; color:#b9c8d6; font-size:14px; }
+  ul,ol { padding-left:22px; }
+  li { margin:4px 0; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px;
+    background:rgba(13,30,52,.5); border-radius:10px; overflow:hidden; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
+  th { background:rgba(91,184,245,.1); color:#cfe6fa; font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  .foot { margin-top:48px; font-size:12px; color:#5E7A95; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="banner">
+  <h1>ATS — Registro Audit</h1>
+  <p>Versione HTML generata da <code>docs/AUDIT-LOG.md</code> · fonte di verità: il file Markdown.</p>
+</div>
+<h1>AUDIT GENERALE — Stato del progetto ATS</h1>
+<blockquote>Audit <strong>olistico</strong> dello stato del progetto, aggiornato all'ultimo intervento. A differenza di<br/><code>AUDIT-LOG.md</code> (registro cronologico per ogni lavoro), questo documento è la <strong>fotografia complessiva</strong><br/>+ il <strong>backlog ragionato</strong> + le <strong>istruzioni per il prossimo agente</strong>.<br/><br/><strong>Ultimo aggiornamento:</strong> 24/06/2026 · <strong>Branch:</strong> <code>claude/web-app-improvements-3modcu</code> (+ <code>staging</code>)<br/>· <strong>Autore:</strong> Claude Code · Riferimenti: <code>CLAUDE.md</code>, <code>docs/01-ROADMAP.md</code>, <code>docs/04-TASK-MIGLIORAMENTI-WEBAPP.md</code>, <code>docs/AUDIT-LOG.md</code> (Audit #0→#6).</blockquote>
+<hr/>
+<h2>1. Sintesi esecutiva</h2>
+<p>ATS è oggi un <strong>frontend React/Vite curato e tecnicamente pulito</strong>, alimentato <strong>solo da dati mock</strong>:<br/>non esiste backend, né autenticazione reale, né motore paghe. Nelle ultime sessioni il frontend è<br/>stato risanato (lint a zero, <code>@ts-nocheck</code> rimossi, bug reali corretti), dotato di **architettura dati<br/>pronta all'API<strong> (service layer + tipi + hook), </strong>route guard<strong>, </strong>stati UI<strong>, </strong>code splitting**,<br/><strong>ErrorBoundary</strong> e prime <strong>migliorie di accessibilità</strong>.</p>
+<p>Il prodotto <strong>non è ancora utilizzabile in produzione</strong>: ciò che manca non è cosmetico ma strutturale<br/>— <strong>backend + auth + dati reali + motore paghe</strong> (Fase 0–4 della roadmap). Il frontend, però, è in<br/>ottimo stato per accoglierli con poco attrito.</p>
+<hr/>
+<h2>2. Valutazione (punteggio 1–10)</h2>
+<table><thead><tr><th>Dimensione</th><th>Voto</th><th>Motivazione sintetica</th></tr></thead><tbody><tr><td>Documentazione &amp; processo</td><td><strong>9</strong></td><td>Manuali chiari, disciplina di audit costante, roadmap e modello dati definiti.</td></tr><tr><td>Qualità codice / type-safety</td><td><strong>8</strong></td><td>0 errori lint, 0 <code>@ts-nocheck</code>, build pulita. Restano 32 warning RC e nessun test.</td></tr><tr><td>Architettura frontend</td><td><strong>7</strong></td><td>Service layer, tipi centralizzati, guards, code splitting. Migrazione pagine ancora parziale.</td></tr><tr><td>UI / UX</td><td><strong>7</strong></td><td>Design coerente e ricco, responsive, scroll restoration, icone nav corrette. Manca QA visiva.</td></tr><tr><td>Performance</td><td><strong>7</strong></td><td>Code splitting: bundle iniziale ~1.48 MB → ~415 kB. <code>recharts</code> ancora pesante (lazy).</td></tr><tr><td>Accessibilità (a11y)</td><td><strong>5</strong></td><td>Focus visibile, reduced-motion, aria di base. Contrasto e form ancora da sistemare.</td></tr><tr><td>DevOps / CI</td><td><strong>6</strong></td><td>CI lint+build su GitHub Actions. Mancano test, deploy automatico, preview.</td></tr><tr><td>Sicurezza / Auth</td><td><strong>2</strong></td><td>Nessuna auth reale; ruolo in <code>localStorage</code>; guard solo lato client.</td></tr><tr><td>Backend / dati reali</td><td><strong>1</strong></td><td>Assente: tutto su mock.</td></tr><tr><td>Test automatici</td><td><strong>1</strong></td><td>Nessun test (step Vitest predisposto in CI).</td></tr></tbody></table>
+<h3>Punteggio complessivo: <strong>5.5 / 10</strong></h3>
+<blockquote>Frontend ~7.5/10, ma il prodotto nel suo insieme è frenato da backend/auth/test assenti. Il numero<br/>salirà rapidamente con la <strong>Fase 0</strong> (auth + API + un primo modulo su dati reali).</blockquote>
+<hr/>
+<h2>3. Cosa è stato fatto (cumulativo, Audit #0→#6)</h2>
+<ul>
+<li><strong>Fondamenta tecniche:</strong> <code>.nvmrc</code> + <code>engines</code>; CI GitHub Actions (lint+build); ESLint riallineato.</li>
+<li><strong>Risanamento:</strong> lint <strong>139 → 0</strong> errori; <strong>6 <code>@ts-nocheck</code> → 0</strong>; rimossi <strong>15 file morti</strong> + dipendenze</li>
+</ul>
+<p>  <code>gsap</code>/<code>@gsap/react</code>.</p>
+<ul>
+<li><strong>Bug reali corretti</strong> (emersi togliendo <code>@ts-nocheck</code>): <code>Avatar</code> con <code>size</code> stringa (rendering rotto);</li>
+</ul>
+<p>  <code>getHourlyRate</code> con parametri invertiti; <code>zoneRates</code> (array) usato come mappa; <code>Math.random</code> in render.</p>
+<ul>
+<li><strong>Architettura dati:</strong> <code>src/services/*</code> (mock dietro funzioni async), <code>src/types/domain.ts</code>,</li>
+</ul>
+<p>  hook <code>useAsync</code>; <code>EmployeeDashboard</code> migrata come esempio.</p>
+<ul>
+<li><strong>Struttura &amp; UX:</strong> <code>RoleGuard</code> + rotta 404; stati <code>Loading/Empty/Error</code>; <strong>code splitting</strong> (lazy</li>
+</ul>
+<p>  routes + Suspense); <code>ScrollToTop</code>; <code>ErrorBoundary</code> globale; <code>index.html</code> (favicon, theme-color, OG);<br/>  a11y base (focus-visible, reduced-motion, aria, icone nav reali).</p>
+<ul>
+<li><strong>Documentazione:</strong> audit in MD + HTML rigenerabile (<code>scripts/md2html.mjs</code>).</li>
+</ul>
+<hr/>
+<h2>4. Stato dei moduli (semaforo)</h2>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>UI ricca su mock dietro <code>adminService</code> tipato; nessun CRUD/persistenza.</td></tr><tr><td>Turni</td><td>🟡</td><td>UI/calendario su mock; nessuna persistenza, nessun matching reale.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>Solo UI check-in QR; nessun calcolo ore.</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td>Nessun motore; tariffe mock (non validate).</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>Solo UI.</td></tr></tbody></table>
+<hr/>
+<h2>5. Backlog ragionato (aggiungere · migliorare · automatizzare · implementare)</h2>
+<blockquote>Priorità: <strong>P0</strong> abilitante · <strong>P1</strong> importante · <strong>P2</strong> desiderabile. Stima: S/M/L.</blockquote>
+<h3>5.1 ➕ AGGIUNGERE (non c'è ancora)</h3>
+<table><thead><tr><th>ID</th><th>Voce</th><th>Prio</th><th>Stima</th></tr></thead><tbody><tr><td>A1</td><td><strong>Backend <code>api/</code></strong> (Fastify + MongoDB Atlas + Mongoose), REST <code>/api/v1</code> versionata</td><td>P0</td><td>L</td></tr><tr><td>A2</td><td><strong>Auth reale</strong> (login email/password, JWT access+refresh, hashing argon2/bcrypt)</td><td>P0</td><td>L</td></tr><tr><td>A3</td><td><strong>RBAC server-side</strong> su ogni endpoint (ruolo + proprietà del dato)</td><td>P0</td><td>M</td></tr><tr><td>A4</td><td><strong>Test</strong> Vitest (unit/integrazione) — partire da <code>useAsync</code>, services, <code>RoleGuard</code>, schemi zod</td><td>P1</td><td>M</td></tr><tr><td>A5</td><td><strong>Validazione zod</strong> condivisa FE/BE nei form (Auth/onboarding) — T7</td><td>P1</td><td>M</td></tr><tr><td>A6</td><td><strong>Gestione documenti</strong> (CI, HACCP, permessi) su Cloudflare R2 con URL firmati</td><td>P1</td><td>M</td></tr><tr><td>A7</td><td><strong>Notifiche</strong> reali (email/push) per turni e scadenze documenti</td><td>P2</td><td>L</td></tr><tr><td>A8</td><td><strong>PWA</strong> (manifest + service worker) per i dipendenti — T12 residuo</td><td>P2</td><td>M</td></tr><tr><td>A9</td><td><strong>i18n</strong> centralizzazione stringhe (<code>src/i18n</code>) — T11</td><td>P2</td><td>M</td></tr><tr><td>A10</td><td><strong>Storybook / catalogo componenti</strong> per i numerosi <code>Glass*</code></td><td>P2</td><td>M</td></tr></tbody></table>
+<h3>5.2 ⬆️ MIGLIORARE (esiste ma è migliorabile)</h3>
+<table><thead><tr><th>ID</th><th>Voce</th><th>Prio</th><th>Stima</th></tr></thead><tbody><tr><td>M1</td><td><strong>Migrare le ~13 pagine restanti</strong> al service layer + stati Loading/Empty/Error — T4/T6</td><td>P1</td><td>L</td></tr><tr><td>M2</td><td><strong>Accessibilità completa</strong> — T9: contrasto testi <code>text-muted</code>, <code>aria-invalid</code>/label nei form, Lighthouse ≥ 90</td><td>P1</td><td>M</td></tr><tr><td>M3</td><td><strong>Alleggerire il bundle</strong>: <code>recharts</code> (~430 kB) lazy/alternativa, valutare <code>manualChunks</code> per i vendor</td><td>P2</td><td>M</td></tr><tr><td>M4</td><td><strong>Sostituire i <code>@ts-nocheck</code> residui</strong>: già 0 — mantenere, vietare reintroduzioni via CI</td><td>P1</td><td>S</td></tr><tr><td>M5</td><td><strong>Ridurre i 32 warning RC</strong> (set-state-in-effect, static-components) affrontandoli nel codice nostro</td><td>P2</td><td>M</td></tr><tr><td>M6</td><td>**Consolidare i duplicati <code>Glass*</code> vs base** (rinominare le varianti uniche, eliminare il prefisso)</td><td>P2</td><td>M</td></tr><tr><td>M7</td><td><strong>Tipi denaro/tempo</strong>: introdurre tipi/utility per centesimi e ore (mai float) già lato FE</td><td>P1</td><td>S</td></tr><tr><td>M8</td><td><strong>Error/empty state ovunque</strong> + retry reale (oggi <code>window.location.reload</code>)</td><td>P2</td><td>S</td></tr></tbody></table>
+<h3>5.3 🤖 AUTOMATIZZARE</h3>
+<table><thead><tr><th>ID</th><th>Voce</th><th>Prio</th><th>Stima</th></tr></thead><tbody><tr><td>AU1</td><td><strong>CI: abilitare lo step test</strong> (Vitest) e renderlo bloccante</td><td>P1</td><td>S</td></tr><tr><td>AU2</td><td><strong>CI: type-check dedicato</strong> (<code>tsc --noEmit</code>) separato dal build</td><td>P1</td><td>S</td></tr><tr><td>AU3</td><td><strong>Deploy automatico</strong> su Railway da <code>staging</code>/<code>main</code> (preview per branch)</td><td>P1</td><td>M</td></tr><tr><td>AU4</td><td><strong>Dependabot/renovate</strong> per aggiornamenti dipendenze + audit sicurezza</td><td>P2</td><td>S</td></tr><tr><td>AU5</td><td><strong>Pre-commit hook</strong> (lint-staged + eslint) per non rompere la CI</td><td>P2</td><td>S</td></tr><tr><td>AU6</td><td><strong>Rigenerazione audit HTML</strong> in CI (<code>scripts/md2html.mjs</code>) ad ogni modifica del MD</td><td>P2</td><td>S</td></tr><tr><td>AU7</td><td><strong>Lighthouse CI</strong> (performance/a11y budget) su PR</td><td>P2</td><td>M</td></tr></tbody></table>
+<h3>5.4 🏗️ IMPLEMENTARE (logica di dominio — Fase 1→5)</h3>
+<table><thead><tr><th>ID</th><th>Voce</th><th>Prio</th><th>Stima</th></tr></thead><tbody><tr><td>I1</td><td><strong>CRUD Personale</strong> (anagrafica, CF, IBAN, ruoli, stato) su dati reali</td><td>P0</td><td>L</td></tr><tr><td>I2</td><td><strong>CRUD Strutture</strong> + tariffario collegato</td><td>P1</td><td>M</td></tr><tr><td>I3</td><td><strong>CRUD Turni</strong> + ricorrenze + matching + gestione no-show</td><td>P1</td><td>L</td></tr><tr><td>I4</td><td><strong>Presenze/Ore</strong>: check-in/out reale, calcolo ore (pause, mezzanotte, arrotondamento), validazione</td><td>P1</td><td>L</td></tr><tr><td>I5</td><td><strong>Motore Paghe</strong> isolato e testato, tariffe da <code>config/payroll/</code> <strong>validate dal consulente</strong></td><td>P0</td><td>L</td></tr><tr><td>I6</td><td><strong>Fatturazione</strong> verso strutture + export commercialista (CSV/PDF)</td><td>P2</td><td>L</td></tr><tr><td>I7</td><td><strong>Scadenze documenti</strong> con alert (HACCP, permessi)</td><td>P1</td><td>M</td></tr><tr><td>I8</td><td><strong>GDPR</strong>: cancellazione/anonimizzazione, registro trattamenti, backup+restore verificati</td><td>P1</td><td>M</td></tr></tbody></table>
+<hr/>
+<h2>6. Rischi e questioni aperte</h2>
+<ul>
+<li><strong>QA visiva non eseguita</strong> in queste sessioni (solo build+lint): fare un giro manuale prima del merge.</li>
+<li><strong>Tariffe mock</strong> corrette per renderle coerenti: non hanno valore legale (il motore validato è da costruire).</li>
+<li><strong>Sicurezza</strong>: il <code>RoleGuard</code> è solo UX — la sicurezza reale richiede A2/A3.</li>
+<li><strong>Decisioni con valore legale/fiscale</strong> (contratti, minimi, contributi): <strong>non improvvisare</strong>, rimandare</li>
+</ul>
+<p>  al consulente del lavoro (CLAUDE.md §3/§11).</p>
+<hr/>
+<h2>7. ISTRUZIONI PER IL PROSSIMO AGENTE</h2>
+<p><strong>Onboarding (5 min):</strong></p>
+<ol>
+<li>Leggi <code>CLAUDE.md</code>, poi <code>docs/AUDIT-LOG.md</code> (Audit #6→#4) e questo file.</li>
+<li>Branch di lavoro: <code>claude/web-app-improvements-3modcu</code>. Setup: <code>cd app &amp;&amp; npm ci &amp;&amp; npm run lint &amp;&amp; npm run build</code>.</li>
+</ol>
+<p><strong>Regole non negoziabili (da CLAUDE.md):</strong></p>
+<ul>
+<li>Niente <code>@ts-nocheck</code>/<code>any</code> nuovi; TypeScript strict.</li>
+<li><strong>Valori normativi/paga mai hardcodati</strong> → <code>config/payroll/</code> validata dal consulente.</li>
+<li>Soldi in <strong>centesimi/Decimal128</strong>, ore senza <code>float</code>; date in UTC, fuso solo in presentazione; attenzione ai turni a cavallo di mezzanotte.</li>
+<li>UI in italiano; codice/DB in inglese.</li>
+<li><strong>Audit a fine di OGNI lavoro</strong>: voce in cima a <code>docs/AUDIT-LOG.md</code>, aggiorna questo <code>AUDIT-GENERALE.md</code>, rigenera l'HTML (<code>node scripts/md2html.mjs docs/AUDIT-LOG.md docs/AUDIT-LOG.html</code>).</li>
+<li>Commit Conventional; push su branch di lavoro (e <code>staging</code> se richiesto); <strong>niente PR senza richiesta esplicita</strong>.</li>
+</ul>
+<p><strong>Ordine di lavoro consigliato:</strong></p>
+<ol>
+<li><strong>M1</strong> — migrare le pagine restanti al service layer + stati (modello: <code>EmployeeDashboard.tsx</code>). Una pagina per commit.</li>
+<li><strong>A5/A4</strong> — zod nei form + primi test Vitest; poi <strong>AU1/AU2</strong> (CI test + type-check).</li>
+<li><strong>M2</strong> — completare l'accessibilità (contrasto, form, Lighthouse).</li>
+<li><strong>Fase 0 backend</strong> (<strong>A1→A2→A3</strong>): scaffolding <code>api/</code> Fastify + MongoDB Atlas M0 + auth JWT/RBAC; poi i service del FE passano da mock a <code>fetch</code> (firme già pronte: cambia solo <code>src/services/*</code> + <code>simulate</code>).</li>
+<li>Moduli di dominio in ordine roadmap: <strong>I1 Personale → I3 Turni → I4 Presenze → I5 Paga → I6 Fatturazione</strong>, con test obbligatori su ore/paga.</li>
+</ol>
+<p><strong>Dove intervenire (mappa rapida):</strong></p>
+<ul>
+<li>Dati/mock → <code>app/src/services/*</code>, <code>app/src/data/mockAdmin.ts</code>, <code>app/src/components/employee/mockData.ts</code>.</li>
+<li>Tipi dominio → <code>app/src/types/domain.ts</code>.</li>
+<li>Routing/guard → <code>app/src/App.tsx</code>, <code>app/src/components/RoleGuard.tsx</code>.</li>
+<li>Stati UI → <code>app/src/components/states/</code>.</li>
+<li>Layout/nav → <code>app/src/components/Layout.tsx</code>, <code>components/employee/GlassBottomNav.tsx</code>.</li>
+</ul>
+<p><strong>Note tecniche:</strong></p>
+<ul>
+<li>Router = <strong>HashRouter</strong> (URL con <code>#</code>).</li>
+<li>32 warning lint = regole sperimentali React Compiler <strong>declassate a <code>warn</code></strong> di proposito; <code>react-hooks/purity</code> off sui vendored <code>src/components/ui/**</code>. Affrontarle è M5, non urgente.</li>
+<li>Build deve restare verde: <code>npm run lint</code> (0 errori) + <code>npm run build</code>.</li>
+</ul>
+<p class="foot">Documento generato automaticamente da docs/AUDIT-LOG.md — non modificare a mano.</p>
+</div>
+</body>
+</html>
