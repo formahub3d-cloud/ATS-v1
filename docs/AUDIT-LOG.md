@@ -5,6 +5,62 @@
 
 ---
 
+## Audit #4 — 24/06/2026 — Analisi web app e creazione backlog di miglioramenti
+
+**Autore:** Claude Code — sessione di analisi tecnica del frontend
+**Sessione / obiettivo:** Analizzare la web app esistente (`app/`) e produrre un backlog di task di
+miglioramento prioritizzate e azionabili.
+**Fase roadmap:** Pre-Fase 0 / Fase 0 (preparazione del frontend) + anticipo di rifiniture (Fase 6).
+
+### 1. Lavoro svolto
+- Eseguiti `npm install` pulito, `npm run build`, `npm run lint` e ispezione del sorgente `src/`.
+- Verificate manualmente le criticità (componenti morti, librerie inutilizzate, layer dati, routing).
+- Creato **`docs/04-TASK-MIGLIORAMENTI-WEBAPP.md`**: 14 task (T0–T13) con obiettivo, file, DoD, stima,
+  priorità (P0/P1/P2) e ordine consigliato.
+
+### 2. File / aree toccate
+- `docs/04-TASK-MIGLIORAMENTI-WEBAPP.md` (nuovo) — backlog di miglioramenti del frontend.
+- `docs/AUDIT-LOG.md` — questa voce. **Nessun codice applicativo modificato.**
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato (analisi, nessuno sviluppo funzionale).
+| Modulo | Stato | Nota |
+|---|---|---|
+| Personale | 🟡 | UI su mock, nessun CRUD reale. |
+| Turni | 🟡 | UI ricca su mock, nessuna persistenza. |
+| Presenze/Ore | 🔴 | Solo UI check-in QR. |
+| Calcolo Paga | 🔴 | Nessun motore. |
+| Fatturazione | 🔴 | Solo UI `GlassInvoiceCard`. |
+
+### 4. Qualità tecnica
+- Build: ✅ passa dopo install pulita (gli errori iniziali erano d'ambiente, non di codice → task T0).
+- Lint: ❌ **139 errori** in 83 file (94 `no-unused-vars`, + hooks/refresh/ban-ts-comment).
+- `@ts-nocheck`: ⚠️ 6 file. `any` espliciti: 0.
+- Bundle: ⚠️ 1.48 MB (384 KB gzip) in un chunk unico, nessun code splitting.
+- Layer dati: ❌ mock importati direttamente nelle pagine (manca `src/services/`).
+- Auth/routing: ❌ nessuna guardia di ruolo né rotta 404; `zod`/`react-hook-form`/`gsap` non usati.
+- Debito tecnico: **non introdotto** (solo documentazione); mappato e prioritizzato nel backlog.
+
+### 5. Decisioni prese
+- Backlog separato dalle Fasi 0–6: prepara il frontend (service layer, guardie, stati UI) e sana il
+  debito tecnico, senza toccare scelte legali/contabili (che restano al consulente).
+- Priorità: prima toolchain/lint/CI e service-layer/auth, poi performance/a11y, infine pulizia/test.
+
+### 6. Rischi / questioni aperte
+- Riproducibilità ambiente: il build falliva con dipendenze installate parzialmente → fissare Node e
+  `package-lock` (T0) e introdurre CI (T1) prima di lavori più grandi.
+- Refactor service-layer (T4) tocca molte pagine: farlo presto, prima che il debito cresca.
+- Nessun punto da validare col consulente del lavoro in questo backlog (è tutto frontend tecnico).
+
+### 7. Prossimo passo consigliato
+- Partire da **T0 → T2 → T1** (toolchain stabile, lint a 0, CI verde), poi **T4** (service layer) come
+  abilitatore della Fase 0.
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 1/5 (analisi) · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+
+---
+
 ## Audit #3 — 19/06/2026 — Doppio manuale agenti: Cowork (strategia) + Claude Code (tecnico)
 
 **Autore:** Claude (Cowork) — sessione di kickoff con Andrea
