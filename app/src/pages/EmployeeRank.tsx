@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Star, Award, TrendingUp, TrendingDown, BookOpen, Clock, CheckCircle, HelpCircle } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';

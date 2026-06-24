@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Video, Square, RefreshCw, Check, Mic, Eye } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface GlassVideoRecorderProps {
   onRecordComplete: (blob: Blob | null) => void

@@ -1,10 +1,9 @@
-// @ts-nocheck
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Euro, Trophy, Gavel, Bell, Truck, Building, Share2, Settings2,
-  ChevronRight, Save, RotateCcw, Check, Star, TrendingUp,
-  Moon, Sun, Monitor, Plus, Pencil, MapPin,
+  Save, RotateCcw, Check, Star,
+  Plus, Pencil, MapPin,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GlassCard from '@/components/admin/GlassCard'
@@ -53,8 +52,8 @@ export default function AdminSettings() {
   })
   const [rates, setRates] = useState(roleRates)
   const [ranks, setRanks] = useState(rankThresholds)
-  const [penalties, setPenalties] = useState(penaltyRules)
-  const [zoneRateData, setZoneRateData] = useState(zoneRates)
+  const [penalties] = useState(penaltyRules)
+  const [zoneRateData] = useState(zoneRates)
   const [customZoneRates, setCustomZoneRates] = useState<Record<string, Record<string, number>>>({})
 
   const handleSave = () => {
@@ -92,7 +91,7 @@ export default function AdminSettings() {
   }
 
   const getZoneRate = (zone: string, role: string) => {
-    return customZoneRates[zone]?.[role] ?? getHourlyRate(role === 'Cameriere' ? 'Affidabile' : role === 'Chef' ? 'Senior' : 'Rookie', zone)
+    return customZoneRates[zone]?.[role] ?? getHourlyRate(zone, role)
   }
 
   const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: () => void }) => (
@@ -213,7 +212,7 @@ export default function AdminSettings() {
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(zoneRateData).map(([zone, baseRate], zi) => (
+                        {zoneRateData.map(({ zone, baseRate }, zi) => (
                           <motion.tr
                             key={zone}
                             initial={{ opacity: 0, y: 10 }}

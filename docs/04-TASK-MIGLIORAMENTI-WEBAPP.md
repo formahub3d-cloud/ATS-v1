@@ -14,6 +14,29 @@
 
 ---
 
+## Stato di avanzamento (aggiornato 24/06/2026 — Audit #5)
+
+| Task | Stato | Note |
+|---|---|---|
+| **T0** Toolchain | ✅ Fatto | `.nvmrc` (Node 20) + `engines` in `package.json`. |
+| **T1** CI GitHub Actions | ✅ Fatto | `.github/workflows/ci.yml` (lint + build), step test predisposto. |
+| **T2** Lint a zero | ✅ Fatto | 139 → **0 errori** (32 warning su regole RC sperimentali, declassate). |
+| **T3** Rimozione `@ts-nocheck` | ✅ Fatto | 6 file → **0**; corretti bug reali nascosti (vedi Audit #5). |
+| **T4** Service layer + tipi | 🟡 Parziale | Infrastruttura creata (`services/`, `types/`, `useAsync`); migrata `EmployeeDashboard`. **Resta** migrare le altre ~13 pagine. |
+| **T5** Route guard + 404 | ✅ Fatto | `RoleGuard` + `NotFound` + catch-all in `App.tsx` (UX, non sicurezza). |
+| **T6** Stati UI riusabili | 🟡 Parziale | Componenti `LoadingState/EmptyState/ErrorState` creati + applicati a `EmployeeDashboard`. **Resta** applicarli alle altre pagine (con T4). |
+| **T7** Validazione zod | ⬜ Da fare | Librerie già presenti, non usate. |
+| **T8** Code splitting | ⬜ Da fare | Bundle ancora ~1.48 MB in un chunk. |
+| **T9** Accessibilità | ⬜ Da fare | Aggiunti aria su nuovi componenti; resto da fare. |
+| **T10** Pulizia codice/dep morte | ✅ Fatto | Rimossi 15 file morti + `gsap`/`@gsap/react`. |
+| **T11** Centralizzazione stringhe/i18n | ⬜ Da fare | — |
+| **T12** Error boundary + meta/PWA | ⬜ Da fare | — |
+| **T13** Test (Vitest) | ⬜ Da fare | CI ha già lo step predisposto. |
+
+Legenda: ✅ completata · 🟡 parziale · ⬜ da fare.
+
+---
+
 ## Riepilogo analisi (stato al 24/06/2026)
 
 Eseguiti `npm install` pulito, `npm run build`, `npm run lint` e ispezione del sorgente.

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import GlassCard from './GlassCard'
 
@@ -18,7 +17,7 @@ interface KPIRowProps {
 
 function AnimatedCounter({ value, delay = 0 }: { value: string; delay?: number }) {
   const [displayValue, setDisplayValue] = useState('0')
-  const [hasAnimated, setHasAnimated] = useState(false)
+  const [, setHasAnimated] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => {

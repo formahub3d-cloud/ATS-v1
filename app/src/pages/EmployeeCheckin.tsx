@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanLine, ShieldCheck, MapPin, Clock, LogOut, ChevronRight, X } from 'lucide-react';
+import { ScanLine, ShieldCheck, MapPin, Clock, LogOut } from 'lucide-react';
 import CoverPhoto from '@/components/CoverPhoto';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import { useToast } from '@/components/ui/ToastSystem';
@@ -78,7 +77,7 @@ export default function EmployeeCheckin() {
         addToast({ type: 'success', title: 'Check-in riuscito', message: 'GPS verificato · Turno attivo' });
       }, 3000);
     }
-    return () => clearTimeout(timerRef.current);
+    return () => clearTimeout(timerRef.current ?? undefined);
   }, [phase, addToast]);
 
   // Auto-advance from success to active

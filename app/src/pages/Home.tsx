@@ -20,13 +20,6 @@ const fadeUp = {
   })
 }
 
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: (delay: number = 0) => ({
-    opacity: 1,
-    transition: { duration: 0.6, delay }
-  })
-}
 
 const staggerContainer = {
   hidden: {},
@@ -44,19 +37,21 @@ const staggerItem = {
 }
 
 /* ────────────────────────── Particles ────────────────────────── */
-function Particles() {
-  const particles = Array.from({ length: 50 }, (_, i) => ({
-    id: i,
-    size: 2 + Math.random() * 2,
-    left: Math.random() * 100,
-    duration: 20 + Math.random() * 20,
-    delay: Math.random() * 10,
-    drift: Math.random() * 40 - 20,
-  }))
+// Particelle decorative statiche: generate una sola volta al caricamento del modulo
+// (non durante il render) per evitare valori instabili e rispettare le regole di purezza.
+const PARTICLES = Array.from({ length: 50 }, (_, i) => ({
+  id: i,
+  size: 2 + Math.random() * 2,
+  left: Math.random() * 100,
+  duration: 20 + Math.random() * 20,
+  delay: Math.random() * 10,
+  drift: Math.random() * 40 - 20,
+}))
 
+function Particles() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map(p => (
+      {PARTICLES.map(p => (
         <div
           key={p.id}
           className="absolute rounded-full"

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
-import { X, Heart, Star, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import CoverPhoto from '@/components/CoverPhoto';
-import { cn } from '@/lib/utils';
 
 export interface SwipeCardData {
   id: string;
@@ -33,7 +32,6 @@ export default function GlassSwipeCard({
   data,
   onLike,
   onPass,
-  onSuperLike,
   index,
   isTop,
 }: GlassSwipeCardProps) {

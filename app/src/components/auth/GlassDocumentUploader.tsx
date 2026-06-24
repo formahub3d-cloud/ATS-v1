@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, X, FileText, Image, Check, Camera } from 'lucide-react'
+import { Upload, X, FileText, Check, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Avatar from '@/components/Avatar'
 

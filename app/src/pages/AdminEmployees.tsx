@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Eye, Edit, Ban, CheckCircle, X, ChevronRight,
-  ChevronLeft, Calendar, Video, FileText, Trophy,
-  Star, Phone, Mail, MapPin, Shield, Euro,
+  Calendar, Video, FileText, Trophy,
+  Star, MapPin, Shield, Euro,
 } from 'lucide-react'
 import StatusPill from '@/components/admin/StatusPill'
 import DataTable from '@/components/admin/DataTable'
@@ -13,7 +12,6 @@ import GlassBadge from '@/components/admin/GlassBadge'
 import Avatar from '@/components/Avatar'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { Skeleton } from '@/components/ui/skeleton'
 import { mockEmployees, rankColors, getHourlyRate, zoneRates } from '@/data/mockAdmin'
 import { cn } from '@/lib/utils'
 
@@ -151,7 +149,7 @@ export default function AdminEmployees() {
       key: 'rate',
       header: 'Tariffa',
       render: (e: Employee) => {
-        const rate = getHourlyRate(e.rank, e.zone)
+        const rate = getHourlyRate(e.zone, e.role)
         return (
           <GlassBadge variant="sky" icon={<Euro className="w-3 h-3" />}>
             €{rate}/h
@@ -215,7 +213,7 @@ export default function AdminEmployees() {
     { key: 'chat', label: 'Chat' },
   ]
 
-  const zoneOptions = Object.keys(zoneRates) as (keyof typeof zoneRates)[]
+  const zoneOptions = zoneRates.map(z => z.zone)
 
   return (
     <motion.div
@@ -453,7 +451,7 @@ export default function AdminEmployees() {
                               className="w-full bg-[#06101E] border border-[rgba(255,255,255,0.1)] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-primary"
                             >
                               {zoneOptions.map(z => (
-                                <option key={z} value={z}>{z} (€{zoneRates[z]}/h)</option>
+                                <option key={z} value={z}>{z} (€{zoneRates.find(r => r.zone === z)?.baseRate}/h)</option>
                               ))}
                             </select>
                           </div>
@@ -474,7 +472,7 @@ export default function AdminEmployees() {
                             </div>
                             <div className="text-right">
                               <GlassBadge variant="sky" icon={<Euro className="w-3 h-3" />} className="text-sm px-3 py-1.5">
-                                €{customRate ?? getHourlyRate(selectedEmployee.rank, selectedZone)}/h
+                                €{customRate ?? getHourlyRate(selectedZone, selectedEmployee.role)}/h
                               </GlassBadge>
                               <p className="text-[10px] text-text-muted mt-1">{selectedZone} · {selectedEmployee.role}</p>
                             </div>

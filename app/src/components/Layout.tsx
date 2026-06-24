@@ -17,14 +17,6 @@ const structureNavItems = [
   { label: 'Storico', path: '/structure/history', icon: 'History' },
 ]
 
-const employeeNavItems = [
-  { label: 'Home', path: '/employee', icon: 'Home' },
-  { label: 'Calendario', path: '/employee/calendar', icon: 'Calendar' },
-  { label: 'Matching', path: '/employee/matching', icon: 'Heart' },
-  { label: 'Check-in', path: '/employee/checkin', icon: 'ScanLine' },
-  { label: 'Rank', path: '/employee/rank', icon: 'Trophy' },
-]
-
 function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: string }) {
   const location = useLocation()
   return (
@@ -82,45 +74,7 @@ function DesktopSidebar({ items, title }: { items: typeof adminNavItems; title: 
   )
 }
 
-function MobileBottomNav({ items }: { items: typeof employeeNavItems }) {
-  const location = useLocation()
-  return (
-    <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center"
-      style={{
-        height: '72px',
-        background: 'rgba(13,30,52,0.95)',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(20px)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
-    >
-      {items.map((item) => {
-        const isActive = location.pathname === item.path
-        return (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={cn(
-              'flex-1 flex flex-col items-center justify-center gap-1 transition-colors duration-200',
-              isActive ? 'text-sky-primary' : 'text-text-muted'
-            )}
-          >
-            {isActive && (
-              <div className="w-12 h-1 bg-[rgba(91,184,245,0.15)] rounded-full mb-1" />
-            )}
-            <span className="w-6 h-6 flex items-center justify-center">
-              <IconPlaceholder name={item.icon} className={cn('w-[22px] h-[22px]', isActive ? 'text-sky-primary' : 'text-text-muted')} />
-            </span>
-            <span className="text-[11px] font-medium">{item.label}</span>
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
-function IconPlaceholder({ name, className }: { name: string; className?: string }) {
+function IconPlaceholder({ className }: { name: string; className?: string }) {
   return (
     <svg className={cn('w-5 h-5', className)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <rect x="0" y="0" width="24" height="24" rx="4" fill="currentColor" opacity="0.1" />

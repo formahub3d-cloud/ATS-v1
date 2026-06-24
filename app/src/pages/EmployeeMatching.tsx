@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, Search, Star, Heart, X, MapPin, Sliders } from 'lucide-react';
+import { Search, Heart, X, Sliders } from 'lucide-react';
 import GlassSwipeCard, { type SwipeCardData } from '@/components/employee/GlassSwipeCard';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import { useToast } from '@/components/ui/ToastSystem';

@@ -51,7 +51,7 @@ const statusConfig = {
   },
 }
 
-export default function GlassShiftCard({ shift, index = 0, onViewDetails, compact = false, featured = false }: GlassShiftCardProps) {
+export default function GlassShiftCard({ shift, index = 0, compact = false, featured = false }: GlassShiftCardProps) {
   const status = statusConfig[shift.status]
 
   return (

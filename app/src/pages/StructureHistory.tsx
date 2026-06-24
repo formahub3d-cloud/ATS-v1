@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Download, Search, Calendar, CreditCard, Star,
+  Download, Search, CreditCard, Star,
   CheckCircle, Clock, AlertCircle, ChevronRight,
-  Filter, FileText, Truck, X, MapPin
+  FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonTable, SkeletonKpiRow, SkeletonText } from '@/components/ui/skeleton'
+import { SkeletonTable, SkeletonKpiRow } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import GlassInvoiceCard from '@/components/structure/GlassInvoiceCard'
 import type { GlassInvoice } from '@/components/structure/GlassInvoiceCard'

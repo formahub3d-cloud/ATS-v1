@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, Calendar, Search, QrCode, Trophy, Euro, Heart,
-  MessageCircle, Clock, Truck, CheckCircle, CreditCard,
-  AlertTriangle, ChevronRight, Star, HelpCircle,
+  Clock, Truck, CheckCircle, CreditCard,
+  AlertTriangle, ChevronRight, HelpCircle,
 } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
@@ -13,15 +13,11 @@ import GlassShiftCard from '@/components/employee/GlassShiftCard';
 import GlassTooltip from '@/components/ui/GlassTooltip';
 import { useToast } from '@/components/ui/ToastSystem';
 import { SkeletonCard, SkeletonAvatar } from '@/components/ui/skeleton';
-import {
-  dashboardData,
-  upcomingShift,
-  notifications,
-  shiftProposal,
-  EMPLOYEE_NAME,
-  EMPLOYEE_CODE,
-} from '@/components/employee/mockData';
-import type { Notification } from '@/components/employee/mockData';
+import { ErrorState } from '@/components/states';
+import { useAsync } from '@/hooks/useAsync';
+import { getDashboard, getUpcomingShift, getNotifications } from '@/services/employeeService';
+import { shiftProposal, EMPLOYEE_NAME, EMPLOYEE_CODE } from '@/components/employee/mockData';
+import type { EmployeeNotification } from '@/types/domain';
 import { cn } from '@/lib/utils';
 
 const containerVariants = {
@@ -42,7 +38,7 @@ const notificationIcons: Record<string, React.FC<{ className?: string }>> = {
   'alert-triangle': AlertTriangle,
 };
 
-function NotificationItem({ notif, index }: { notif: Notification; index: number }) {
+function NotificationItem({ notif, index }: { notif: EmployeeNotification; index: number }) {
   const Icon = notificationIcons[notif.icon] || Bell;
   return (
     <motion.div
@@ -79,17 +75,19 @@ export default function EmployeeDashboard() {
   const { addToast } = useToast();
   const [greeting, setGreeting] = useState('');
   const [showProposal, setShowProposal] = useState(true);
-  const [loading, setLoading] = useState(true);
+
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const dash = useAsync(getDashboard, []);
+  const upcoming = useAsync(getUpcomingShift, []);
+  const notifs = useAsync(getNotifications, []);
+  const loading = dash.loading || upcoming.loading || notifs.loading;
+  const error = dash.error || upcoming.error || notifs.error;
 
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Buongiorno');
     else if (hour < 18) setGreeting('Buon pomeriggio');
     else setGreeting('Buonasera');
-
-    // Simulated loading
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
   }, []);
 
   const quickActions = [
@@ -130,6 +128,21 @@ export default function EmployeeDashboard() {
     );
   }
 
+  if (error || !dash.data || !upcoming.data || !notifs.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
+
+  const dashboard = dash.data;
+  const nextShift = upcoming.data;
+  const notifList = notifs.data;
+
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
       {/* Glass Header */}
@@ -164,7 +177,7 @@ export default function EmployeeDashboard() {
           </div>
           <button className="relative p-2">
             <Bell className="w-6 h-6 text-[#94A3B8]" />
-            {dashboardData.unreadNotifications > 0 && (
+            {dashboard.unreadNotifications > 0 && (
               <motion.span
                 className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#F04545] rounded-full"
                 animate={{ scale: [1, 1.3, 1] }}
@@ -304,13 +317,13 @@ export default function EmployeeDashboard() {
         {/* Upcoming Shift Card */}
         <motion.div variants={itemVariants} className="px-4 mt-4">
           <GlassShiftCard
-            code={upcomingShift.code}
-            role={upcomingShift.role}
-            time={upcomingShift.time}
-            date={upcomingShift.date}
+            code={nextShift.code}
+            role={nextShift.role}
+            time={nextShift.time}
+            date={nextShift.date}
             status="confirmed"
-            addressHint={upcomingShift.addressHint}
-            showNavetta={upcomingShift.navettaAvailable}
+            addressHint={nextShift.addressHint}
+            showNavetta={nextShift.navettaAvailable}
             photo="/structure-1.jpg"
             onCheckIn={() => navigate('/employee/checkin')}
             onDetails={() => {}}
@@ -326,7 +339,7 @@ export default function EmployeeDashboard() {
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {notifications.map((n, i) => (
+            {notifList.map((n, i) => (
               <NotificationItem key={n.id} notif={n} index={i} />
             ))}
           </div>

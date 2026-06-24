@@ -1,18 +1,15 @@
-// @ts-nocheck
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ChevronLeft, ChevronRight, Search, Plus, Eye,
-  AlertOctagon, Phone, X, CheckCircle, Clock, Ban,
-  UserCheck, CalendarClock, Euro,
+  ChevronLeft, ChevronRight, Search, Plus,
+  AlertOctagon, X, CheckCircle, Clock,
+  UserCheck, Euro,
 } from 'lucide-react'
 import StatusPill from '@/components/admin/StatusPill'
 import GlassCard from '@/components/admin/GlassCard'
 import GlassBadge from '@/components/admin/GlassBadge'
 import Avatar from '@/components/Avatar'
 import { useToast } from '@/components/ui/ToastSystem'
-import GlassTooltip from '@/components/ui/GlassTooltip'
-import { Skeleton } from '@/components/ui/skeleton'
 import { mockShifts, mockEmployees, mockReperibili, getHourlyRate } from '@/data/mockAdmin'
 import { cn } from '@/lib/utils'
 
@@ -458,8 +455,8 @@ export default function AdminShifts() {
                   .filter(e => e.status === 'Attivo')
                   .slice(0, 8)
                   .map((emp, i) => {
-                    const matchScore = Math.round(60 + Math.random() * 40)
-                    const rate = getHourlyRate(emp.rank, 'Centro')
+                    const matchScore = 60 + ((emp.id * 7) % 41)
+                    const rate = getHourlyRate(emp.zone, emp.role)
                     return (
                       <motion.div
                         key={emp.id}

@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Instagram, Linkedin, Facebook, Phone } from 'lucide-react'
 import { LogoAts } from './icons/LogoAts'
-import { cn } from '@/lib/utils'
 
 const structureLinks = [
   { label: 'Come funziona', href: '/#how-it-works' },

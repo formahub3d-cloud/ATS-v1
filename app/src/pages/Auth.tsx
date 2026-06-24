@@ -7,16 +7,11 @@ import {
   Building2,
   User,
   Mail,
-  Lock,
-  Eye,
-  EyeOff,
   Check,
-  ChevronRight,
   CreditCard,
   Landmark,
   Plus,
   Trash2,
-  Video,
   CalendarDays,
   Clock,
   Phone,
@@ -30,7 +25,6 @@ import {
   FileText,
   Award,
   AlertCircle,
-  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -60,7 +54,6 @@ import ZoneSelector from '@/components/auth/ZoneSelector'
 /* ─── easing ─── */
 const easeOut = [0, 0, 0.2, 1] as [number, number, number, number]
 const easeSpring = [0.34, 1.56, 0.64, 1] as [number, number, number, number]
-const easeSmooth = [0.32, 0.72, 0, 1] as [number, number, number, number]
 
 /* ─── Structure Tags ─── */
 const STRUCTURE_TAGS: Tag[] = [
@@ -113,12 +106,7 @@ export default function Auth() {
   const [role, setRole] = useState<UserRole | null>(null)
 
   /* Login state */
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
-  const [loginError, setLoginError] = useState('')
-  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [, setLoginError] = useState('')
 
   /* Onboarding: Structure */
   const [structStep, setStructStep] = useState(1)
@@ -249,24 +237,6 @@ export default function Auth() {
     })
     if (demoRole === 'admin') navigate('/admin')
     else if (demoRole === 'structure') navigate('/structure')
-    else navigate('/employee')
-  }
-
-  /* ─── Login handler ─── */
-  const handleLogin = async () => {
-    setLoginError('')
-    if (!email || !password) {
-      setLoginError('Inserisci email e password')
-      addToast({ type: 'error', title: 'Errore', message: 'Inserisci email e password' })
-      return
-    }
-    setIsLoggingIn(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setIsLoggingIn(false)
-    localStorage.setItem('ats_active_role', role || 'employee')
-    addToast({ type: 'success', title: 'Accesso effettuato', message: 'Bentornato!' })
-    if (role === 'admin') navigate('/admin')
-    else if (role === 'structure') navigate('/structure')
     else navigate('/employee')
   }
 

@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
-  const { icon: Icon, border, bg } = toastConfig[toast.type]
+  const { icon: Icon, border } = toastConfig[toast.type]
   const duration = toast.duration || 5000
 
   useEffect(() => {

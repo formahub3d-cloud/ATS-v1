@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Eye, Edit, Ban, CheckCircle, X,
-  FileText, Download, Plus, ChevronRight, AlertOctagon,
-  Gavel, Building2, TrendingUp, DollarSign, MapPin,
+  FileText, Download, Plus, AlertOctagon,
+  Gavel, MapPin,
 } from 'lucide-react'
 import StatusPill from '@/components/admin/StatusPill'
 import DataTable from '@/components/admin/DataTable'
@@ -12,7 +12,6 @@ import GlassBadge from '@/components/admin/GlassBadge'
 import CoverPhoto from '@/components/CoverPhoto'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { Skeleton } from '@/components/ui/skeleton'
 import { mockStructures, mockPenalties } from '@/data/mockAdmin'
 import { cn } from '@/lib/utils'
 

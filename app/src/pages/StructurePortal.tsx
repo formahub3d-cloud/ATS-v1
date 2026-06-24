@@ -2,16 +2,15 @@ import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  PlusCircle, Search, QrCode, FileText, MessageCircle,
+  PlusCircle, Search, QrCode, FileText,
   CheckCircle, UserCheck, CreditCard, MessageSquare,
-  Star, ChevronRight, Calendar, Users, Clock,
-  X, Info, Bell, BellRing, LayoutDashboard, HeartHandshake,
-  Settings
+  Star, ChevronRight, Calendar, Clock,
+  X, Info, Bell, BellRing, HeartHandshake,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonKpiRow, SkeletonCard, SkeletonText } from '@/components/ui/skeleton'
+import { SkeletonKpiRow, SkeletonCard } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import CoverPhoto from '@/components/CoverPhoto'
 import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShiftCard'

@@ -1,15 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Check, LogOut, Shield, Building2, User } from 'lucide-react'
+import { ChevronDown, Check, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRole, ACCOUNTS, type UserRole } from '@/context/RoleContext'
 import { useToast } from '@/components/ui/ToastSystem'
-
-const roleIcons: Record<UserRole, typeof Shield> = {
-  admin: Shield,
-  structure: Building2,
-  employee: User,
-}
 
 export default function AccountSwitcher() {
   const { activeRole, setActiveRole, activeAccount } = useRole()
@@ -41,8 +35,6 @@ export default function AccountSwitcher() {
       message: `Ora stai navigando come: ${account?.name}`,
     })
   }
-
-  const Icon = roleIcons[activeRole]
 
   return (
     <div ref={ref} className="relative">
@@ -93,7 +85,6 @@ export default function AccountSwitcher() {
             <div className="space-y-1">
               {ACCOUNTS.map((account) => {
                 const isActive = account.role === activeRole
-                const RIcon = roleIcons[account.role]
                 return (
                   <button
                     key={account.role}

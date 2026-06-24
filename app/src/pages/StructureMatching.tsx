@@ -2,8 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Search, Heart, RotateCcw, Star, Filter, X,
-  ChevronLeft, ChevronRight, Award, MapPin, SlidersHorizontal,
+  Search, SlidersHorizontal,
   Sparkles, UserCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

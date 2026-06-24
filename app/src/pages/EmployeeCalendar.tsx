@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Flag, Info, X, Check } from 'lucide-react';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
-import GlassTooltip from '@/components/ui/GlassTooltip';
 import { useToast } from '@/components/ui/ToastSystem';
 import CoverPhoto from '@/components/CoverPhoto';
 import { cn } from '@/lib/utils';

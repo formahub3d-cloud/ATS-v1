@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import type { PanInfo } from 'framer-motion'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import { MapPin, Star, Heart, X, Award, Briefcase, RotateCcw } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import Avatar from '@/components/Avatar'
 import GlassTooltip from '@/components/ui/GlassTooltip'
 

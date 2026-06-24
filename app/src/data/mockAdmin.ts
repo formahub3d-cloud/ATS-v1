@@ -264,7 +264,7 @@ export const roleMultipliers: Record<string, number> = {
   'SPA Staff': 1.0,
 };
 
-export function getHourlyRate(zone: ZoneName, role: string, rankBonus: number = 0): number {
+export function getHourlyRate(zone: string, role: string, rankBonus: number = 0): number {
   const zoneBase = zoneRates.find(z => z.zone === zone)?.baseRate || 15.00;
   const multiplier = roleMultipliers[role] || 1.0;
   return parseFloat((zoneBase * multiplier + rankBonus).toFixed(2));

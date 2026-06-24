@@ -1,13 +1,24 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
+export type AvatarSize = number | 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+
+const SIZE_TOKENS: Record<Exclude<AvatarSize, number>, number> = {
+  xs: 24,
+  sm: 32,
+  md: 44,
+  lg: 64,
+  xl: 96,
+}
+
 interface AvatarProps {
   src?: string
   alt?: string
   initials?: string
-  size?: number
+  size?: AvatarSize
   borderColor?: string
   className?: string
+  style?: React.CSSProperties
   online?: boolean
 }
 
@@ -18,9 +29,11 @@ export default function Avatar({
   size = 44,
   borderColor = '#1A56A0',
   className,
+  style,
   online = false,
 }: AvatarProps) {
   const [error, setError] = useState(false)
+  const sizePx = typeof size === 'number' ? size : SIZE_TOKENS[size]
 
   const getInitials = () => {
     if (initials) return initials
@@ -40,7 +53,7 @@ export default function Avatar({
   return (
     <div
       className={cn('relative inline-flex items-center justify-center rounded-full overflow-hidden flex-shrink-0', className)}
-      style={{ width: size, height: size, border: `2px solid ${borderColor}` }}
+      style={{ width: sizePx, height: sizePx, border: `2px solid ${borderColor}`, ...style }}
     >
       {src && !error ? (
         <img
@@ -51,7 +64,7 @@ export default function Avatar({
         />
       ) : (
         <div className={cn('w-full h-full flex items-center justify-center bg-gradient-to-br text-white font-semibold', gradientColors[gradientIndex])}
-          style={{ fontSize: Math.max(size * 0.4, 10) }}
+          style={{ fontSize: Math.max(sizePx * 0.4, 10) }}
         >
           {getInitials()}
         </div>

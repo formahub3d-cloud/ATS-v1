@@ -1,12 +1,10 @@
-// @ts-nocheck
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell, AlertTriangle, X, CheckCircle, CreditCard,
-  UserPlus, MessageCircle, TrendingUp, Search,
+  UserPlus, MessageCircle, Search,
   ChevronRight, PlusCircle, UserPlus as UserPlusIcon,
-  Building, Send, FileText, MessageSquare, Calendar,
-  Loader2,
+  Building, Send, FileText, MessageSquare,
 } from 'lucide-react'
 import KPICard from '@/components/admin/KPICard'
 import StatusPill from '@/components/admin/StatusPill'
@@ -25,7 +23,6 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 
-const dayNames = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM']
 
 const iconMap: Record<string, React.ReactNode> = {
   'check-circle': <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />,
@@ -315,7 +312,7 @@ export default function AdminDashboard() {
           {loading ? (
             <div className="grid grid-cols-7 gap-3">
               {[0, 1, 2, 3, 4, 5, 6].map(i => (
-                <Skeleton key={i} className="h-32" delay={i * 0.06} />
+                <Skeleton key={i} className="h-32" />
               ))}
             </div>
           ) : (

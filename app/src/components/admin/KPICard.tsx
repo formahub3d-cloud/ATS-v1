@@ -13,7 +13,7 @@ interface KPICardProps {
 
 export default function KPICard({ label, value, delta, deltaPositive = true, children, delay = 0 }: KPICardProps) {
   const [displayValue, setDisplayValue] = useState('0')
-  const [hasAnimated, setHasAnimated] = useState(false)
+  const [, setHasAnimated] = useState(false)
   const numericRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
