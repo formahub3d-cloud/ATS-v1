@@ -1,83 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Flag, Info, X, Check } from 'lucide-react';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import { useToast } from '@/components/ui/ToastSystem';
 import CoverPhoto from '@/components/CoverPhoto';
+import { LoadingState, ErrorState } from '@/components/states';
+import { useAsync } from '@/hooks/useAsync';
+import { getCalendarMonths, type CalendarPageDay, type CalendarPageMonth } from '@/services/employeeService';
 import { cn } from '@/lib/utils';
 
-// ---- Types ----
+// ---- Types (presentazione) ----
 type DayStatus = 'available' | 'unavailable' | 'none' | 'assigned';
 
-interface CalendarDay {
-  day: number;
-  status: DayStatus;
-  isToday?: boolean;
-  isHoliday?: boolean;
-  holidayPremium?: number;
-  hasShift?: boolean;
-  isWeekend?: boolean;
-  shiftCode?: string;
-}
-
-interface CalendarMonth {
-  name: string;
-  year: number;
-  days: CalendarDay[][];
-}
-
-// ---- Mock month generator ----
-function generateMonth(year: number, month: number, offset = 0): CalendarMonth {
-  const date = new Date(year, month + offset, 1);
-  const monthNames = [
-    'Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
-    'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'
-  ];
-  const name = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const startDay = (date.getDay() + 6) % 7;
-
-  const assignedDays = month === 4 ? [12, 13] : [];
-  const availablePattern = month === 4
-    ? [2,3,4,5,6,9,10,15,16,17,18,19,20,22,23,26,27,28,29,30]
-    : Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((d) => d % 3 !== 0);
-  const unavailablePattern = month === 4
-    ? [7,8,11,14,21,24,31]
-    : Array.from({ length: daysInMonth }, (_, i) => i + 1).filter((d) => d % 3 === 0);
-  const holidays = month === 4 ? [1] : month === 3 ? [25] : [];
-
-  const weeks: CalendarDay[][] = [];
-  let week: CalendarDay[] = [];
-  for (let i = 0; i < startDay; i++) week.push({ day: 0, status: 'none' });
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dayOfWeek = (startDay + d - 1) % 7;
-    const isWeekend = dayOfWeek >= 5;
-    const day: CalendarDay = {
-      day: d,
-      status: 'none',
-      isToday: offset === 0 && d === 13,
-      isWeekend,
-    };
-    if (holidays.includes(d)) { day.isHoliday = true; day.holidayPremium = 100; }
-    if (assignedDays.includes(d)) { day.hasShift = true; day.status = 'assigned'; day.shiftCode = d === 12 ? 'RIST-BN-0012' : 'HOTEL-BN-0003'; }
-    else if (availablePattern.includes(d)) day.status = 'available';
-    else if (unavailablePattern.includes(d)) day.status = 'unavailable';
-    week.push(day);
-    if (week.length === 7) { weeks.push(week); week = []; }
-  }
-  if (week.length > 0) {
-    while (week.length < 7) week.push({ day: 0, status: 'none' });
-    weeks.push(week);
-  }
-  return { name, year: date.getFullYear(), days: weeks };
-}
-
-const MONTHS = [
-  generateMonth(2026, 4, -1),
-  generateMonth(2026, 4, 0),
-  generateMonth(2026, 4, 1),
-];
+type CalendarDay = CalendarPageDay;
+type CalendarMonth = CalendarPageMonth;
 
 const dayHeaders = ['LUN','MAR','MER','GIO','VEN','SAB','DOM'];
 
@@ -226,7 +162,13 @@ export default function EmployeeCalendar() {
   const [currentMonthIdx, setCurrentMonthIdx] = useState(1);
   const [direction, setDirection] = useState(0);
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
-  const [months, setMonths] = useState(MONTHS);
+  const [months, setMonths] = useState<CalendarMonth[]>([]);
+
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const calendar = useAsync(getCalendarMonths, []);
+  useEffect(() => {
+    if (calendar.data) setMonths(calendar.data);
+  }, [calendar.data]);
 
   const currentMonth = months[currentMonthIdx];
 
@@ -290,7 +232,7 @@ export default function EmployeeCalendar() {
     let unavailable = 0;
     let holidays = 0;
     let assigned = 0;
-    currentMonth.days.forEach((w) =>
+    currentMonth?.days.forEach((w) =>
       w.forEach((d) => {
         if (d.status === 'available') available++;
         if (d.status === 'unavailable') unavailable++;
@@ -306,6 +248,28 @@ export default function EmployeeCalendar() {
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({ x: dir > 0 ? -300 : 300, opacity: 0 }),
   };
+
+  if (calendar.error) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
+
+  if (calendar.loading || months.length === 0 || !currentMonth) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <LoadingState />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">

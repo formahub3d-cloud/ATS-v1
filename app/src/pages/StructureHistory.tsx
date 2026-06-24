@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Download, Search, CreditCard, Star,
@@ -8,10 +8,18 @@ import {
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonTable, SkeletonKpiRow } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import GlassInvoiceCard from '@/components/structure/GlassInvoiceCard'
 import type { GlassInvoice } from '@/components/structure/GlassInvoiceCard'
+import { LoadingState, ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import {
+  getStructureInvoices,
+  getStructurePayments,
+  getStructureShiftHistory,
+  getRatingsGiven,
+  getRatingBreakdown,
+} from '@/services/structureService'
 
 /* ─────────────── helpers ─────────────── */
 
@@ -25,96 +33,6 @@ const avatarMap: Record<string, string> = {
   'ATS-D-0091': '/avatar-employee-7.jpg',
   'ATS-D-0034': '/avatar-employee-8.jpg',
 }
-
-/* ─────────────── mock data ─────────────── */
-
-const invoices: GlassInvoice[] = [
-  {
-    id: 'f1',
-    number: 'F-2025-0042',
-    period: '1-30 Apr 2025',
-    amount: 1200.00,
-    hours: 96,
-    status: 'paid',
-    dueDate: '20/05/2025',
-    issueDate: '01/05/2025',
-    turns: [
-      { date: '10/04', employeeCode: 'ATS-D-0047', role: 'Cameriere', hours: 8, amount: 120.00 },
-      { date: '08/04', employeeCode: 'ATS-D-0012', role: 'Chef de Partie', hours: 8, amount: 136.00 },
-    ],
-  },
-  {
-    id: 'f2',
-    number: 'F-2025-0038',
-    period: '1-31 Mar 2025',
-    amount: 960.00,
-    hours: 80,
-    status: 'paid',
-    dueDate: '20/04/2025',
-    issueDate: '01/04/2025',
-    turns: [
-      { date: '28/03', employeeCode: 'ATS-D-0047', role: 'Cameriere', hours: 8, amount: 120.00 },
-      { date: '22/03', employeeCode: 'ATS-D-0012', role: 'Chef de Partie', hours: 8, amount: 136.00 },
-    ],
-  },
-  {
-    id: 'f3',
-    number: 'F-2025-0031',
-    period: '1-28 Feb 2025',
-    amount: 1440.00,
-    hours: 120,
-    status: 'paid',
-    dueDate: '20/03/2025',
-    issueDate: '01/03/2025',
-    turns: [
-      { date: '15/02', employeeCode: 'ATS-D-0089', role: 'Barman', hours: 8, amount: 128.00 },
-      { date: '10/02', employeeCode: 'ATS-D-0047', role: 'Cameriere', hours: 8, amount: 120.00 },
-    ],
-  },
-  {
-    id: 'f4',
-    number: 'F-2025-0025',
-    period: '1-31 Gen 2025',
-    amount: 720.00,
-    hours: 48,
-    status: 'pending',
-    dueDate: '20/02/2025',
-    issueDate: '01/02/2025',
-    turns: [
-      { date: '20/01', employeeCode: 'ATS-D-0156', role: 'Cameriere', hours: 8, amount: 120.00 },
-    ],
-  },
-]
-
-const payments = [
-  { id: 'p1', date: '15/05/2025', amount: 1200.00, method: 'Stripe SEPA', status: 'charged' as const, invoice: 'F-2025-0042' },
-  { id: 'p2', date: '15/04/2025', amount: 960.00, method: 'Stripe SEPA', status: 'charged' as const, invoice: 'F-2025-0038' },
-  { id: 'p3', date: '15/03/2025', amount: 1440.00, method: 'Stripe SEPA', status: 'charged' as const, invoice: 'F-2025-0031' },
-  { id: 'p4', date: '15/02/2025', amount: 720.00, method: 'Carta', status: 'pending' as const, invoice: 'F-2025-0025' },
-]
-
-const shiftHistory = [
-  { id: 'h1', date: '2026-05-10', dayNum: '10', month: 'MAG', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 120 },
-  { id: 'h2', date: '2026-05-08', dayNum: '08', month: 'MAG', role: 'Chef de Partie', timeStart: '10:00', timeEnd: '18:00', employeeCode: 'ATS-D-0012', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 136 },
-  { id: 'h3', date: '2026-05-03', dayNum: '03', month: 'MAG', role: 'Barman', timeStart: '18:00', timeEnd: '02:00', employeeCode: 'ATS-D-0089', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 128 },
-  { id: 'h4', date: '2026-05-01', dayNum: '01', month: 'MAG', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 180 },
-  { id: 'h5', date: '2026-04-28', dayNum: '28', month: 'APR', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0156', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 120 },
-  { id: 'h6', date: '2026-04-25', dayNum: '25', month: 'APR', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', status: 'completed' as const, structureCode: 'RIST-BN-0012', amount: 160 },
-]
-
-const ratingsGiven = [
-  { id: 'rg1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', average: 4.5, punctuality: 5, professionalism: 4, cleanliness: 5, speed: 4, attitude: 5, date: '10/05/2026', comment: 'Ottima prestazione, molto veloce e gentile.' },
-  { id: 'rg2', employeeCode: 'ATS-D-0012', employeeName: 'Luca', role: 'Chef de Partie', average: 4.8, punctuality: 5, professionalism: 5, cleanliness: 5, speed: 4, attitude: 5, date: '08/05/2026', comment: 'Chef eccellente, organizza il lavoro in modo impeccabile.' },
-  { id: 'rg3', employeeCode: 'ATS-D-0089', employeeName: 'Sofia', role: 'Barman', average: 4.2, punctuality: 4, professionalism: 4, cleanliness: 4, speed: 5, attitude: 4, date: '03/05/2026', comment: 'Brava con i cocktail, ha gestito bene la serata.' },
-]
-
-const ratingBreakdown = [
-  { stars: 5, count: 12 },
-  { stars: 4, count: 5 },
-  { stars: 3, count: 2 },
-  { stars: 2, count: 1 },
-  { stars: 1, count: 0 },
-]
 
 /* ─────────────── status configs ─────────────── */
 
@@ -142,26 +60,29 @@ export default function StructureHistory() {
   const [roleFilter, setRoleFilter] = useState('')
   const [expandedShift, setExpandedShift] = useState<string | null>(null)
   const [, setDownloadingId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(t)
-  }, [])
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const invoicesState = useAsync(getStructureInvoices, [])
+  const paymentsState = useAsync(getStructurePayments, [])
+  const shiftHistoryState = useAsync(getStructureShiftHistory, [])
+  const ratingsGivenState = useAsync(getRatingsGiven, [])
+  const ratingBreakdownState = useAsync(getRatingBreakdown, [])
+  const loading = invoicesState.loading || paymentsState.loading || shiftHistoryState.loading || ratingsGivenState.loading || ratingBreakdownState.loading
+  const error = invoicesState.error || paymentsState.error || shiftHistoryState.error || ratingsGivenState.error || ratingBreakdownState.error
 
   /* derived data */
   const roles = useMemo(() => {
-    const set = new Set(shiftHistory.map((s) => s.role))
+    const set = new Set((shiftHistoryState.data ?? []).map((s) => s.role))
     return Array.from(set)
-  }, [])
+  }, [shiftHistoryState.data])
 
   const filteredShifts = useMemo(() => {
-    return shiftHistory.filter((s) => {
+    return (shiftHistoryState.data ?? []).filter((s) => {
       if (searchQuery && !((s.employeeCode || '').toLowerCase().includes(searchQuery.toLowerCase()) || s.role.toLowerCase().includes(searchQuery.toLowerCase()))) return false
       if (roleFilter && s.role !== roleFilter) return false
       return true
     })
-  }, [searchQuery, roleFilter])
+  }, [searchQuery, roleFilter, shiftHistoryState.data])
 
   const totals = useMemo(() => {
     const totalShifts = filteredShifts.length
@@ -175,8 +96,10 @@ export default function StructureHistory() {
   }, [filteredShifts])
 
   const averageRating = useMemo(() => {
-    return ratingsGiven.reduce((acc, r) => acc + r.average, 0) / ratingsGiven.length
-  }, [])
+    const list = ratingsGivenState.data ?? []
+    if (list.length === 0) return 0
+    return list.reduce((acc, r) => acc + r.average, 0) / list.length
+  }, [ratingsGivenState.data])
 
   /* handlers */
   const handleDownload = useCallback((invoice: GlassInvoice) => {
@@ -195,13 +118,27 @@ export default function StructureHistory() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
-        <div className="max-w-[1200px] mx-auto px-6 py-8 space-y-6">
-          <SkeletonKpiRow count={4} />
-          <SkeletonTable rows={5} cols={6} />
+        <div className="max-w-[1200px] mx-auto px-6 py-8">
+          <LoadingState rows={6} />
         </div>
       </div>
     )
   }
+
+  if (error || !invoicesState.data || !paymentsState.data || !shiftHistoryState.data || !ratingsGivenState.data || !ratingBreakdownState.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
+        <div className="max-w-[1200px] mx-auto px-6 py-8">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+      </div>
+    )
+  }
+
+  const invoices = invoicesState.data
+  const payments = paymentsState.data
+  const ratingsGiven = ratingsGivenState.data
+  const ratingBreakdown = ratingBreakdownState.data
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">

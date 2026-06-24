@@ -1,9 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Heart, X, Sliders } from 'lucide-react';
 import GlassSwipeCard, { type SwipeCardData } from '@/components/employee/GlassSwipeCard';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import { useToast } from '@/components/ui/ToastSystem';
+import { LoadingState, ErrorState } from '@/components/states';
+import { useAsync } from '@/hooks/useAsync';
+import { getJobSwipeCards } from '@/services/employeeService';
 import { cn } from '@/lib/utils';
 
 // ---- Confetti ----
@@ -31,58 +34,6 @@ function launchConfetti() {
     });
   }, 150);
 }
-
-// ---- Mock Data with structure photos ----
-const rawCards: SwipeCardData[] = [
-  {
-    id: '1', code: 'RIST-BN-0047', type: 'Ristorante', zone: 'Centro', role: 'Cameriere',
-    schedule: 'Mar-Ven 18:00-23:30', pay: '€12,00/h', matchScore: 95,
-    requirements: ['Attestato HACCP', 'Esperienza ristorazione'],
-    tags: ['Paga veloce', 'Team giovane'], hasNavetta: true, photo: '/structure-1.jpg',
-  },
-  {
-    id: '2', code: 'HOTEL-BN-0003', type: 'Hotel 4*', zone: 'Centro', role: 'Receptionist',
-    schedule: 'Sab-Dom 08:00-16:00', pay: '€12,50/h', matchScore: 88,
-    requirements: ['Inglese B2', 'Esperienza alberghiera'],
-    tags: ['Lavoro continuativo', 'Inserimento rapido'], hasNavetta: false, photo: '/structure-2.jpg',
-  },
-  {
-    id: '3', code: 'BAR-BN-0011', type: 'Bar', zone: 'Periferia', role: 'Barista',
-    schedule: 'Ven-Sab 22:00-04:00', pay: '€14,00/h', matchScore: 75,
-    requirements: ['Latte art', 'Resistenza ritmi notturni'],
-    tags: ['Notturno', 'Mance elevate'], hasNavetta: true, photo: '/structure-3.jpg',
-  },
-  {
-    id: '4', code: 'EVEN-BN-0020', type: 'Location Eventi', zone: 'Eventi', role: 'Event Staff',
-    schedule: 'Dom 14:00-22:00', pay: '€15,00/h', matchScore: 82,
-    requirements: ['Resistenza ritmi intensi', 'Vestito nero'],
-    tags: ['Paga elevata', 'Occasionale'], hasNavetta: false, photo: '/structure-4.jpg',
-  },
-  {
-    id: '5', code: 'SPAS-BN-0008', type: 'SPA & Wellness', zone: 'Resort', role: 'SPA Staff',
-    schedule: 'Mer-Ven 10:00-18:00', pay: '€11,50/h', matchScore: 70,
-    requirements: ['Attestato massaggio'],
-    tags: ['Ambiente rilassante', 'Sconti benessere'], hasNavetta: true, photo: '/structure-5.jpg',
-  },
-  {
-    id: '6', code: 'CLOC-BN-0013', type: 'Circolo Sportivo', zone: 'Periferia', role: 'Aiuto Cucina',
-    schedule: 'Mar-Sab 17:00-23:00', pay: '€10,50/h', matchScore: 65,
-    requirements: ['Velocità e resistenza'],
-    tags: ['Cucina a vista', 'Sportivo'], hasNavetta: false, photo: '/structure-6.jpg',
-  },
-  {
-    id: '7', code: 'BOUT-BN-0025', type: 'Boutique Hotel', zone: 'Centro Storico', role: 'Concierge',
-    schedule: 'Lun-Ven 15:00-23:00', pay: '€13,00/h', matchScore: 90,
-    requirements: ['Inglese fluente', 'Conoscenza città'],
-    tags: ['Lusso', 'Propina elevata'], hasNavetta: true, photo: '/structure-7.jpg',
-  },
-  {
-    id: '8', code: 'RIST-BN-0052', type: 'Trattoria', zone: 'Industriale', role: 'Aiuto Sala',
-    schedule: 'Lun-Sab 11:30-15:00', pay: '€9,50/h', matchScore: 60,
-    requirements: ['Disponibilità immediata'],
-    tags: ['Orario pranzo', 'Fuori orario'], hasNavetta: false, photo: '/structure-8.jpg',
-  },
-];
 
 // ---- Match success overlay ----
 function MatchOverlay({ onClose }: { onClose: () => void }) {
@@ -141,11 +92,21 @@ function MatchOverlay({ onClose }: { onClose: () => void }) {
 
 export default function EmployeeMatching() {
   const { addToast } = useToast();
-  const [cards, setCards] = useState<SwipeCardData[]>(rawCards);
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const jobs = useAsync(getJobSwipeCards, []);
+  const [sourceCards, setSourceCards] = useState<SwipeCardData[]>([]);
+  const [cards, setCards] = useState<SwipeCardData[]>([]);
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
   const [passedIds, setPassedIds] = useState<string[]>([]);
   const [showMatch, setShowMatch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (jobs.data) {
+      setSourceCards(jobs.data);
+      setCards(jobs.data);
+    }
+  }, [jobs.data]);
 
   const handlePass = useCallback((id: string) => {
     setCards((prev) => prev.filter((c) => c.id !== id));
@@ -164,7 +125,7 @@ export default function EmployeeMatching() {
   const handleRewind = () => {
     if (passedIds.length > 0) {
       const lastId = passedIds[passedIds.length - 1];
-      const card = rawCards.find((c) => c.id === lastId);
+      const card = sourceCards.find((c) => c.id === lastId);
       if (card) {
         setCards((prev) => [card, ...prev]);
         setPassedIds((prev) => prev.slice(0, -1));
@@ -174,9 +135,31 @@ export default function EmployeeMatching() {
   };
 
   const topCard = cards[0] || null;
-  const total = rawCards.length;
+  const total = sourceCards.length;
   const matchedCount = matchedIds.length;
   const passedCount = passedIds.length;
+
+  if (jobs.loading) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <LoadingState />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
+
+  if (jobs.error || !jobs.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24 flex flex-col">
@@ -284,7 +267,7 @@ export default function EmployeeMatching() {
               </div>
               <button
                 onClick={() => {
-                  setCards(rawCards);
+                  setCards(sourceCards);
                   setMatchedIds([]);
                   setPassedIds([]);
                 }}

@@ -1,20 +1,28 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   PlusCircle, Search, QrCode, FileText,
-  CheckCircle, UserCheck, CreditCard, MessageSquare,
+  CheckCircle, MessageSquare,
   Star, ChevronRight, Calendar, Clock,
   X, Info, Bell, BellRing, HeartHandshake,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonKpiRow, SkeletonCard } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import CoverPhoto from '@/components/CoverPhoto'
-import GlassShiftCard, { type GlassShift } from '@/components/structure/GlassShiftCard'
-import MatchStatus, { type MatchState } from '@/components/structure/MatchStatus'
+import GlassShiftCard from '@/components/structure/GlassShiftCard'
+import MatchStatus from '@/components/structure/MatchStatus'
+import { LoadingState, ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import {
+  getStructureShifts,
+  getStructureMatches,
+  getStructureNotifications,
+  getPendingRatings,
+  getStructureKpis,
+} from '@/services/structureService'
 
 /* ─────────────── helpers ─────────────── */
 
@@ -29,40 +37,7 @@ const avatarMap: Record<string, string> = {
   'ATS-D-0034': '/avatar-employee-8.jpg',
 }
 
-/* ─────────────── mock data ─────────────── */
-
-const shifts: GlassShift[] = [
-  { id: '1', date: '2026-05-13', dayNum: '13', month: 'MAG', role: 'Cameriere', timeStart: '08:00', timeEnd: '16:00', employeeCode: 'ATS-D-0047', employeeAvatar: avatarMap['ATS-D-0047'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro', note: 'Servizio sala principale, 80 coperti' },
-  { id: '2', date: '2026-05-14', dayNum: '14', month: 'MAG', role: 'Chef de Partie', timeStart: '10:00', timeEnd: '18:00', status: 'pending', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-  { id: '3', date: '2026-05-15', dayNum: '15', month: 'MAG', role: 'Barman', timeStart: '18:00', timeEnd: '02:00', employeeCode: 'ATS-D-0023', employeeAvatar: avatarMap['ATS-D-0023'], status: 'confirmed', structureCode: 'RIST-BN-0012', zone: 'Centro' },
-]
-
-const matches: MatchState[] = [
-  { id: 'm1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', matchScore: 94, phase: 'mutual' },
-  { id: 'm2', employeeCode: 'ATS-D-0089', employeeName: 'Sofia', role: 'Barman', matchScore: 91, phase: 'assigned', shiftDate: '15/05' },
-  { id: 'm3', employeeCode: 'ATS-D-0012', employeeName: 'Luca', role: 'Chef de Partie', matchScore: 88, phase: 'mutual' },
-]
-
-const notifications = [
-  { id: 'n1', icon: CheckCircle, color: '#1EC99A', title: 'Check-in confermato', desc: 'ATS-D-0047 — 08:03', time: 'Ieri', unread: false },
-  { id: 'n2', icon: UserCheck, color: '#5BB8F5', title: 'Nuovo match', desc: 'ATS-D-0156 — Cameriere, 91% compatibilita', time: '2 giorni fa', unread: true },
-  { id: 'n3', icon: CreditCard, color: '#1EC99A', title: 'Pagamento addebitato', desc: '€120,00 — Turno 10/05', time: '3 giorni fa', unread: false },
-  { id: 'n4', icon: MessageSquare, color: '#3AA3E8', title: 'Messaggio da ATS', desc: 'Confermato turno del 14/05', time: '4 giorni fa', unread: true },
-]
-
-const pendingRatings = [
-  { id: 'r1', employeeCode: 'ATS-D-0047', employeeAvatar: avatarMap['ATS-D-0047'], date: '10/05/2026', role: 'Cameriere' },
-  { id: 'r2', employeeCode: 'ATS-D-0012', employeeAvatar: avatarMap['ATS-D-0012'], date: '08/05/2026', role: 'Chef de Partie' },
-]
-
 const ratingTags = ['Puntualita', 'Professionalita', 'Pulizia', 'Velocita', 'Attitudine']
-
-const kpiData = [
-  { label: 'Turni mese', value: '24', delta: '+3 vs mese scorso', icon: Calendar, positive: true },
-  { label: 'Spesa totale', value: '€3.456', delta: '-12% vs mese scorso', icon: CreditCard, positive: true },
-  { label: 'Rating medio', value: '4.2', delta: 'su 5.0 stelle', icon: Star, positive: true },
-  { label: 'Match attivi', value: '7', delta: '2 in attesa', icon: HeartHandshake, positive: true },
-]
 
 /* ─────────────── component ─────────────── */
 
@@ -73,14 +48,17 @@ export default function StructurePortal() {
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
   const [ratings, setRatings] = useState<Record<string, number[]>>({})
   const [dismissedRatings, setDismissedRatings] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const progressDemo = 78
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(t)
-  }, [])
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const shiftsState = useAsync(getStructureShifts, [])
+  const matchesState = useAsync(getStructureMatches, [])
+  const notificationsState = useAsync(getStructureNotifications, [])
+  const ratingsToGiveState = useAsync(getPendingRatings, [])
+  const kpiState = useAsync(getStructureKpis, [])
+  const loading = shiftsState.loading || matchesState.loading || notificationsState.loading || ratingsToGiveState.loading || kpiState.loading
+  const error = shiftsState.error || matchesState.error || notificationsState.error || ratingsToGiveState.error || kpiState.error
 
   const handleRate = useCallback((id: string, tagIndex: number, value: number) => {
     setRatings(prev => {
@@ -99,23 +77,34 @@ export default function StructurePortal() {
     setDismissedRatings(prev => [...prev, id])
   }, [])
 
-  const visibleRatings = pendingRatings.filter(r => !dismissedRatings.includes(r.id))
-  const unreadCount = notifications.filter(n => n.unread).length
-
   if (loading) {
     return (
       <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
-        <div className="max-w-[1200px] mx-auto px-6 py-8 space-y-8">
-          <SkeletonKpiRow count={4} />
-          <SkeletonCard />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
+        <div className="max-w-[1200px] mx-auto px-6 py-8">
+          <LoadingState rows={6} />
         </div>
       </div>
     )
   }
+
+  if (error || !shiftsState.data || !matchesState.data || !notificationsState.data || !ratingsToGiveState.data || !kpiState.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
+        <div className="max-w-[1200px] mx-auto px-6 py-8">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+      </div>
+    )
+  }
+
+  const shifts = shiftsState.data
+  const matches = matchesState.data
+  const notifications = notificationsState.data
+  const pendingRatings = ratingsToGiveState.data
+  const kpiData = kpiState.data
+
+  const visibleRatings = pendingRatings.filter(r => !dismissedRatings.includes(r.id))
+  const unreadCount = notifications.filter(n => n.unread).length
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">

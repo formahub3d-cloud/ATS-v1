@@ -8,10 +8,17 @@ import {
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/ToastSystem'
 import GlassTooltip from '@/components/ui/GlassTooltip'
-import { SkeletonCard } from '@/components/ui/skeleton'
 import Avatar from '@/components/Avatar'
 import GlassSwipeCard, { type GlassEmployeeProfile } from '@/components/structure/GlassSwipeCard'
-import MatchStatus, { type MatchState, type MatchPhase } from '@/components/structure/MatchStatus'
+import MatchStatus, { type MatchPhase } from '@/components/structure/MatchStatus'
+import { LoadingState, ErrorState } from '@/components/states'
+import { useAsync } from '@/hooks/useAsync'
+import {
+  getStructureProfiles,
+  getMutualMatches,
+  getLikedEmployees,
+  getPassedEmployees,
+} from '@/services/structureService'
 import confetti from 'canvas-confetti'
 
 /* ─────────────── helpers ─────────────── */
@@ -27,35 +34,6 @@ const avatarMap: Record<string, string> = {
   'p8': '/avatar-employee-8.jpg',
 }
 
-/* ─────────────── mock data ─────────────── */
-
-const allProfiles: GlassEmployeeProfile[] = [
-  { id: 'p1', code: 'ATS-D-0047', firstName: 'Giulia', role: 'Cameriere', matchScore: 94, tags: ['Veloce', 'Sorriso', 'Team-player', 'Flex'], distance: 3.2, rank: 'Senior', experience: '4', venues: ['Hotel', 'Ristorante'], rating: 4.7, payRate: 15.00, avatar: avatarMap['p1'] },
-  { id: 'p2', code: 'ATS-D-0012', firstName: 'Luca', role: 'Chef de Partie', matchScore: 88, tags: ['Creativo', 'Pulito', 'Organizzato', 'Leader'], distance: 5.1, rank: 'Elite', experience: '6', venues: ['Ristorante', 'Banqueting'], rating: 4.9, payRate: 18.50, avatar: avatarMap['p2'] },
-  { id: 'p3', code: 'ATS-D-0089', firstName: 'Sofia', role: 'Barman', matchScore: 91, tags: ['Cocktail', 'Veloce', 'Customer-care'], distance: 1.8, rank: 'Affidabile', experience: '3', venues: ['Bar', 'Lounge'], rating: 4.5, payRate: 16.00, avatar: avatarMap['p3'] },
-  { id: 'p4', code: 'ATS-D-0156', firstName: 'Marco', role: 'Cameriere', matchScore: 87, tags: ['Esperto', 'Puntuale', 'Gentile'], distance: 7.4, rank: 'Senior', experience: '5', venues: ['Ristorante', 'Hotel', 'Eventi'], rating: 4.6, payRate: 15.50, avatar: avatarMap['p4'] },
-  { id: 'p5', code: 'ATS-D-0023', firstName: 'Elena', role: 'Barista', matchScore: 82, tags: ['Caffe-specialty', 'Mattiniera', 'Precisa'], distance: 4.5, rank: 'Affidabile', experience: '3', venues: ['Caffe', 'Hotel'], rating: 4.4, payRate: 14.00, avatar: avatarMap['p5'] },
-  { id: 'p6', code: 'ATS-D-0078', firstName: 'Andrea', role: 'Receptionist', matchScore: 79, tags: ['Multilingue', 'Organizzato', 'Calmo'], distance: 2.3, rank: 'Rookie', experience: '1', venues: ['Hotel'], rating: 4.1, payRate: 13.50, avatar: avatarMap['p6'] },
-  { id: 'p7', code: 'ATS-D-0091', firstName: 'Chiara', role: 'Cameriere', matchScore: 96, tags: ['Esperta', 'Veloce', 'Team-leader', 'Adattabile'], distance: 3.8, rank: 'Elite', experience: '7', venues: ['Ristorante', 'Hotel', 'Banqueting'], rating: 4.9, payRate: 17.00, avatar: avatarMap['p7'] },
-  { id: 'p8', code: 'ATS-D-0034', firstName: 'Matteo', role: 'Barman', matchScore: 85, tags: ['Mixology', 'Creativo', 'Sociabile'], distance: 6.2, rank: 'Senior', experience: '4', venues: ['Lounge', 'Ristorante'], rating: 4.6, payRate: 16.50, avatar: avatarMap['p8'] },
-]
-
-const mutualMatches: MatchState[] = [
-  { id: 'mm1', employeeCode: 'ATS-D-0047', employeeName: 'Giulia', role: 'Cameriere', matchScore: 94, phase: 'mutual' },
-  { id: 'mm2', employeeCode: 'ATS-D-0012', employeeName: 'Luca', role: 'Chef de Partie', matchScore: 88, phase: 'assigned', shiftDate: '14/05' },
-  { id: 'mm3', employeeCode: 'ATS-D-0089', employeeName: 'Sofia', role: 'Barman', matchScore: 91, phase: 'mutual' },
-  { id: 'mm4', employeeCode: 'ATS-D-0156', employeeName: 'Marco', role: 'Cameriere', matchScore: 87, phase: 'assigned', shiftDate: '15/05' },
-]
-
-const likedEmployees: MatchState[] = [
-  { id: 'le1', employeeCode: 'ATS-D-0091', employeeName: 'Chiara', role: 'Cameriere', matchScore: 96, phase: 'liked' },
-  { id: 'le2', employeeCode: 'ATS-D-0034', employeeName: 'Matteo', role: 'Barman', matchScore: 85, phase: 'liked' },
-]
-
-const passedEmployees: MatchState[] = [
-  { id: 'pe1', employeeCode: 'ATS-D-0078', employeeName: 'Andrea', role: 'Receptionist', matchScore: 79, phase: 'completed' },
-]
-
 const roleFilters = ['Tutti', 'Cameriere', 'Chef de Partie', 'Barista', 'Barman', 'Receptionist']
 
 /* ─────────────── component ─────────────── */
@@ -63,18 +41,30 @@ const roleFilters = ['Tutti', 'Cameriere', 'Chef de Partie', 'Barista', 'Barman'
 export default function StructureMatching() {
   const navigate = useNavigate()
   const { addToast } = useToast()
-  const [profiles, setProfiles] = useState<GlassEmployeeProfile[]>(allProfiles)
+
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const profilesState = useAsync(getStructureProfiles, [])
+  const mutualMatchesState = useAsync(getMutualMatches, [])
+  const likedEmployeesState = useAsync(getLikedEmployees, [])
+  const passedEmployeesState = useAsync(getPassedEmployees, [])
+  const loading = profilesState.loading || mutualMatchesState.loading || likedEmployeesState.loading || passedEmployeesState.loading
+  const error = profilesState.error || mutualMatchesState.error || likedEmployeesState.error || passedEmployeesState.error
+
+  const [profiles, setProfiles] = useState<GlassEmployeeProfile[]>([])
   const [activeRole, setActiveRole] = useState('Tutti')
   const [activeTab, setActiveTab] = useState<'mutual' | 'liked' | 'passed'>('mutual')
   const [matchCelebration, setMatchCelebration] = useState<GlassEmployeeProfile | null>(null)
-  const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const [rewindStack, setRewindStack] = useState<GlassEmployeeProfile[]>([])
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(t)
-  }, [])
+  // Seed dello stack di swipe (mutabile) con i profili caricati dal service:
+  // si aggiusta lo stato durante il render quando arriva un nuovo set di dati
+  // (pattern React "adjusting state when a prop changes", senza effect).
+  const [seededProfiles, setSeededProfiles] = useState<GlassEmployeeProfile[] | null>(null)
+  if (profilesState.data && seededProfiles !== profilesState.data) {
+    setSeededProfiles(profilesState.data)
+    setProfiles(profilesState.data)
+  }
 
   /* filtering */
   const filteredProfiles = useMemo(() => {
@@ -121,12 +111,10 @@ export default function StructureMatching() {
 
   const resetFilters = useCallback(() => {
     setActiveRole('Tutti')
-    setProfiles(allProfiles)
+    if (profilesState.data) setProfiles(profilesState.data)
     addToast({ type: 'info', title: 'Filtri resettati', message: 'Tutti i profili sono di nuovo visibili' })
-  }, [addToast])
+  }, [addToast, profilesState.data])
 
-  /* tab content */
-  const tabMatches = activeTab === 'mutual' ? mutualMatches : activeTab === 'liked' ? likedEmployees : passedEmployees
   const tabPhases: Record<string, MatchPhase> = {
     mutual: 'mutual',
     liked: 'liked',
@@ -149,18 +137,28 @@ export default function StructureMatching() {
     return (
       <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
         <div className="max-w-[1200px] mx-auto px-6 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <SkeletonCard className="h-[500px]" />
-            </div>
-            <div>
-              <SkeletonCard />
-            </div>
-          </div>
+          <LoadingState rows={6} />
         </div>
       </div>
     )
   }
+
+  if (error || !profilesState.data || !mutualMatchesState.data || !likedEmployeesState.data || !passedEmployeesState.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">
+        <div className="max-w-[1200px] mx-auto px-6 py-8">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+      </div>
+    )
+  }
+
+  const mutualMatches = mutualMatchesState.data
+  const likedEmployees = likedEmployeesState.data
+  const passedEmployees = passedEmployeesState.data
+
+  /* tab content */
+  const tabMatches = activeTab === 'mutual' ? mutualMatches : activeTab === 'liked' ? likedEmployees : passedEmployees
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pt-[72px]">

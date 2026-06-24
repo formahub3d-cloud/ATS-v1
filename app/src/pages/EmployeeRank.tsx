@@ -5,81 +5,63 @@ import Avatar from '@/components/Avatar';
 import GlassBottomNav from '@/components/employee/GlassBottomNav';
 import GlassTooltip from '@/components/ui/GlassTooltip';
 import PayCounter from '@/components/employee/PayCounter';
+import { LoadingState, ErrorState } from '@/components/states';
+import { useAsync } from '@/hooks/useAsync';
+import {
+  getRankPageLevels,
+  getRankPagePoints,
+  getRankPageCourses,
+  getRankPagePay,
+} from '@/services/employeeService';
 import { cn } from '@/lib/utils';
 
-// ---- Types ----
-interface RankLevel {
-  name: string;
-  color: string;
-  glow: string;
-  minPoints: number;
-  benefits: string[];
-}
-
-interface PointsEntry {
-  id: string;
-  label: string;
-  points: number;
-  date: string;
-  type: 'earned' | 'spent' | 'bonus';
-}
-
-interface Course {
-  name: string;
-  progress: number;
-  totalHours: number;
-  status: 'completed' | 'in-progress' | 'not-started';
-  certificate?: string;
-}
-
-// ---- Data ----
-const rankLevels: RankLevel[] = [
-  { name: 'Rookie', color: '#94A3B8', glow: 'rgba(148,163,184,0.2)', minPoints: 0, benefits: ['Accesso base', 'Tariffa standard'] },
-  { name: 'Affidabile', color: '#5BB8F5', glow: 'rgba(91,184,245,0.3)', minPoints: 500, benefits: ['Pool turni', 'Accesso preferenze'] },
-  { name: 'Senior', color: '#3AA3E8', glow: 'rgba(58,163,232,0.3)', minPoints: 1200, benefits: ['Pool reperibili', '+€1/h bonus'] },
-  { name: 'Elite', color: '#1EC99A', glow: 'rgba(30,201,154,0.3)', minPoints: 2000, benefits: ['Turni premium', '+€2/h bonus'] },
-  { name: 'Ambassador', color: '#F5B800', glow: 'rgba(245,184,0,0.3)', minPoints: 3500, benefits: ['Tutti i benefit', '+€3/h bonus'] },
-];
-
-const pointsHistory: PointsEntry[] = [
-  { id: '1', label: 'Turno completato · RIST-BN-0012', points: 120, date: '13 Mag', type: 'earned' },
-  { id: '2', label: 'Recensione 5 stelle', points: 50, date: '12 Mag', type: 'bonus' },
-  { id: '3', label: 'Puntualità bonus', points: 25, date: '12 Mag', type: 'bonus' },
-  { id: '4', label: 'Corso HACCP completato', points: 200, date: '10 Mag', type: 'earned' },
-  { id: '5', label: 'Navetta confermata', points: -5, date: '10 Mag', type: 'spent' },
-  { id: '6', label: 'Turno completato · HOTEL-BN-0003', points: 120, date: '8 Mag', type: 'earned' },
-  { id: '7', label: 'Mancia condivisa', points: 15, date: '8 Mag', type: 'bonus' },
-  { id: '8', label: 'Turno completato · BAR-BN-0011', points: 100, date: '5 Mag', type: 'earned' },
-  { id: '9', label: 'Assenza non giustificata', points: -100, date: '3 Mag', type: 'spent' },
-  { id: '10', label: 'Turno completato · EVEN-BN-0020', points: 150, date: '1 Mag', type: 'earned' },
-];
-
-const courses: Course[] = [
-  { name: 'HACCP - Sicurezza alimentare', progress: 100, totalHours: 8, status: 'completed', certificate: 'HACCP-2025-0012' },
-  { name: 'Crisi e conflitti in sala', progress: 65, totalHours: 6, status: 'in-progress' },
-  { name: 'Sommelier base - Vini italiani', progress: 0, totalHours: 12, status: 'not-started' },
-  { name: 'Inglese per hospitality B2', progress: 30, totalHours: 20, status: 'in-progress' },
-  { name: 'Gestione delle emergenze', progress: 100, totalHours: 4, status: 'completed', certificate: 'EMRG-2025-0047' },
-];
-
-const payBreakdown = [
-  { zone: 'Centro', base: '€15,00/h', rankBonus: '+€1,00/h', total: '€16,00/h', premiumDays: 'Festivi +50%' },
-  { zone: 'Periferia', base: '€13,00/h', rankBonus: '+€1,00/h', total: '€14,00/h', premiumDays: 'Festivi +50%' },
-  { zone: 'Industriale', base: '€12,00/h', rankBonus: '+€1,00/h', total: '€13,00/h', premiumDays: 'Festivi +50%' },
-  { zone: 'Eventi', base: '€16,00/h', rankBonus: '+€1,00/h', total: '€17,00/h', premiumDays: 'Sempre +50%' },
-  { zone: 'Resort', base: '€14,00/h', rankBonus: '+€1,00/h', total: '€15,00/h', premiumDays: 'Festivi +100%' },
-];
-
+// ---- Costanti di presentazione (non dati record) ----
 const currentPoints = 1240;
 const currentLevelIdx = 2; // Senior
 const nextLevelIdx = 3; // Elite
-const nextLevel = rankLevels[nextLevelIdx];
-const prevLevel = rankLevels[currentLevelIdx];
-const pointsToNext = nextLevel.minPoints - currentPoints;
-const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100;
 
 export default function EmployeeRank() {
   const [showPayTable, setShowPayTable] = useState(true);
+
+  // Dati dal service layer (oggi mock async, domani API): stato uniforme loading/error/data.
+  const levels = useAsync(getRankPageLevels, []);
+  const points = useAsync(getRankPagePoints, []);
+  const coursesAsync = useAsync(getRankPageCourses, []);
+  const pay = useAsync(getRankPagePay, []);
+  const loading = levels.loading || points.loading || coursesAsync.loading || pay.loading;
+  const error = levels.error || points.error || coursesAsync.error || pay.error;
+
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <LoadingState />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
+
+  if (error || !levels.data || !points.data || !coursesAsync.data || !pay.data) {
+    return (
+      <div className="min-h-[100dvh] bg-[#06101E] pb-24">
+        <div className="max-w-[430px] mx-auto px-4 pt-10">
+          <ErrorState onRetry={() => window.location.reload()} />
+        </div>
+        <GlassBottomNav />
+      </div>
+    );
+  }
+
+  const rankLevels = levels.data;
+  const pointsHistory = points.data;
+  const courses = coursesAsync.data;
+  const payBreakdown = pay.data;
+
+  const nextLevel = rankLevels[nextLevelIdx];
+  const prevLevel = rankLevels[currentLevelIdx];
+  const pointsToNext = nextLevel.minPoints - currentPoints;
+  const progressPercent = ((currentPoints - prevLevel.minPoints) / (nextLevel.minPoints - prevLevel.minPoints)) * 100;
 
   return (
     <div className="min-h-[100dvh] bg-[#06101E] pb-24">
