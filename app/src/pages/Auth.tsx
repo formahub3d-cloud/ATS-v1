@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { structureStepSchemas, employeeStepSchemas } from '@/schemas/auth'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -242,26 +243,13 @@ export default function Auth() {
 
   /* ─── Structure step validation ─── */
   const canProceedStructure = (): boolean => {
+    // Step coperti da schema zod (validazione reale: email, P.IVA, ruoli, pagamento, contratto)
+    const schema = structureStepSchemas[structStep]
+    if (schema) return schema.safeParse(structData).success
+    // Step non-schema (upload/asset)
     switch (structStep) {
-      case 1:
-        return !!(structData.ragioneSociale && structData.piva && structData.referenteNome && structData.referenteEmail)
-      case 2:
-        return !!(structData.tipoStruttura && structData.zona)
       case 3:
         return !!structData.videoAttestazione
-      case 4:
-        return (structData.ruoliCercati as string[]).length > 0
-      case 5:
-        return (structData.tagValori as string[]).length > 0
-      case 6:
-        return true
-      case 7:
-        if (structData.metodoPagamento === 'carta') {
-          return !!(structData.cardNumber && structData.cardExpiry && structData.cardCvc && structData.cardHolder)
-        }
-        return !!(structData.iban && structData.sepaHolder)
-      case 8:
-        return !!structData.accettatoContratto
       default:
         return true
     }
@@ -269,21 +257,17 @@ export default function Auth() {
 
   /* ─── Employee step validation ─── */
   const canProceedEmployee = (): boolean => {
+    // Step coperti da schema zod (anagrafica, ruoli/zona, slot colloquio)
+    const schema = employeeStepSchemas[empStep]
+    if (schema) return schema.safeParse(empData).success
+    // Step non-schema (upload/asset, calendario, OTP)
     switch (empStep) {
-      case 1:
-        return !!(empData.nome && empData.cognome && empData.dataNascita && empData.email && empData.cf)
       case 2:
         return (empData.fotoProfessionale as UploadedFile[]).length > 0
       case 3:
         return !!empData.videoAttestazione
-      case 4:
-        return true
-      case 5:
-        return !!(empData.ruoloPrincipale && (empData.tagValori as string[]).length > 0 && empData.zonaLavoro)
       case 6:
         return (empData.calendarioGiorni as CalendarDay[]).filter((d) => d.status === 'available').length > 0
-      case 7:
-        return !!empData.slotColloquio
       case 8:
         return !!empData.otpVerified
       default:
