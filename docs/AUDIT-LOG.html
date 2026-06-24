@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ATS — Registro Audit</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#06101E; color:#E6EEF6;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.6; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+  .banner { background: linear-gradient(135deg,#5BB8F5 0%,#1A56A0 100%); color:#04101f;
+    border-radius:16px; padding:24px 28px; margin-bottom:32px; }
+  .banner h1 { margin:0; font-size:24px; }
+  .banner p { margin:6px 0 0; opacity:.85; font-size:14px; }
+  h1,h2,h3,h4 { color:#fff; line-height:1.25; }
+  h2 { margin-top:40px; font-size:21px; border-bottom:1px solid rgba(255,255,255,.1); padding-bottom:8px; }
+  h3 { margin-top:26px; font-size:16px; color:#5BB8F5; }
+  h4 { margin-top:20px; font-size:14px; color:#94A3B8; text-transform:uppercase; letter-spacing:.04em; }
+  a { color:#5BB8F5; }
+  code { background:rgba(91,184,245,.12); color:#9ed2fb; padding:1px 6px; border-radius:5px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.88em; }
+  strong { color:#fff; }
+  hr { border:0; border-top:1px solid rgba(255,255,255,.08); margin:32px 0; }
+  blockquote { margin:16px 0; padding:12px 16px; border-left:3px solid #5BB8F5;
+    background:rgba(91,184,245,.06); border-radius:0 8px 8px 0; color:#b9c8d6; font-size:14px; }
+  ul,ol { padding-left:22px; }
+  li { margin:4px 0; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px;
+    background:rgba(13,30,52,.5); border-radius:10px; overflow:hidden; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid rgba(255,255,255,.07); vertical-align:top; }
+  th { background:rgba(91,184,245,.1); color:#cfe6fa; font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  .foot { margin-top:48px; font-size:12px; color:#5E7A95; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="banner">
+  <h1>ATS — Registro Audit</h1>
+  <p>Versione HTML generata da <code>docs/AUDIT-LOG.md</code> · fonte di verità: il file Markdown.</p>
+</div>
+<h1>AUDIT-LOG — Registro cronologico degli audit ATS</h1>
+<blockquote>Audit più recente <strong>in alto</strong>. Si compila con <code>docs/03-AUDIT-TEMPLATE.md</code> a fine di ogni lavoro.<br/>Questo registro è la memoria condivisa del progetto: ogni nuovo agente lo legge prima di iniziare.</blockquote>
+<hr/>
+<h2>Audit #6 — 24/06/2026 — Miglioramenti UI/UX (T8, T9, T12 + ScrollToTop)</h2>
+<p><strong>Autore:</strong> Claude Code — sessione UI/UX sul branch <code>claude/web-app-improvements-3modcu</code><br/><strong>Sessione / obiettivo:</strong> Solo miglioramenti <strong>UI/UX</strong> (no Stripe, no dominio/legale): performance<br/>percepita, robustezza, accessibilità e rifinitura. Poi audit aggiornato (MD + HTML), push su GitHub e<br/>staging, e istruzioni per il prossimo agente.<br/><strong>Fase roadmap:</strong> rifinitura frontend (anticipo Fase 6) a supporto della Fase 0.</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li><strong>T8 — Code splitting:</strong> tutte le rotte ora in <code>React.lazy</code> + <code>&lt;Suspense&gt;</code> con <code>PageLoader</code>. Il</li>
+</ul>
+<p>  chunk iniziale passa da <strong>1.48 MB → ~415 kB</strong>; <code>recharts</code> (~430 kB) si carica <strong>solo</strong> nella<br/>  dashboard admin, non all'avvio.</p>
+<ul>
+<li><strong>ScrollToTop:</strong> nuovo componente che riporta lo scroll in cima ad ogni cambio rotta (difetto UX</li>
+</ul>
+<p>  classico delle SPA).</p>
+<ul>
+<li><strong>T12 — Robustezza + meta:</strong> <code>ErrorBoundary</code> globale (niente più pagina bianca su errore di render);</li>
+</ul>
+<p>  <code>index.html</code> arricchito (favicon SVG brandizzato, <code>theme-color</code>, <code>color-scheme: dark</code>, <code>viewport-fit</code>,<br/>  Open Graph).</p>
+<ul>
+<li><strong>T9 — Accessibilità (parziale):</strong> regole globali <code>:focus-visible</code> e <code>prefers-reduced-motion</code> in</li>
+</ul>
+<p>  <code>index.css</code>; <strong>icone reali</strong> nella sidebar (prima un placeholder generico identico per ogni voce);<br/>  <code>aria-label</code>/<code>aria-current</code> su nav desktop, bottom nav e bottoni-icona; <code>aria-hidden</code> sulle icone<br/>  decorative.</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><strong>Nuovi:</strong> <code>app/src/components/{ScrollToTop,PageLoader,ErrorBoundary}.tsx</code>, <code>app/public/favicon.svg</code>.</li>
+<li><strong>Modificati:</strong> <code>app/src/App.tsx</code> (lazy + Suspense + ErrorBoundary + ScrollToTop), <code>app/index.html</code>,</li>
+</ul>
+<p>  <code>app/src/index.css</code> (a11y), <code>app/src/components/Layout.tsx</code> (icone reali + aria),<br/>  <code>app/src/components/employee/GlassBottomNav.tsx</code> (aria), <code>app/src/pages/EmployeeDashboard.tsx</code> (aria).</p>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato a livello funzionale (mock). Migliorata UX/performance/robustezza trasversale.</p>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>UI su mock dietro service tipato.</td></tr><tr><td>Turni</td><td>🟡</td><td>UI su mock.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>Solo UI.</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td>Nessun motore.</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>Solo UI.</td></tr></tbody></table>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li><strong>Build:</strong> ✅ · <strong>Lint:</strong> 0 errori (32 warning RC noti) · <strong><code>@ts-nocheck</code>:</strong> 0.</li>
+<li><strong>Performance:</strong> bundle iniziale ridotto ~72% (≈1.48 MB → ≈0.42 MB) grazie al code splitting.</li>
+<li><strong>Accessibilità:</strong> focus da tastiera visibile ovunque; rispetto di <code>prefers-reduced-motion</code>; nav con</li>
+</ul>
+<p>  stato corrente annunciato; icone di navigazione finalmente distinte e semantiche.</p>
+<ul>
+<li><strong>Robustezza:</strong> errori di rendering gestiti da <code>ErrorBoundary</code> con fallback e reload.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li>Code splitting per-rotta (semplice ed efficace); nessun <code>manualChunks</code> custom per ora.</li>
+<li>A11y incrementale: regole globali + componenti condivisi adesso; audit fine (contrasto colori,</li>
+</ul>
+<p>  label dei form lunghi come Auth) rinviato come task dedicato.</p>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li><strong>QA visiva non eseguita</strong> (solo build+lint): consigliato giro manuale, soprattutto sidebar (nuove</li>
+</ul>
+<p>  icone) e transizioni con <code>prefers-reduced-motion</code> attivo.</p>
+<ul>
+<li>A11y non completa: contrasto dei testi <code>text-muted</code> e label dei form ancora da verificare (T9 resta 🟡).</li>
+<li>Bundle: <code>AdminDashboard</code> ~435 kB per <code>recharts</code>; valutabile un alleggerimento futuro.</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Completare <strong>T4/T6</strong> (migrare le restanti pagine ai service + stati) e <strong>T7</strong> (zod nei form), poi</li>
+</ul>
+<p>  <strong>T13</strong> (Vitest). In parallelo, avviare la <strong>Fase 0</strong> backend (vedi handoff in fondo all'Audit #5 §7).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 2/5 (frontend; backend assente) · Qualità: 4/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 5/5.</li>
+</ul>
+<hr/>
+<h2>Audit #5 — 24/06/2026 — Implementazione miglioramenti web app (T0–T6, T10) + piano per la produzione</h2>
+<p><strong>Autore:</strong> Claude Code — sessione di implementazione sul branch <code>claude/web-app-improvements-3modcu</code><br/><strong>Sessione / obiettivo:</strong> Eseguire i miglioramenti prioritari del frontend dal backlog (Audit #4) e<br/>lasciare l'app funzionante, pulita e pronta ad accogliere il backend; chiudere con un audit che<br/>elenchi tutte le task e i lavori mancanti per una <strong>web app pronta all'uso</strong>.<br/><strong>Fase roadmap:</strong> preparazione/abilitazione <strong>Fase 0</strong> + anticipo di rifiniture (Fase 6).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li><strong>T0 — Toolchain:</strong> aggiunti <code>app/.nvmrc</code> (Node 20) e <code>engines</code> in <code>package.json</code> → build riproducibile.</li>
+<li><strong>T2 — Lint:</strong> da <strong>139 errori → 0</strong> (restano 32 *warning* sulle regole sperimentali del React</li>
+</ul>
+<p>  Compiler, declassate consapevolmente — vedi §5). Rimossi import/variabili inutilizzati in ~25 file<br/>  (con l'aiuto di sub-agenti su gruppi non sovrapposti).</p>
+<ul>
+<li><strong>T3 — <code>@ts-nocheck</code>:</strong> rimossi da <strong>tutti e 6</strong> i file; TypeScript ora controlla l'intero <code>src/</code>.</li>
+</ul>
+<p>  Nel farlo sono emersi e sono stati <strong>corretti bug reali</strong> prima nascosti (vedi §4).</p>
+<ul>
+<li><strong>T10 — Pulizia:</strong> rimossi <strong>15 file morti</strong> (componenti base non importati: varianti non-Glass di</li>
+</ul>
+<p>  shift/swipe/invoice card, componenti auth duplicati, <code>BottomNav</code>, <code>structureMock.ts</code>) e le<br/>  dipendenze inutilizzate <strong><code>gsap</code> + <code>@gsap/react</code></strong>.</p>
+<ul>
+<li><strong>T4 — Service layer (parziale):</strong> creati <code>src/types/domain.ts</code> (tipi di dominio centralizzati),</li>
+</ul>
+<p>  <code>src/services/</code> (<code>adminService</code>, <code>employeeService</code>, <code>simulate</code>) che incapsulano i mock dietro<br/>  funzioni <strong>async</strong> (firma identica a una futura fetch API), e l'hook <code>src/hooks/useAsync.ts</code><br/>  (<code>{data, loading, error}</code>). Migrata <code>EmployeeDashboard</code> come esempio end-to-end.</p>
+<ul>
+<li><strong>T5 — Route guard + 404:</strong> <code>src/components/RoleGuard.tsx</code> (UX per ruolo), <code>src/pages/NotFound.tsx</code></li>
+</ul>
+<p>  e rotta catch-all <code>*</code>; <code>App.tsx</code> ora protegge <code>/admin</code>, <code>/structure</code>, <code>/employee</code>.</p>
+<ul>
+<li><strong>T6 — Stati UI (parziale):</strong> <code>src/components/states/</code> (<code>LoadingState/EmptyState/ErrorState</code>),</li>
+</ul>
+<p>  applicati a <code>EmployeeDashboard</code>.</p>
+<ul>
+<li><strong>T1 — CI:</strong> <code>.github/workflows/ci.yml</code> esegue <code>npm ci → lint → build</code> su push/PR (step <code>test</code></li>
+</ul>
+<p>  predisposto per Vitest).</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><strong>Nuovi:</strong> <code>app/.nvmrc</code>, <code>.github/workflows/ci.yml</code>, <code>app/src/components/RoleGuard.tsx</code>,</li>
+</ul>
+<p>  <code>app/src/pages/NotFound.tsx</code>, <code>app/src/components/states/index.tsx</code>, <code>app/src/hooks/useAsync.ts</code>,<br/>  <code>app/src/services/{simulate,adminService,employeeService}.ts</code>, <code>app/src/types/domain.ts</code>.</p>
+<ul>
+<li><strong>Rimossi (15):</strong> <code>app/src/data/structureMock.ts</code>; <code>components/structure/{ShiftCard,InvoiceCard,EmployeeSwipeCard}.tsx</code>;</li>
+</ul>
+<p>  <code>components/employee/{ShiftCard,SwipeCard,BottomNav}.tsx</code>;<br/>  <code>components/auth/{CalendarPicker,DocumentUploader,OTPInput,OnboardingStep,RoleSelector,StepIndicator,TagSelector,VideoRecorder}.tsx</code>.</p>
+<ul>
+<li><strong>Modificati (principali):</strong> <code>app/package.json</code>, <code>eslint.config.js</code>, <code>src/App.tsx</code>,</li>
+</ul>
+<p>  <code>src/components/Avatar.tsx</code>, <code>src/data/mockAdmin.ts</code>, le 6 ex-<code>@ts-nocheck</code> (<code>AdminDashboard</code>,<br/>  <code>AdminEmployees</code>, <code>AdminSettings</code>, <code>AdminShifts</code>, <code>EmployeeCheckin</code>, <code>EmployeeRank</code>),<br/>  <code>src/pages/EmployeeDashboard.tsx</code>, <code>Home.tsx</code>, + pulizia import in ~15 altre pagine/componenti.</p>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato a livello funzionale (i moduli restano su mock); migliorata la <strong>base tecnica</strong> sotto.</p>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>UI su mock, ora dietro <code>adminService</code> (tipato); manca CRUD reale/API.</td></tr><tr><td>Turni</td><td>🟡</td><td>UI su mock; manca persistenza.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>Solo UI check-in.</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td>Nessun motore (resta da fare in <code>api/</code>, con config validata).</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>Solo UI.</td></tr></tbody></table>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li><strong>TypeScript:</strong> <code>@ts-nocheck</code> <strong>0</strong> (erano 6); <code>tsc -b</code> pulito; nessun <code>any</code> introdotto.</li>
+<li><strong>Lint:</strong> <strong>0 errori</strong> (32 warning RC). <strong>CI</strong> attiva.</li>
+<li><strong>Bug reali corretti</strong> (emersi togliendo <code>@ts-nocheck</code>):</li>
+</ul>
+<ol>
+<li><code>Avatar</code> riceveva <code>size="sm"</code> (stringa) mentre attendeva un numero → <code>width:"sm"</code>/<code>NaN</code>: gli</li>
+</ol>
+<p>     avatar erano <strong>renderizzati rotti</strong>. Ora <code>Avatar</code> accetta token (<code>xs/sm/md/lg/xl</code>) mappati a px<br/>     e una prop <code>style</code>.</p>
+<ol>
+<li><code>getHourlyRate(zone, role)</code> era chiamato con <strong>parametri invertiti</strong> (rank al posto della zona)</li>
+</ol>
+<p>     in AdminEmployees/AdminSettings/AdminShifts → tariffe sbagliate/uniformi. Corretti.</p>
+<ol>
+<li><code>zoneRates</code> (array) era usato come <strong>mappa</strong> (<code>Object.entries</code>/indici) in AdminEmployees/AdminSettings</li>
+</ol>
+<p>     → si renderizzavano oggetti al posto dei numeri. Corretta l'iterazione.</p>
+<ol>
+<li><code>Math.random</code> durante il render (Home, AdminShifts) → valori instabili: reso deterministico/statico.</li>
+</ol>
+<ul>
+<li><strong>Debito tecnico:</strong> ridotto (codice morto, dipendenze, type-safety, architettura dati).</li>
+<li><strong>Sicurezza/GDPR:</strong> invariata; <code>RoleGuard</code> è <strong>solo UX</strong> (la sicurezza reale è demandata al backend).</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><strong>Regole React Compiler sperimentali</strong> (<code>set-state-in-effect</code>, <code>static-components</code>,</li>
+</ul>
+<p>  <code>react-refresh/only-export-components</code>) <strong>declassate a <code>warn</code></strong> (non bloccano CI) e <code>react-hooks/purity</code><br/>  <strong>disattivata sui componenti shadcn generati</strong> (<code>src/components/ui/**</code>): troppo aggressive sul codice<br/>  legacy/vendored. Da indirizzare progressivamente. Il codice *nostro* per <code>purity</code> è stato invece corretto.</p>
+<ul>
+<li><strong>T4 incrementale</strong>, non big-bang: creata l'infrastruttura e migrata 1 pagina, per non rischiare</li>
+</ul>
+<p>  regressioni su 15 pagine senza QA visiva. Le altre seguiranno una per volta.</p>
+<ul>
+<li><strong><code>getHourlyRate</code></strong> allargata ad accettare <code>zone: string</code> (ha già un fallback) per togliere gli</li>
+</ul>
+<p>  errori union senza inventare valori (resta logica mock, non motore paga).</p>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li><strong>Nessuna QA visiva</strong> eseguita in questa sessione (solo <code>build</code>+<code>lint</code>): consigliato un giro manuale</li>
+</ul>
+<p>  dell'app (specie pagine admin con tabelle tariffe ridisegnate) prima del merge.</p>
+<ul>
+<li>I <strong>bug di tariffa</strong> corretti cambiano i numeri mostrati: verificare che i nuovi valori siano quelli</li>
+</ul>
+<p>  attesi a livello di UI (non hanno valore legale — il motore paga validato è ancora da costruire).</p>
+<ul>
+<li>Bundle ancora monolitico (~1.48 MB): vedi T8.</li>
+<li>Punti da validare col <strong>consulente del lavoro / commercialista</strong>: nessuno in questa sessione (lavoro</li>
+</ul>
+<p>  puramente frontend/tecnico).</p>
+<h3>7. Lavori mancanti per una "web app pronta all'uso" (roadmap)</h3>
+<p><strong>A. Completare i miglioramenti frontend</strong> (backlog <code>docs/04-...</code>): T4 (migrare le altre ~13 pagine ai<br/>service), T6 (stati su tutte le pagine), <strong>T7</strong> (validazione zod nei form/onboarding), <strong>T8</strong> (code<br/>splitting), <strong>T9</strong> (accessibilità), <strong>T11</strong> (i18n/stringhe), <strong>T12</strong> (error boundary + PWA), <strong>T13</strong><br/>(test Vitest, soprattutto futuri calcoli ore/paga).<br/><strong>B. Backend reale (Fase 0–5, il vero blocco per la produzione):</strong></p>
+<ul>
+<li><code>api/</code> Fastify + MongoDB Atlas + Mongoose; <strong>auth reale</strong> (JWT + RBAC), poi i service del frontend</li>
+</ul>
+<p>  passano da mock a fetch (l'infrastruttura T4 è già pronta a questo).</p>
+<ul>
+<li>Moduli in ordine: <strong>Personale → Turni → Presenze/Ore → Paga → Fatturazione</strong> (vedi <code>01-ROADMAP.md</code>).</li>
+<li><strong>Motore paghe</strong> isolato e testato, con tabelle <code>config/payroll/</code> <strong>validate dal consulente</strong>.</li>
+<li>Storage documenti su <strong>Cloudflare R2</strong> (URL firmati), backup DB, GDPR (cancellazione/anonimizzazione).</li>
+</ul>
+<p><strong>C. Pre-produzione:</strong> deploy su Railway + Cloudflare davanti, <code>.env</code>/segreti, hardening sicurezza,<br/>monitoraggio, test di ripristino backup.</p>
+<blockquote>In sintesi: il <strong>frontend</strong> è ora pulito e strutturato per l'API; ciò che separa l'app dall'uso<br/>reale è soprattutto il <strong>backend + auth + motore paghe</strong> (Fase 0 e successive).</blockquote>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 2/5 (frontend solido, backend assente) · Qualità: 4/5 · Aderenza alle regole</li>
+</ul>
+<p>  (<code>CLAUDE.md</code>): 5/5.</p>
+<hr/>
+<h2>Audit #4 — 24/06/2026 — Analisi web app e creazione backlog di miglioramenti</h2>
+<p><strong>Autore:</strong> Claude Code — sessione di analisi tecnica del frontend<br/><strong>Sessione / obiettivo:</strong> Analizzare la web app esistente (<code>app/</code>) e produrre un backlog di task di<br/>miglioramento prioritizzate e azionabili.<br/><strong>Fase roadmap:</strong> Pre-Fase 0 / Fase 0 (preparazione del frontend) + anticipo di rifiniture (Fase 6).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Eseguiti <code>npm install</code> pulito, <code>npm run build</code>, <code>npm run lint</code> e ispezione del sorgente <code>src/</code>.</li>
+<li>Verificate manualmente le criticità (componenti morti, librerie inutilizzate, layer dati, routing).</li>
+<li>Creato <strong><code>docs/04-TASK-MIGLIORAMENTI-WEBAPP.md</code></strong>: 14 task (T0–T13) con obiettivo, file, DoD, stima,</li>
+</ul>
+<p>  priorità (P0/P1/P2) e ordine consigliato.</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>docs/04-TASK-MIGLIORAMENTI-WEBAPP.md</code> (nuovo) — backlog di miglioramenti del frontend.</li>
+<li><code>docs/AUDIT-LOG.md</code> — questa voce. <strong>Nessun codice applicativo modificato.</strong></li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato (analisi, nessuno sviluppo funzionale).</p>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>UI su mock, nessun CRUD reale.</td></tr><tr><td>Turni</td><td>🟡</td><td>UI ricca su mock, nessuna persistenza.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>Solo UI check-in QR.</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td>Nessun motore.</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>Solo UI <code>GlassInvoiceCard</code>.</td></tr></tbody></table>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Build: ✅ passa dopo install pulita (gli errori iniziali erano d'ambiente, non di codice → task T0).</li>
+<li>Lint: ❌ <strong>139 errori</strong> in 83 file (94 <code>no-unused-vars</code>, + hooks/refresh/ban-ts-comment).</li>
+<li><code>@ts-nocheck</code>: ⚠️ 6 file. <code>any</code> espliciti: 0.</li>
+<li>Bundle: ⚠️ 1.48 MB (384 KB gzip) in un chunk unico, nessun code splitting.</li>
+<li>Layer dati: ❌ mock importati direttamente nelle pagine (manca <code>src/services/</code>).</li>
+<li>Auth/routing: ❌ nessuna guardia di ruolo né rotta 404; <code>zod</code>/<code>react-hook-form</code>/<code>gsap</code> non usati.</li>
+<li>Debito tecnico: <strong>non introdotto</strong> (solo documentazione); mappato e prioritizzato nel backlog.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li>Backlog separato dalle Fasi 0–6: prepara il frontend (service layer, guardie, stati UI) e sana il</li>
+</ul>
+<p>  debito tecnico, senza toccare scelte legali/contabili (che restano al consulente).</p>
+<ul>
+<li>Priorità: prima toolchain/lint/CI e service-layer/auth, poi performance/a11y, infine pulizia/test.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Riproducibilità ambiente: il build falliva con dipendenze installate parzialmente → fissare Node e</li>
+</ul>
+<p>  <code>package-lock</code> (T0) e introdurre CI (T1) prima di lavori più grandi.</p>
+<ul>
+<li>Refactor service-layer (T4) tocca molte pagine: farlo presto, prima che il debito cresca.</li>
+<li>Nessun punto da validare col consulente del lavoro in questo backlog (è tutto frontend tecnico).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Partire da <strong>T0 → T2 → T1</strong> (toolchain stabile, lint a 0, CI verde), poi <strong>T4</strong> (service layer) come</li>
+</ul>
+<p>  abilitatore della Fase 0.</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 1/5 (analisi) · Qualità: 4/5 · Aderenza alle regole (<code>CLAUDE.md</code>): 5/5.</li>
+</ul>
+<hr/>
+<h2>Audit #3 — 19/06/2026 — Doppio manuale agenti: Cowork (strategia) + Claude Code (tecnico)</h2>
+<p><strong>Autore:</strong> Claude (Cowork) — sessione di kickoff con Andrea<br/><strong>Sessione / obiettivo:</strong> Separare le istruzioni in due manuali: come opera l'agente in Cowork e come<br/>opera Claude Code.<br/><strong>Fase roadmap:</strong> Pre-Fase 0 (impostazione).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Creato <strong><code>docs/ISTRUZIONI-COWORK.md</code></strong>: ruolo partner strategico + orchestratore, uso proattivo di</li>
+</ul>
+<p>  browser/ricerca/connettori, divisione del lavoro con Claude Code, flusso, guardrail, audit.</p>
+<ul>
+<li>Affinato <strong><code>CLAUDE.md</code></strong>: dichiarato manuale tecnico di Claude Code (auto-caricato) + sezione</li>
+</ul>
+<p>  "Due agenti, due manuali" + rimando al manuale Cowork.</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>docs/ISTRUZIONI-COWORK.md</code> (nuovo), <code>CLAUDE.md</code> (header + §10), <code>docs/AUDIT-LOG.md</code>.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato (impostazione, nessuno sviluppo).</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Chiarita la governance a due agenti; ridotto il rischio di sovrapposizione/ambiguità di ruolo.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><strong>Cowork = partner strategico + orchestratore</strong> (pensa, decide, ricerca, coordina; esegue codice</li>
+</ul>
+<p>  solo se serve).</p>
+<ul>
+<li><strong>Cowork proattivo</strong> su browser/ricerca/connettori, con trasparenza e fonti.</li>
+<li><strong>Istruzioni di Claude Code nel <code>CLAUDE.md</code></strong> alla radice (auto-caricato), come manuale tecnico definitivo.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Mantenere i due manuali <strong>sincronizzati</strong> quando cambiano regole/stack (aggiornarli insieme).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Push su GitHub di istruzioni e docs, poi <strong>Fase 0</strong> in Claude Code (Fastify + MongoDB Atlas M0 + auth).</li>
+</ul>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 1/5 (impostazione) · Qualità: 4/5 · Aderenza alle regole: 5/5.</li>
+</ul>
+<hr/>
+<h2>Audit #2 — 19/06/2026 — Hosting: frontend su Railway, Vercel rimosso</h2>
+<p><strong>Autore:</strong> Claude (Cowork) — sessione di kickoff con Andrea<br/><strong>Sessione / obiettivo:</strong> Valutare se ospitare anche il frontend su Railway ed eliminare Vercel.<br/><strong>Fase roadmap:</strong> Pre-Fase 0 (impostazione).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Analisi trade-off Railway-only vs hosting frontend separato (Vercel/Cloudflare Pages).</li>
+<li>Decisione: <strong>frontend + API su Railway</strong>, <strong>Cloudflare davanti</strong> come CDN/cache/SSL/WAF, <strong>Vercel rimosso</strong>.</li>
+<li>Aggiornati CLAUDE.md §4.2 e docs 00 (§B.2/B.3/B.6) e 01 (Fase 0).</li>
+</ul>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>CLAUDE.md</code>, <code>docs/00-GUIDA-STRATEGICA.md</code>, <code>docs/01-ROADMAP.md</code>, <code>docs/AUDIT-LOG.md</code>. Nessun codice.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato (solo decisione infrastrutturale).</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Architettura più semplice e consolidata (una sola piattaforma di hosting).</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><strong>Frontend su Railway</strong> insieme all'API; <strong>Cloudflare</strong> davanti fornisce CDN globale/SSL/WAF, quindi</li>
+</ul>
+<p>  il frontend statico resta veloce ovunque pur non usando un host dedicato.</p>
+<ul>
+<li><strong>Vercel eliminato</strong> dallo stack (era solo una convenzione, nessun vantaggio decisivo per questo caso).</li>
+<li>Alternativa documentata e a costo zero, se in futuro si volesse separare il frontend: <strong>Cloudflare Pages</strong>.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Il frontend su Railway è un container "sempre attivo": tenerlo piccolo e sfruttare la cache di</li>
+</ul>
+<p>  Cloudflare per non pagare compute inutile.</p>
+<ul>
+<li>Configurare correttamente Cloudflare davanti a Railway (DNS, cache delle risorse statiche, regole SSL).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Invariato: push su GitHub, poi <strong>Fase 0</strong> (Fastify + MongoDB Atlas M0 + Mongoose + auth) su Railway.</li>
+</ul>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 1/5 (impostazione) · Qualità decisione: 4/5 · Aderenza alle regole: 5/5.</li>
+</ul>
+<hr/>
+<h2>Audit #1 — 19/06/2026 — Decisione stack definitivo + analisi costi</h2>
+<p><strong>Autore:</strong> Claude (Cowork) — sessione di kickoff con Andrea<br/><strong>Sessione / obiettivo:</strong> Allineare lo stack tecnico agli strumenti che Andrea già usa e fornire<br/>un'analisi dei costi, evitando di introdurre nuovi servizi a pagamento.<br/><strong>Fase roadmap:</strong> Pre-Fase 0 (impostazione).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Rilevato lo stack reale dell'utente: <strong>Railway, Vercel, MongoDB, Cloudflare, GitHub</strong>.</li>
+<li>Verificati i <strong>costi 2026</strong> di tutti i servizi (ricerca web).</li>
+<li>Aggiornati CLAUDE.md (§4.2, §5, §6, §9) e docs (00 §B.2/B.3/B.5/B.6, 01 Fase 0, 02 modello dati)</li>
+</ul>
+<p>  per riflettere <strong>MongoDB/Mongoose</strong> al posto di PostgreSQL/Prisma.</p>
+<ul>
+<li>Aggiunta sezione <strong>B.6 Costi</strong> alla guida strategica.</li>
+</ul>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li><code>CLAUDE.md</code>, <code>docs/00-GUIDA-STRATEGICA.md</code>, <code>docs/01-ROADMAP.md</code>, <code>docs/02-MODELLO-DATI.md</code>,</li>
+</ul>
+<p>  <code>docs/AUDIT-LOG.md</code>. Nessun codice applicativo toccato.</p>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<p>Invariato rispetto all'Audit #0 (nessuno sviluppo, solo documentazione/decisioni).</p>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>Decisione architetturale presa e documentata; coerenza tra i documenti verificata.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><strong>Database: MongoDB (Atlas) + Mongoose</strong>, non PostgreSQL. Motivo: l'utente lo usa già e lo paga;</li>
+</ul>
+<p>  per un MVP è adeguato rispettando 3 regole (Decimal128, transazioni multi-documento, relazioni<br/>  esplicite). Postgres rivalutabile solo se la reportistica diventerà molto complessa.</p>
+<ul>
+<li><strong>Frontend: Cloudflare Pages</strong> consigliato (gratis e lecito per uso commerciale) invece di Vercel</li>
+</ul>
+<p>  Pro ($20/mese), che resta opzione valida se preferito.</p>
+<ul>
+<li><strong>API: Fastify su Railway</strong>; <strong>documenti: Cloudflare R2</strong>; <strong>CI: GitHub Actions</strong>.</li>
+<li><strong>Costo MVP stimato: ~$5–15/mese</strong> (di fatto solo Railway). Nessun nuovo strumento a pagamento.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>Vercel Hobby <strong>non</strong> è ammesso per uso commerciale: se si usa Vercel, serve il piano Pro.</li>
+<li>Disciplina obbligatoria su MongoDB per le paghe (Decimal128 + transazioni): se ignorata, rischio di</li>
+</ul>
+<p>  importi errati. Da coprire con test (Vitest).</p>
+<ul>
+<li>Resta aperto il push su GitHub (richiede autenticazione dell'utente).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Push del repo su GitHub, poi <strong>Fase 0</strong> in Claude Code con lo stack confermato (Fastify + MongoDB</li>
+</ul>
+<p>  Atlas M0 + Mongoose + auth reale).</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 1/5 (impostazione) · Qualità decisione: 4/5 · Aderenza alle regole: 5/5.</li>
+</ul>
+<hr/>
+<h2>Audit #0 — 19/06/2026 — Baseline: analisi stato iniziale e setup istruzioni di progetto</h2>
+<p><strong>Autore:</strong> Claude (Cowork) — sessione di kickoff con Andrea<br/><strong>Sessione / obiettivo:</strong> Analizzare la repository <code>ATS-v1</code> esistente e creare le istruzioni<br/>professionali di progetto (CLAUDE.md + guida strategica + roadmap + modello dati + sistema di audit).<br/><strong>Fase roadmap:</strong> Pre-Fase 0 (impostazione).</p>
+<h3>1. Lavoro svolto</h3>
+<ul>
+<li>Analisi completa della repo <code>ATS-v1-main/app</code> (struttura, stack, pagine, dati).</li>
+<li>Verifica normativa 2026 su lavoro extra / intermittente / occasionale.</li>
+<li>Creati: <code>CLAUDE.md</code>, <code>docs/00-GUIDA-STRATEGICA.md</code>, <code>docs/01-ROADMAP.md</code>, <code>docs/02-MODELLO-DATI.md</code>,</li>
+</ul>
+<p>  <code>docs/03-AUDIT-TEMPLATE.md</code>, <code>docs/AUDIT-LOG.md</code>.</p>
+<h3>2. File / aree toccate</h3>
+<ul>
+<li>Solo nuova documentazione (nessun codice modificato). Frontend esistente intatto.</li>
+</ul>
+<h3>3. Stato dei moduli prioritari (semaforo)</h3>
+<table><thead><tr><th>Modulo</th><th>Stato</th><th>Nota</th></tr></thead><tbody><tr><td>Personale</td><td>🟡</td><td>UI presente (AdminEmployees) ma su dati mock; nessun CRUD reale.</td></tr><tr><td>Turni</td><td>🟡</td><td>UI ricca (AdminShifts, calendario, no-show) ma mock; nessuna persistenza.</td></tr><tr><td>Presenze/Ore</td><td>🔴</td><td>Esiste UI check-in QR (EmployeeCheckin) ma nessun calcolo ore reale.</td></tr><tr><td>Calcolo Paga</td><td>🔴</td><td>Solo <code>getHourlyRate</code> nei mock; nessun motore di calcolo.</td></tr><tr><td>Fatturazione</td><td>🔴</td><td>Esistono <code>InvoiceCard</code> UI; nessuna logica.</td></tr></tbody></table>
+<h3>4. Qualità tecnica</h3>
+<ul>
+<li>TypeScript: <strong><code>@ts-nocheck</code> diffuso</strong> nelle pagine → da sanare incrementalmente.</li>
+<li>Test: <strong>assenti</strong>.</li>
+<li>Sicurezza/GDPR: <strong>auth non reale</strong> (solo <code>localStorage</code> role switch); dati personali nei mock.</li>
+<li>Debito tecnico: alto sul backend (inesistente); frontend di buona qualità ma accoppiato ai mock.</li>
+</ul>
+<h3>5. Decisioni prese</h3>
+<ul>
+<li><strong>Modello di business chiarito da Andrea:</strong> attività di <strong>catering</strong> (appalto di servizi genuino) +</li>
+</ul>
+<p>  a volte <strong>solo personale</strong>; <strong>NON è un'APL autorizzata</strong>. Documenti aggiornati (CLAUDE.md §1/§3,<br/>  GUIDA §A.1, modello dati con <code>serviceType CATERING|STAFF_ONLY</code>).</p>
+<ul>
+<li>Stack target confermato: <strong>Railway + PostgreSQL + Node/TS + Prisma</strong>, framework API = <strong>Fastify</strong></li>
+</ul>
+<p>  (confermato dall'utente; NestJS scartato perché più pesante).</p>
+<ul>
+<li>Modello contrattuale di lavoro: <strong>extra / intermittente / occasionale</strong>.</li>
+<li>Approccio: <strong>bilanciato</strong> (rigore su dati/sicurezza/paghe, pragmatismo sul resto).</li>
+<li><strong>Repo definitivo: <code>ATS-v1-main</code></strong> (le istruzioni vivono alla radice, sopra <code>app/</code>); da pubblicare</li>
+</ul>
+<p>  anche su <strong>GitHub</strong> (<code>github.com/formahub3d-cloud/ATS-v1</code>).</p>
+<ul>
+<li>Nota infrastruttura: in futuro i progetti Cloud verranno spostati su <strong>SSD esterna</strong> per alleggerire il Mac.</li>
+<li>Regola vincolante: <strong>valori normativi/paga mai hardcodati</strong>, vivono in <code>config/payroll</code> validata dal consulente.</li>
+</ul>
+<h3>6. Rischi / questioni aperte</h3>
+<ul>
+<li>⚠️ <strong>Caso "solo personale"</strong>: rischio somministrazione irregolare (azienda non autorizzata APL). Da</li>
+</ul>
+<p>  strutturare come servizio con referente in loco e <strong>validare col consulente del lavoro</strong>.</p>
+<ul>
+<li>Push su GitHub: richiede autenticazione git dell'utente (da fare in sessione Claude Code o via setup credenziali).</li>
+<li>Conferma se esistono altri file/documenti da integrare (upload risultavano vuoti).</li>
+</ul>
+<h3>7. Prossimo passo consigliato</h3>
+<ul>
+<li>Avviare <strong>Fase 0</strong> in Claude Code: scaffolding <code>api/</code> (Fastify), Postgres su Railway, Prisma con</li>
+</ul>
+<p>  schema iniziale da <code>02-MODELLO-DATI.md</code>, auth reale base. Prima: commit &amp; push del repo su GitHub.</p>
+<h3>8. Valutazione sintetica (1–5)</h3>
+<ul>
+<li>Avanzamento: 1/5 (impostazione) · Qualità base esistente: 3/5 · Aderenza alle regole: n/a (regole appena create).</li>
+</ul>
+<p class="foot">Documento generato automaticamente da docs/AUDIT-LOG.md — non modificare a mano.</p>
+</div>
+</body>
+</html>

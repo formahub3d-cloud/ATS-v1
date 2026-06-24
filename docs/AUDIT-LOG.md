@@ -5,6 +5,71 @@
 
 ---
 
+## Audit #6 — 24/06/2026 — Miglioramenti UI/UX (T8, T9, T12 + ScrollToTop)
+
+**Autore:** Claude Code — sessione UI/UX sul branch `claude/web-app-improvements-3modcu`
+**Sessione / obiettivo:** Solo miglioramenti **UI/UX** (no Stripe, no dominio/legale): performance
+percepita, robustezza, accessibilità e rifinitura. Poi audit aggiornato (MD + HTML), push su GitHub e
+staging, e istruzioni per il prossimo agente.
+**Fase roadmap:** rifinitura frontend (anticipo Fase 6) a supporto della Fase 0.
+
+### 1. Lavoro svolto
+- **T8 — Code splitting:** tutte le rotte ora in `React.lazy` + `<Suspense>` con `PageLoader`. Il
+  chunk iniziale passa da **1.48 MB → ~415 kB**; `recharts` (~430 kB) si carica **solo** nella
+  dashboard admin, non all'avvio.
+- **ScrollToTop:** nuovo componente che riporta lo scroll in cima ad ogni cambio rotta (difetto UX
+  classico delle SPA).
+- **T12 — Robustezza + meta:** `ErrorBoundary` globale (niente più pagina bianca su errore di render);
+  `index.html` arricchito (favicon SVG brandizzato, `theme-color`, `color-scheme: dark`, `viewport-fit`,
+  Open Graph).
+- **T9 — Accessibilità (parziale):** regole globali `:focus-visible` e `prefers-reduced-motion` in
+  `index.css`; **icone reali** nella sidebar (prima un placeholder generico identico per ogni voce);
+  `aria-label`/`aria-current` su nav desktop, bottom nav e bottoni-icona; `aria-hidden` sulle icone
+  decorative.
+
+### 2. File / aree toccate
+- **Nuovi:** `app/src/components/{ScrollToTop,PageLoader,ErrorBoundary}.tsx`, `app/public/favicon.svg`.
+- **Modificati:** `app/src/App.tsx` (lazy + Suspense + ErrorBoundary + ScrollToTop), `app/index.html`,
+  `app/src/index.css` (a11y), `app/src/components/Layout.tsx` (icone reali + aria),
+  `app/src/components/employee/GlassBottomNav.tsx` (aria), `app/src/pages/EmployeeDashboard.tsx` (aria).
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato a livello funzionale (mock). Migliorata UX/performance/robustezza trasversale.
+| Modulo | Stato | Nota |
+|---|---|---|
+| Personale | 🟡 | UI su mock dietro service tipato. |
+| Turni | 🟡 | UI su mock. |
+| Presenze/Ore | 🔴 | Solo UI. |
+| Calcolo Paga | 🔴 | Nessun motore. |
+| Fatturazione | 🔴 | Solo UI. |
+
+### 4. Qualità tecnica
+- **Build:** ✅ · **Lint:** 0 errori (32 warning RC noti) · **`@ts-nocheck`:** 0.
+- **Performance:** bundle iniziale ridotto ~72% (≈1.48 MB → ≈0.42 MB) grazie al code splitting.
+- **Accessibilità:** focus da tastiera visibile ovunque; rispetto di `prefers-reduced-motion`; nav con
+  stato corrente annunciato; icone di navigazione finalmente distinte e semantiche.
+- **Robustezza:** errori di rendering gestiti da `ErrorBoundary` con fallback e reload.
+
+### 5. Decisioni prese
+- Code splitting per-rotta (semplice ed efficace); nessun `manualChunks` custom per ora.
+- A11y incrementale: regole globali + componenti condivisi adesso; audit fine (contrasto colori,
+  label dei form lunghi come Auth) rinviato come task dedicato.
+
+### 6. Rischi / questioni aperte
+- **QA visiva non eseguita** (solo build+lint): consigliato giro manuale, soprattutto sidebar (nuove
+  icone) e transizioni con `prefers-reduced-motion` attivo.
+- A11y non completa: contrasto dei testi `text-muted` e label dei form ancora da verificare (T9 resta 🟡).
+- Bundle: `AdminDashboard` ~435 kB per `recharts`; valutabile un alleggerimento futuro.
+
+### 7. Prossimo passo consigliato
+- Completare **T4/T6** (migrare le restanti pagine ai service + stati) e **T7** (zod nei form), poi
+  **T13** (Vitest). In parallelo, avviare la **Fase 0** backend (vedi handoff in fondo all'Audit #5 §7).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 2/5 (frontend; backend assente) · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+
+---
+
 ## Audit #5 — 24/06/2026 — Implementazione miglioramenti web app (T0–T6, T10) + piano per la produzione
 
 **Autore:** Claude Code — sessione di implementazione sul branch `claude/web-app-improvements-3modcu`

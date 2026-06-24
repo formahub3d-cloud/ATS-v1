@@ -33,6 +33,8 @@ export default function GlassBottomNav() {
           <motion.button
             key={tab.path}
             onClick={() => navigate(tab.path)}
+            aria-label={tab.label}
+            aria-current={isActive ? 'page' : undefined}
             className={cn(
               'flex-1 flex flex-col items-center justify-center gap-1 transition-colors duration-200',
               isActive ? 'text-[#5BB8F5]' : 'text-[#5E7A95]'

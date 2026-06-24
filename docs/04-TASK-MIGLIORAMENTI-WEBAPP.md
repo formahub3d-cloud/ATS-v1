@@ -14,7 +14,7 @@
 
 ---
 
-## Stato di avanzamento (aggiornato 24/06/2026 — Audit #5)
+## Stato di avanzamento (aggiornato 24/06/2026 — Audit #6)
 
 | Task | Stato | Note |
 |---|---|---|
@@ -26,11 +26,11 @@
 | **T5** Route guard + 404 | ✅ Fatto | `RoleGuard` + `NotFound` + catch-all in `App.tsx` (UX, non sicurezza). |
 | **T6** Stati UI riusabili | 🟡 Parziale | Componenti `LoadingState/EmptyState/ErrorState` creati + applicati a `EmployeeDashboard`. **Resta** applicarli alle altre pagine (con T4). |
 | **T7** Validazione zod | ⬜ Da fare | Librerie già presenti, non usate. |
-| **T8** Code splitting | ⬜ Da fare | Bundle ancora ~1.48 MB in un chunk. |
-| **T9** Accessibilità | ⬜ Da fare | Aggiunti aria su nuovi componenti; resto da fare. |
+| **T8** Code splitting | ✅ Fatto | Lazy routes + Suspense: chunk iniziale **1.48 MB → ~415 kB**; `recharts` solo nella dashboard admin. |
+| **T9** Accessibilità | 🟡 Parziale | `focus-visible` + `prefers-reduced-motion` globali; icone reali in sidebar; `aria-label`/`aria-current` su nav e bottoni-icona. **Resta** audit a11y completo (contrasto, form). |
 | **T10** Pulizia codice/dep morte | ✅ Fatto | Rimossi 15 file morti + `gsap`/`@gsap/react`. |
 | **T11** Centralizzazione stringhe/i18n | ⬜ Da fare | — |
-| **T12** Error boundary + meta/PWA | ⬜ Da fare | — |
+| **T12** Error boundary + meta/PWA | ✅ Fatto | `ErrorBoundary` globale; `index.html` con favicon, theme-color, color-scheme, OG; `ScrollToTop` su cambio rotta. |
 | **T13** Test (Vitest) | ⬜ Da fare | CI ha già lo step predisposto. |
 
 Legenda: ✅ completata · 🟡 parziale · ⬜ da fare.

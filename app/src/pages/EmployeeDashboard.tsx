@@ -175,8 +175,8 @@ export default function EmployeeDashboard() {
               </span>
             </div>
           </div>
-          <button className="relative p-2">
-            <Bell className="w-6 h-6 text-[#94A3B8]" />
+          <button className="relative p-2" aria-label="Notifiche">
+            <Bell className="w-6 h-6 text-[#94A3B8]" aria-hidden="true" />
             {dashboard.unreadNotifications > 0 && (
               <motion.span
                 className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#F04545] rounded-full"
