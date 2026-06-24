@@ -5,6 +5,58 @@
 
 ---
 
+## Audit #9 — 24/06/2026 — M1 completo (pagine inline) + A5 (validazione zod) + audit visivo
+
+**Autore:** Claude Code (+ sub-agenti) · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)
+**Sessione / obiettivo:** Completare M1 sulle pagine con dati inline, implementare A5 (zod nei form),
+e produrre un **audit HTML visivo**.
+**Fase roadmap:** abilitazione Fase 0.
+
+### 1. Lavoro svolto
+- **M1 completo:** migrate al service layer le pagine con dati inline — `StructurePortal`,
+  `StructureMatching`, `StructureHistory`, `EmployeeCalendar`, `EmployeeMatching`, `EmployeeRank`.
+  Creato `src/services/structureService.ts` ed esteso `employeeService.ts`. In totale **11 pagine** ora
+  su `useAsync` + stati loading/error (escluso `AdminSettings`, che legge config paghe → Fase 4).
+- **A5 — Validazione zod:** `src/schemas/auth.ts` con schemi riusabili (email, P.IVA, CF, IBAN,
+  telefono), `loginSchema` e schemi per-step onboarding; `Auth.tsx` ora valida gli step via zod
+  (regole reali, non più solo "campo non vuoto").
+- **Audit visivo:** `docs/AUDIT-VISUALE.html` (punteggi con barre + delta, pill di stato, ✓/✗).
+
+### 2. File / aree toccate
+- Nuovi: `src/services/structureService.ts`, `src/schemas/auth.ts`, `docs/AUDIT-VISUALE.html`.
+- Modificati: 6 pagine (Structure*/Employee*), `src/services/employeeService.ts`, `src/pages/Auth.tsx`,
+  `docs/AUDIT-GENERALE.md`, `docs/04-...md`, `docs/AUDIT-LOG.md`, HTML rigenerati.
+
+### 3. Stato dei moduli prioritari (semaforo)
+Invariato funzionalmente (mock). Personale 🟡 · Turni 🟡 · Presenze/Ore 🔴 · Paga 🔴 · Fatturazione 🔴.
+
+### 4. Qualità tecnica
+- Build ✅ · Lint **0 errori** (warning RC/exhaustive-deps accettati) · `@ts-nocheck` 0.
+- Tutte le pagine dati ora dietro service: il passaggio all'API toccherà solo `src/services/*`.
+- Validazione form reale (zod) negli onboarding.
+
+### 5. Decisioni prese
+- `AdminSettings` escluso da M1 by-design: legge **config paghe** (→ `config/payroll` validata dal
+  consulente, Fase 4), non dati da fetchare.
+- Login resta passwordless/demo: `loginSchema` predisposto per quando ci sarà auth reale (Fase 0).
+- Punteggio complessivo aggiornato **5.5 → 6.0/10** (architettura frontend 7→8; nuova dimensione
+  "Validazione form" 7). Dettaglio in `AUDIT-GENERALE.md` §2 e `AUDIT-VISUALE.html`.
+
+### 6. Rischi / questioni aperte
+- **QA visiva non eseguita** (build+lint ok): verificare manualmente le 11 pagine migrate e gli
+  onboarding (validazione step) prima del merge.
+- Restano: test (A4), backend/auth (A1–A3), a11y completa (T9), i18n (T11). Vedi `AUDIT-VISUALE.html`.
+
+### 7. Prossimo passo consigliato
+- **A4** (primi test Vitest su schemi zod + service + RoleGuard) e attivazione step test in CI, poi
+  **Fase 0 backend** (A1→A2→A3).
+
+### 8. Valutazione sintetica (1–5)
+- Avanzamento: 2/5 · Qualità: 4/5 · Aderenza alle regole (`CLAUDE.md`): 5/5.
+- (Valutazione 1–10 per dimensione: `AUDIT-GENERALE.md` §2 / `AUDIT-VISUALE.html`.)
+
+---
+
 ## Audit #8 — 24/06/2026 — M1: migrazione pagine Admin al service layer + stati
 
 **Autore:** Claude Code (+ 4 sub-agenti) · **Branch:** `claude/web-app-improvements-3modcu` (+ `staging`)

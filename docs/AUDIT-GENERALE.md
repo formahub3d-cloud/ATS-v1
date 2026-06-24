@@ -28,8 +28,9 @@ ottimo stato per accoglierli con poco attrito.
 | Dimensione | Voto | Motivazione sintetica |
 |---|:---:|---|
 | Documentazione & processo | **9** | Manuali chiari, disciplina di audit costante, roadmap e modello dati definiti. |
-| Qualità codice / type-safety | **8** | 0 errori lint, 0 `@ts-nocheck`, build pulita. Restano 32 warning RC e nessun test. |
-| Architettura frontend | **7** | Service layer, tipi centralizzati, guards, code splitting. Migrazione pagine ancora parziale. |
+| Qualità codice / type-safety | **8** | 0 errori lint, 0 `@ts-nocheck`, build pulita. Restano warning RC e nessun test. |
+| Architettura frontend | **8** ▲ | Service layer ora usato in **tutte** le pagine dati (11 migrate), tipi centralizzati, guards, code splitting. |
+| Validazione form (zod) | **7** 🆕 | Schemi zod riusabili attivi negli onboarding (email/P.IVA/CF/IBAN). Manca UI per-field error + login reale. |
 | UI / UX | **7** | Design coerente e ricco, responsive, scroll restoration, icone nav corrette. Manca QA visiva. |
 | Performance | **7** | Code splitting: bundle iniziale ~1.48 MB → ~415 kB. `recharts` ancora pesante (lazy). |
 | Accessibilità (a11y) | **5** | Focus visibile, reduced-motion, aria di base. Contrasto e form ancora da sistemare. |
@@ -38,9 +39,10 @@ ottimo stato per accoglierli con poco attrito.
 | Backend / dati reali | **1** | Assente: tutto su mock. |
 | Test automatici | **1** | Nessun test (step Vitest predisposto in CI). |
 
-### Punteggio complessivo: **5.5 / 10**
-> Frontend ~7.5/10, ma il prodotto nel suo insieme è frenato da backend/auth/test assenti. Il numero
+### Punteggio complessivo: **6.0 / 10** ▲ (da 5.5)
+> Frontend ~8/10, ma il prodotto nel suo insieme è frenato da backend/auth/test assenti. Il numero
 > salirà rapidamente con la **Fase 0** (auth + API + un primo modulo su dati reali).
+> Versione grafica: **`docs/AUDIT-VISUALE.html`**.
 
 ---
 
@@ -83,7 +85,7 @@ ottimo stato per accoglierli con poco attrito.
 | A2 | **Auth reale** (login email/password, JWT access+refresh, hashing argon2/bcrypt) | P0 | L |
 | A3 | **RBAC server-side** su ogni endpoint (ruolo + proprietà del dato) | P0 | M |
 | A4 | **Test** Vitest (unit/integrazione) — partire da `useAsync`, services, `RoleGuard`, schemi zod | P1 | M |
-| A5 | **Validazione zod** condivisa FE/BE nei form (Auth/onboarding) — T7 | P1 | M |
+| A5 | ✅ **Fatto** — schemi zod (`src/schemas/auth.ts`) attivi negli onboarding. Resta UI per-field error + condivisione col BE | P1 | M |
 | A6 | **Gestione documenti** (CI, HACCP, permessi) su Cloudflare R2 con URL firmati | P1 | M |
 | A7 | **Notifiche** reali (email/push) per turni e scadenze documenti | P2 | L |
 | A8 | **PWA** (manifest + service worker) per i dipendenti — T12 residuo | P2 | M |
@@ -93,7 +95,7 @@ ottimo stato per accoglierli con poco attrito.
 ### 5.2 ⬆️ MIGLIORARE (esiste ma è migliorabile)
 | ID | Voce | Prio | Stima |
 |---|---|:--:|:--:|
-| M1 | 🟡 **In corso** — migrate 5 pagine (EmployeeDashboard + 4 Admin). Restano AdminSettings + pagine con dati inline (Structure*, EmployeeCalendar/Matching/Rank) | P1 | M |
+| M1 | ✅ **Fatto** — 11 pagine migrate al service layer (Admin + Structure + Employee). Escluso `AdminSettings` (config paghe → Fase 4) | P1 | M |
 | M2 | **Accessibilità completa** — T9: contrasto testi `text-muted`, `aria-invalid`/label nei form, Lighthouse ≥ 90 | P1 | M |
 | M3 | **Alleggerire il bundle**: `recharts` (~430 kB) lazy/alternativa, valutare `manualChunks` per i vendor | P2 | M |
 | M4 | **Sostituire i `@ts-nocheck` residui**: già 0 — mantenere, vietare reintroduzioni via CI | P1 | S |
